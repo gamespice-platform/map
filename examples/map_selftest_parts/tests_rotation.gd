@@ -146,7 +146,7 @@ func _test_rotation_paths() -> void:
 	_check(Array(bang["names"]["maps"]) == ["ml", "listmaps"], "a leading ! or / is stripped from a command name, bad names dropped (%s)" % [bang["names"].get("maps")])
 
 	# find() looks in the host's config directory first, and says nothing is there otherwise.
-	var dir := OS.get_temp_dir().path_join("dot_map_find_%d" % Time.get_ticks_usec())
+	var dir := OS.get_temp_dir().path_join("gs_map_find_%d" % Time.get_ticks_usec())
 	DirAccess.make_dir_recursive_absolute(dir)
 	var f := FileAccess.open(dir.path_join("maps.yml"), FileAccess.WRITE)
 	f.store_string("maps: [a]\n")
@@ -240,12 +240,12 @@ func _put(path: String, text: String) -> void:
 
 func _test_rotation_file_layout() -> void:
 	_section("maps.yml: tiers, replace by default, merge: true, remove:, the legacy shims")
-	var base := OS.get_temp_dir().path_join("dot_map_layout_%d" % Time.get_ticks_usec())
-	var addon_f := base.path_join("addons/dot_map/maps.yml")
-	var game_f := base.path_join("game/g/dot_map/maps.yml")
-	var server_f := base.path_join("server/addons/dot_map/maps.yml")
-	var server_game_f := base.path_join("server/game/g/dot_map/maps.yml")
-	var old_server_f := base.path_join("server/dot_map/maps.yml")
+	var base := OS.get_temp_dir().path_join("gs_map_layout_%d" % Time.get_ticks_usec())
+	var addon_f := base.path_join("addons/gs_map/maps.yml")
+	var game_f := base.path_join("game/g/gs_map/maps.yml")
+	var server_f := base.path_join("server/addons/gs_map/maps.yml")
+	var server_game_f := base.path_join("server/game/g/gs_map/maps.yml")
+	var old_server_f := base.path_join("server/gs_map/maps.yml")
 	var flat_f := base.path_join("maps.yml")
 	GSCfgLegacy.reset()
 	_check(GSMapRotationFile.find("cfg/maps.yml", base) == "" or not GSMapRotationFile.find("cfg/maps.yml", base).begins_with(base), "nothing in an empty config directory")
@@ -256,14 +256,14 @@ func _test_rotation_file_layout() -> void:
 	GSMapRotationFile.find("cfg/maps.yml", base)
 	_check(GSCfgLegacy.warned_count() == 1, "not twice")
 	_put(addon_f, "defaults:\n  maps: [b]\n")
-	_check(GSMapRotationFile.find("cfg/maps.yml", base) == addon_f, "cfg/addons/dot_map/maps.yml beats the flat file")
+	_check(GSMapRotationFile.find("cfg/maps.yml", base) == addon_f, "cfg/addons/gs_map/maps.yml beats the flat file")
 	_put(game_f, "defaults:\n  maps: [g]\n")
 	_check(GSMapRotationFile.find_layers(base).size() == 1, "a game's file is not read until the game is known")
 	var layers := GSMapRotationFile.find_layers(base, "g")
 	_check(layers.size() == 1 and layers[0] == game_f, "the game's file replaces the addon's (new path wins)")
 	_put(server_f, "defaults:\n  maps: [c]\n")
 	layers = GSMapRotationFile.find_layers(base, "g")
-	_check(layers.size() == 1 and layers[0] == server_f, "the operator's cfg/server/addons/dot_map/maps.yml replaces the shipped lists")
+	_check(layers.size() == 1 and layers[0] == server_f, "the operator's cfg/server/addons/gs_map/maps.yml replaces the shipped lists")
 	_check(GSMapRotationFile.find("cfg/maps.yml", base) == server_f, "and find() returns it")
 	_put(server_f, "merge: true\ndefaults:\n  maps: [c]\n")
 	layers = GSMapRotationFile.find_layers(base, "g")
@@ -279,7 +279,7 @@ func _test_rotation_file_layout() -> void:
 	GSCfgLegacy.reset()
 	_put(old_server_f, "defaults:\n  maps: [old]\n")
 	layers = GSMapRotationFile.find_layers(base, "g")
-	_check(layers.size() == 1 and layers[0] == old_server_f, "the old cfg/server/dot_map/maps.yml is still read")
+	_check(layers.size() == 1 and layers[0] == old_server_f, "the old cfg/server/gs_map/maps.yml is still read")
 	GSMapRotationFile.find_layers(base, "g")
 	_check(GSCfgLegacy.warned_count() == 1, "and warns once")
 	_put(server_f, "defaults:\n  maps: [c]\n")
@@ -298,7 +298,7 @@ func _test_rotation_file_layout() -> void:
 	GSCfgLegacy.reset()
 	for p in [addon_f, game_f, server_f, server_game_f, old_server_f, flat_f]:
 		DirAccess.remove_absolute(p)
-	for d in ["addons/dot_map", "addons", "game/g/dot_map", "game/g", "game", "server/addons/dot_map", "server/addons", "server/game/g/dot_map", "server/game/g", "server/game", "server/dot_map", "server", ""]:
+	for d in ["addons/gs_map", "addons", "game/g/gs_map", "game/g", "game", "server/addons/gs_map", "server/addons", "server/game/g/gs_map", "server/game/g", "server/game", "server/gs_map", "server", ""]:
 		DirAccess.remove_absolute(base.path_join(d) if d != "" else base)
 	_done()
 

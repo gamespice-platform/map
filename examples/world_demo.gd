@@ -25,7 +25,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map world")
+	print("gs-map world")
 	if not FileAccess.file_exists(_dir.path_join("wo_office_course.json")):
 		print("SKIP: no converted worlds in " + _dir)
 		get_tree().quit(0)

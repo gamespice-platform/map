@@ -104,7 +104,7 @@ func _test_data_sql() -> void:
 	var drv := FakeSql.new()
 	var store := GSMapDataSql.new(drv)
 	_check((await store.fetch("game-x", "surf_a", "1.0.0")).code() == GSError.CODE_STATE, "a closed database is refused, not queried")
-	_check((await store.open()).ok and drv.migrated.size() == 1 and drv.migrated[0][0] == "dot_map_data:dot_map_data", "open opens the driver and migrates the table")
+	_check((await store.open()).ok and drv.migrated.size() == 1 and drv.migrated[0][0] == "gs_map_data:gs_map_data", "open opens the driver and migrates the table")
 	var spec: Dictionary = drv.migrated[0][1][0][0]
 	_check(spec["primary_key"] == ["game", "map_id", "map_version", "section"] and spec["columns"].size() == 7, "the table is keyed by game, map, version and section")
 	var b := _bundle("1.0.0", {"spawns": {"p": [1.0]}, "cull": {"c": 2.0}})
@@ -123,7 +123,7 @@ func _test_data_sql() -> void:
 	var layered: GSResult = await GSMapDataStore.read_layered(null, store, "game-x", "surf_a", "1.2.0")
 	_check(layered.ok and layered.value.sections["spawns"]["p"] == [3.0], "it layers like any store")
 	var before := drv.statements.size()
-	var evil_id := "x'; DROP TABLE dot_map_data;--"
+	var evil_id := "x'; DROP TABLE gs_map_data;--"
 	_check((await store.fetch("game-x", evil_id, "1.0.0")).code() == GSError.CODE_INVALID and (await store.save(_bundle(evil_id))).code() == GSError.CODE_INVALID and (await store.remove("game-x", "../a", "1.0.0")).code() == GSError.CODE_INVALID, "an unsafe key is refused before any statement")
 	_check(drv.statements.size() == before, "and no statement was sent")
 	_check(drv.statements.all(func(s: Array) -> bool: return not str(s[0]).contains("surf_a") and not str(s[0]).contains("game-x")), "values are bound, never spliced into the SQL")

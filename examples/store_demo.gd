@@ -38,7 +38,7 @@ class FakeCloud:
 
 	func ensure(id: StringName, version: String, _groups: PackedStringArray, _url: String) -> GSResult:
 		ensured += 1
-		mounted["%s@%s" % [id, version]] = "res://dot_cloud/%s/%s/" % [id, version]
+		mounted["%s@%s" % [id, version]] = "res://gs_cloud/%s/%s/" % [id, version]
 		return GSResult.success(null)
 
 
@@ -134,7 +134,7 @@ func _store() -> void:
 	var res: GSResult = await GSMapStore.ensure(lic, cloud, "")
 	_check("ensure with no manifest url lets the client resolve it", res.ok and cloud.ensured == 1)
 	res = await GSMapStore.ensure(lic, cloud, "https://x/manifest.json")
-	_check("ensure mounts it", res.ok and cloud.ensured == 1 and str(res.value).begins_with("res://dot_cloud/gamemann/store-x"))
+	_check("ensure mounts it", res.ok and cloud.ensured == 1 and str(res.value).begins_with("res://gs_cloud/gamemann/store-x"))
 	await GSMapStore.ensure(lic, cloud, "https://x/manifest.json")
 	_check("a second ensure downloads nothing", cloud.ensured == 1)
 	_completed += 1
@@ -160,7 +160,7 @@ func _plan() -> void:
 func _surfaces() -> void:
 	_entered += 1
 	var cloud := FakeCloud.new()
-	cloud.mounted["gamemann/store-x@h1234abcd"] = "res://dot_cloud/gamemann/store-x/h1234abcd/"
+	cloud.mounted["gamemann/store-x@h1234abcd"] = "res://gs_cloud/gamemann/store-x/h1234abcd/"
 	var s := GSMapSurfaces.new()
 	var w := GSMapBspMesh.new()
 	_check("apply points both at the slice", GSMapStore.apply(MANIFEST["licence"], cloud, s, w)
@@ -169,15 +169,15 @@ func _surfaces() -> void:
 	_check("one mounted dir without shared slices", s.pbr_libraries.size() == 1 and w.model_libraries.size() == 1)
 	var lic: Dictionary = MANIFEST["licence"].duplicate(true)
 	lic["store_pack"]["shared"] = [{"id": "gamemann/store-shared-aa", "version": "h1"}, {"id": "gamemann/store-shared-bb", "version": "h2"}]
-	cloud.mounted["gamemann/store-shared-aa@h1"] = "res://dot_cloud/gamemann/store-shared-aa/h1/"
+	cloud.mounted["gamemann/store-shared-aa@h1"] = "res://gs_cloud/gamemann/store-shared-aa/h1/"
 	var s2 := GSMapSurfaces.new()
 	var w2 := GSMapBspMesh.new()
 	GSMapStore.apply(lic, cloud, s2, w2)
 	_check("mounted shared slices are searched after the map's own", s2.pbr_libraries.size() == 2 and w2.model_libraries.size() == 2
-			and s2.pbr_libraries[1] == "res://dot_cloud/gamemann/store-shared-aa/h1/pbr" and w2.model_libraries[0].ends_with("h1234abcd/models"))
+			and s2.pbr_libraries[1] == "res://gs_cloud/gamemann/store-shared-aa/h1/pbr" and w2.model_libraries[0].ends_with("h1234abcd/models"))
 	_check("an unmounted shared slice is skipped", GSMapStore.mount_dirs(lic, cloud).size() == 2)
 	s2.pbr_libraries = PackedStringArray(["res://nothing_a/pbr", "res://nothing_b/pbr"])
-	_check("a set in no shared folder falls back to the single library", s2._pbr_dir("res://m", "", {"file": "pbr/x", "tier": "2k"}) == "res://dot_cloud/gamemann/store-x/h1234abcd/pbr/x/2k")
+	_check("a set in no shared folder falls back to the single library", s2._pbr_dir("res://m", "", {"file": "pbr/x", "tier": "2k"}) == "res://gs_cloud/gamemann/store-x/h1234abcd/pbr/x/2k")
 	_completed += 1
 
 
@@ -308,7 +308,7 @@ func _missing_models() -> void:
 	GSLog.add_sink(sink)
 	var bodies: Array[StaticBody3D] = []
 	var props := w.build_props(Callable(), func(b: StaticBody3D) -> void: bodies.append(b))
-	var proxies := props.get_children().filter(func(c: Node) -> bool: return c.has_meta(&"dot_map_proxy"))
+	var proxies := props.get_children().filter(func(c: Node) -> bool: return c.has_meta(&"gs_map_proxy"))
 	_check("a missing library model with measured bounds is drawn as a box", proxies.size() == 5 and w.missing_proxied == 5)
 	_check("one with neither a measure nor a size is left out, and counted; one with only a size gets a sized block", w.missing_models == 6)
 	var shelf := proxies[0] as MeshInstance3D

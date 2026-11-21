@@ -101,7 +101,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	# Delivered, but with a scene outside its own mount — the addons directory.
 	var escaping := _map(&"surf_escape")
 	escaping.content_id = &"a_pack"
-	escaping.scene_path = "res://addons/dot_map/plugin.cfg"
+	escaping.scene_path = "res://addons/gs_map/plugin.cfg"
 	client.handle(GSMapMessage.announce(escaping))
 	_check(refused.size() == 2, "nor one whose scene is outside its own content")
 
@@ -109,7 +109,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	# exact one with a version of "../..".
 	var traversing := _map(&"surf_traverse")
 	traversing.content_id = &"a_pack"
-	traversing.scene_path = "res://dot_cloud/a_pack/1.0.0/../../../addons/x.tscn"
+	traversing.scene_path = "res://gs_cloud/a_pack/1.0.0/../../../addons/x.tscn"
 	client.handle(GSMapMessage.announce(traversing))
 	_check(
 		refused.size() == 3,
@@ -119,7 +119,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	# The legitimate case, so the refusals above are not just "everything is refused".
 	var delivered := _map(&"surf_delivered_ok")
 	delivered.content_id = &"a_pack"
-	delivered.scene_path = "res://dot_cloud/a_pack/1.0.0/map.tscn"
+	delivered.scene_path = "res://gs_cloud/a_pack/1.0.0/map.tscn"
 	client.handle(GSMapMessage.announce(delivered))
 	_check(
 		refused.size() == 3,
@@ -138,7 +138,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	client.accept_unknown_maps = false
 	var another := _map(&"surf_delivered_two")
 	another.content_id = &"a_pack"
-	another.scene_path = "res://dot_cloud/a_pack/1.0.0/two.tscn"
+	another.scene_path = "res://gs_cloud/a_pack/1.0.0/two.tscn"
 	client.handle(GSMapMessage.announce(another))
 	_check(
 		refused.size() == 4,
@@ -342,7 +342,7 @@ func _test_sync_template_trust() -> void:
 		var map := _map(StringName(id))
 		map.content_id = &"data_pack"
 		map.scene_path = template
-		map.meta["manifest"] = "res://dot_cloud/data_pack/1.0.0/%s.json" % id
+		map.meta["manifest"] = "res://gs_cloud/data_pack/1.0.0/%s.json" % id
 		return map
 
 	client.handle(GSMapMessage.announce(templated.call("t_default")))
@@ -364,7 +364,7 @@ func _test_sync_template_trust() -> void:
 	# `content_version` not. Compared nowhere, so the remembered (old) one was answered.
 	var republished: GSMapDef = templated.call("t_ok")
 	republished.content_version = "2.0.0"
-	republished.meta["manifest"] = "res://dot_cloud/data_pack/2.0.0/t_ok.json"
+	republished.meta["manifest"] = "res://gs_cloud/data_pack/2.0.0/t_ok.json"
 	client.handle(GSMapMessage.announce(republished))
 	_check(
 		refused.size() == 1 and client.announced != null
@@ -383,13 +383,13 @@ func _test_sync_template_trust() -> void:
 
 func _test_template_refusals(client: GSMapSyncClient, refused: Array[String], templated: Callable) -> void:
 	var outside: GSMapDef = templated.call("t_outside")
-	outside.meta["manifest"] = "res://addons/dot_map/plugin.cfg"
+	outside.meta["manifest"] = "res://addons/gs_map/plugin.cfg"
 	client.handle(GSMapMessage.announce(outside))
 	_check(refused.size() == 2 and refused[1].contains("data is outside"),
 		"its data may not be a file in this build", str(refused))
 
 	var climbing: GSMapDef = templated.call("t_climb")
-	climbing.meta["manifest"] = "res://dot_cloud/data_pack/1.0.0/../../other_pack/1.0.0/x.json"
+	climbing.meta["manifest"] = "res://gs_cloud/data_pack/1.0.0/../../other_pack/1.0.0/x.json"
 	client.handle(GSMapMessage.announce(climbing))
 	_check(refused.size() == 3, "nor another pack's, reached with ..", str(refused))
 
@@ -414,7 +414,7 @@ func _test_template_refusals(client: GSMapSyncClient, refused: Array[String], te
 
 	var escaping_version: GSMapDef = templated.call("t_version")
 	escaping_version.content_version = ".."
-	escaping_version.meta["manifest"] = "res://dot_cloud/other_pack/1.0.0/x.json"
+	escaping_version.meta["manifest"] = "res://gs_cloud/other_pack/1.0.0/x.json"
 	client.handle(GSMapMessage.announce(escaping_version))
 	_check(refused.size() == 7 and refused[6].contains("plain id and version"),
 		"and a version of .. cannot widen the mount to every pack", str(refused))

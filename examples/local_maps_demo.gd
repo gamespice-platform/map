@@ -24,7 +24,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map local maps")
+	print("gs-map local maps")
 	_wipe("user://local_maps_demo")
 	var cache_was := GSMapLocalMaps.zip_cache
 	GSMapLocalMaps.zip_cache = "user://local_maps_demo/.zip_cache"

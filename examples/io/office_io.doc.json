@@ -1,5 +1,5 @@
 {
- "format": "dot-bsp-source",
+ "format": "gs-bsp-source",
  "version": 1,
  "sha256": "a9e3ece71266f106b39d8a6bfe07a599c02a9be22c4004c3dcde8c69083ba6f8",
  "bsp_version": 20,

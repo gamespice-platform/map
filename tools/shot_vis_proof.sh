@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Draw calls, primitives, frame time and pixel diffs of GSMapVisibility modes on a real converted map (examples/vis_proof.gd).
 #
-#   ../gpu.sh shot --stage <world dir> --pull <out dir> dot-map tools/shot_vis_proof.sh --world=<prefix> --out=<out dir> [--spots=6 --diffs=24]
+#   ../gpu.sh shot --stage <world dir> --pull <out dir> gs-map tools/shot_vis_proof.sh --world=<prefix> --out=<out dir> [--spots=6 --diffs=24]
 #
 # Prints PROOF lines. Not a headless run (that driver draws nothing); the GPU boxes' xvfb-run shim picks Forward+ on the NVIDIA card.
 set -euo pipefail

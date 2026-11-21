@@ -36,7 +36,7 @@ The clock can wait while the server hibernates: `GSMapSession.follow_hibernation
 
 ## The rotation file
 
-`cfg/addons/dot_map/maps.yml` says which installed maps rotate (the game's `cfg/game/<game>/dot_map/maps.yml` over it, then the operator's `cfg/server/addons/dot_map/maps.yml` and `cfg/server/game/<game>/dot_map/maps.yml`; an operator file replaces the shipped list unless it starts `merge: true`, and `exempt:` keeps maps out (see below); [layout](cfg-layout.md#what-is-built-for-the-rotation-file); with no file every installed map rotates, sorted by id; the old `cfg/server/dot_map/maps.yml` is read through the shim too; the flat `cfg/maps.yml` is still found through `GSCfgLegacy` with one WARN until 2026-12-31, and `GSMapRotationFile.find("cfg/maps.yml")` does all of that; `find_layers` lists the new-layout files weakest first), in the shape of the server's content.yml: `defaults:` for every game and `games: <game>:` for one, read by `GSMapRotationFile`. Layers, weakest first: the game's shipped file, the server's defaults, the game's own entry. A list replaces a list; scalars merge.
+`cfg/addons/gs_map/maps.yml` says which installed maps rotate (the game's `cfg/game/<game>/gs_map/maps.yml` over it, then the operator's `cfg/server/addons/gs_map/maps.yml` and `cfg/server/game/<game>/gs_map/maps.yml`; an operator file replaces the shipped list unless it starts `merge: true`, and `exempt:` keeps maps out (see below); [layout](cfg-layout.md#what-is-built-for-the-rotation-file); with no file every installed map rotates, sorted by id; the old `cfg/server/gs_map/maps.yml` is read through the shim too; the flat `cfg/maps.yml` is still found through `GSCfgLegacy` with one WARN until 2026-12-31, and `GSMapRotationFile.find("cfg/maps.yml")` does all of that; `find_layers` lists the new-layout files weakest first), in the shape of the server's content.yml: `defaults:` for every game and `games: <game>:` for one, read by `GSMapRotationFile`. Layers, weakest first: the game's shipped file, the server's defaults, the game's own entry. A list replaces a list; scalars merge.
 
 ```yaml
 defaults:
@@ -103,7 +103,7 @@ Precedence is entry, then rotation, then section; a stronger file layer replaces
 
 What the value means (`GSMapRotationFile.resolve_profile`):
 
-- A bare word (no `/`, not ending in `.yml`/`.yaml`) is a **mode id**. If `cfg/<id>.yml` (or `.yaml`) exists in the dot_map config tiers (`cfg/server/addon/dot_map/cfg/ctf.yml` for an operator, with the same `--config` and tier rules as `maps.yml`), its cvars apply too. No file is fine: the mode alone.
+- A bare word (no `/`, not ending in `.yml`/`.yaml`) is a **mode id**. If `cfg/<id>.yml` (or `.yaml`) exists in the gs_map config tiers (`cfg/server/addon/gs_map/cfg/ctf.yml` for an operator, with the same `--config` and tier rules as `maps.yml`), its cvars apply too. No file is fine: the mode alone.
 - A relative path is a file under that same `cfg/` directory; the extension may be left off. Its own `mode:` key names the mode.
 - An absolute path (`/`, `res://`, `user://`) is read as is.
 - A path that is not found, or does not parse, logs ONE WARN and the entry still plays, with the game's default mode and cvars. A profile never removes a map from the rotation.

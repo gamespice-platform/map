@@ -15,7 +15,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map bsp mesh")
+	print("gs-map bsp mesh")
 	var world := _test_read()
 	if world != null:
 		_test_build(world)
@@ -233,7 +233,7 @@ func _collision_signature(root: Node) -> PackedStringArray:
 	return out
 
 
-const SOURCE := {"format": "dot-bsp-source", "version": 1, "entities": []}
+const SOURCE := {"format": "gs-bsp-source", "version": 1, "entities": []}
 
 
 func _test_rebuild() -> void:
@@ -396,7 +396,7 @@ func _test_fence() -> void:
 		_done()
 		return
 	var fb: StaticBody3D = bodies[0]
-	_check(fb.collision_layer == clip_layer and fb.get_meta(&"dot_material") == &"fence", "it sits on the fence layer, as a fence")
+	_check(fb.collision_layer == clip_layer and fb.get_meta(&"gs_material") == &"fence", "it sits on the fence layer, as a fence")
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var space := get_world_3d().direct_space_state
@@ -682,7 +682,7 @@ func _test_lightmap() -> GSMapBspMesh:
 	for face in 6:
 		cube.append_array(PackedFloat32Array([0.1 * (face + 1), 0.0, 0.0]))
 	blob.append_array(cube.to_byte_array())
-	var doc := {"format": "dot-bsp-mesh", "version": 2, "bin": {"bytes": blob.size()},
+	var doc := {"format": "gs-bsp-mesh", "version": 2, "bin": {"bytes": blob.size()},
 			"lightmap": {"format": "rgbe9995", "scale": 1.0, "pages": [{"offset": page_at, "width": 2, "height": 1}],
 					"ambient": {"offset": amb_at, "count": 1}},
 			"surfaces": [{"model": 0, "material": "m", "vertex_count": 3, "position_offset": offs[0], "normal_offset": offs[1],

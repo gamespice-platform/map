@@ -64,7 +64,7 @@ func _visible_meshes(root: Node) -> int:
 
 
 func _run() -> void:
-	print("dot-map box batch")
+	print("gs-map box batch")
 	var floor_m := _material(Color(0.5, 0.5, 0.5))
 	var red := _material(Color.RED)
 	var glass := _material(Color(1, 0, 0, 0.25))

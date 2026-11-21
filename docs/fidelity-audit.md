@@ -1,6 +1,6 @@
 # Gameplay fidelity audit
 
-Every BSP the converter can be asked for, read by `dot-map-convert/tools/fidelity_audit.py` (converter 3089e8a):
+Every BSP the converter can be asked for, read by `gs-map-convert/tools/fidelity_audit.py` (converter 3089e8a):
 each entity class is classed implemented / approximated / ignored / unknown, and every way a map's gameplay
 (teleports, triggers, doors, buttons, logic, filters, push, hurt, water, spawns, checkpoints, timers) can be lost
 is a finding. Severity: **lost** (the converter drops it; a bug), **unsupported** (listed, fails loudly in the
@@ -10,7 +10,7 @@ so a regression shows).
 Regenerate:
 
 ```
-hv <dot-map-convert wt> local python3 -P tools/fidelity_audit.py OUT.json <dir> --jobs 3 --md OUT.md
+hv <gs-map-convert wt> local python3 -P tools/fidelity_audit.py OUT.json <dir> --jobs 3 --md OUT.md
 ```
 
 Shipped maps carry the same findings as `lists.gameplay_lost` in their `*.coverage.json`, ratcheted by

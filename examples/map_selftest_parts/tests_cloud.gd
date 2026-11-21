@@ -9,18 +9,18 @@ func _test_sync_a_delivered_map() -> void:
 	_section("a map the peer has to download")
 
 	var client_script: Variant = load(
-		"res://addons/dot_cloud/client/dot_cloud_client.gd"
+		"res://addons/gs_cloud/client/gs_cloud_client.gd"
 	)
 
 	if client_script == null:
-		# A legitimate configuration: dot-cloud is optional and the symlink is
+		# A legitimate configuration: gs-cloud is optional and the symlink is
 		# gitignored. Said out loud rather than skipped silently, because "0 failures"
 		# from a suite that quietly ran nothing is how this family got here.
-		_check(false, "dot-cloud is present so the delivered path can be run",
-			"addons/dot_cloud is not linked; the interface below is NOT covered")
+		_check(false, "gs-cloud is present so the delivered path can be run",
+			"addons/gs_cloud is not linked; the interface below is NOT covered")
 		return
 
-	var data := "user://dot_map_delivered_test"
+	var data := "user://gs_map_delivered_test"
 	GSPaths.remove_tree(data)
 
 	var pair_keys := _publish_delivered_pack(data)
@@ -41,7 +41,7 @@ func _test_sync_a_delivered_map() -> void:
 	delivered.id = &"surf_pack_map"
 	delivered.version = "1.0.0"
 	delivered.content_id = &"surf_pack"
-	delivered.scene_path = "res://dot_cloud/surf_pack/1.0.0/world.tscn"
+	delivered.scene_path = "res://gs_cloud/surf_pack/1.0.0/world.tscn"
 
 	var host_catalogue := GSMapCatalogue.new()
 	host_catalogue.add(delivered)
@@ -96,7 +96,7 @@ func _publish_delivered_pack(data: String) -> Dictionary:
 	_check(written.ok, "a map scene is written to publish")
 
 	var signature: Variant = load(
-		"res://addons/dot_cloud/verify/dot_cloud_signature.gd"
+		"res://addons/gs_cloud/verify/gs_cloud_signature.gd"
 	)
 	var keys: GSResult = signature.generate_keypair()
 	_check(keys.ok, "a signing key pair is generated")
@@ -107,7 +107,7 @@ func _publish_delivered_pack(data: String) -> Dictionary:
 	var pair_keys: Dictionary = keys.value
 
 	var publisher_script: Variant = load(
-		"res://addons/dot_cloud/publish/dot_cloud_publisher.gd"
+		"res://addons/gs_cloud/publish/gs_cloud_publisher.gd"
 	)
 	var publisher: Variant = publisher_script.new()
 	publisher.content_id = "surf_pack"
@@ -126,7 +126,7 @@ func _publish_delivered_pack(data: String) -> Dictionary:
 
 ## A GameSpice Cloud client that trusts the test key and finds the published pack in [param data].
 func _add_cloud(client_script: Variant, data: String, pair_keys: Dictionary) -> Node:
-	var config_script: Variant = load("res://addons/dot_cloud/dot_cloud_config.gd")
+	var config_script: Variant = load("res://addons/gs_cloud/gs_cloud_config.gd")
 
 	var cloud: Node = client_script.new()
 	cloud.name = "MapCloud"
@@ -177,7 +177,7 @@ func _check_delivered_pair(cloud: Node, pair: SyncPair, host_progress: Array[flo
 	_check(
 		host_progress.size() > 0,
 		"the host heard progress from the peer (%d reports)" % host_progress.size(),
-		"the client has to subscribe to dot-cloud itself; nothing else knows to"
+		"the client has to subscribe to gs-cloud itself; nothing else knows to"
 	)
 	_check(
 		cloud.get_signal_connection_list("progress_changed").size() == 1,
@@ -240,7 +240,7 @@ func _publish_pack(
 		var written := GSPaths.write_text(source.path_join(str(name)), str(files[name]))
 		if not written.ok:
 			return written
-	var publisher: Variant = load("res://addons/dot_cloud/publish/dot_cloud_publisher.gd").new()
+	var publisher: Variant = load("res://addons/gs_cloud/publish/gs_cloud_publisher.gd").new()
 	publisher.content_id = id
 	publisher.version = version
 	publisher.signing_key_pem = str(keys["private"])
@@ -254,16 +254,16 @@ func _publish_pack(
 func _test_sync_a_delivered_template_and_a_straggler() -> void:
 	_section("a delivered template map, and a straggler")
 
-	var client_script: Variant = load("res://addons/dot_cloud/client/dot_cloud_client.gd")
+	var client_script: Variant = load("res://addons/gs_cloud/client/gs_cloud_client.gd")
 	if client_script == null:
-		_check(false, "dot-cloud is present so the delivered path can be run",
-			"addons/dot_cloud is not linked; the template and straggler paths are NOT covered")
+		_check(false, "gs-cloud is present so the delivered path can be run",
+			"addons/gs_cloud is not linked; the template and straggler paths are NOT covered")
 		return
 
-	var data := "user://dot_map_template_test"
+	var data := "user://gs_map_template_test"
 	GSPaths.remove_tree(data)
 
-	var keys: GSResult = load("res://addons/dot_cloud/verify/dot_cloud_signature.gd").generate_keypair()
+	var keys: GSResult = load("res://addons/gs_cloud/verify/gs_cloud_signature.gd").generate_keypair()
 	if not keys.ok:
 		_check(false, "a signing key pair is generated", str(keys.error))
 		return
@@ -286,7 +286,7 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 		map.id = StringName(id.replace("_data", "_map") if id == "slow_data" else id + "_map")
 		map.content_id = StringName(id)
 		map.scene_path = template
-		map.meta["manifest"] = "res://dot_cloud/%s/1.0.0/%s.json" % [id, String(map.id)]
+		map.meta["manifest"] = "res://gs_cloud/%s/1.0.0/%s.json" % [id, String(map.id)]
 		host_catalogue.add(map)
 
 	var pair: SyncPair = await _make_pair(self, host_catalogue, GSMapCatalogue.new())
@@ -312,7 +312,7 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 	await _test_straggler(pair, slow, failures)
 
 	await _free_pair(pair)
-	GSRegistry.unregister_instance(&"dot_cloud_client", slow)
+	GSRegistry.unregister_instance(&"gs_cloud_client", slow)
 	slow.queue_free()
 	real.queue_free()
 	await get_tree().process_frame
@@ -322,7 +322,7 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 
 ## A signature-checking GameSpice Cloud client in front of a [SlowContent], registered as the cloud for this test.
 func _add_slow_cloud(client_script: Variant, data: String, public_key: String) -> SlowContent:
-	var config: Variant = load("res://addons/dot_cloud/dot_cloud_config.gd").new()
+	var config: Variant = load("res://addons/gs_cloud/gs_cloud_config.gd").new()
 	config.cache_dir = data.path_join("cache")
 	config.require_signed_manifests = true
 	config.trusted_keys = {"test": str(public_key)}
@@ -340,7 +340,7 @@ func _add_slow_cloud(client_script: Variant, data: String, public_key: String) -
 	slow.name = "SlowContent"
 	slow.real = real
 	add_child(slow)
-	GSRegistry.register(&"dot_cloud_client", slow)
+	GSRegistry.register(&"gs_cloud_client", slow)
 	await get_tree().process_frame
 	return slow
 
@@ -373,7 +373,7 @@ func _test_straggler(pair: SyncPair, slow: SlowContent, failures: Array[String])
 func _workshop_pack(cid: String, version: String, session: StringName, map_id := "utopia_one") -> Dictionary:
 	return {
 		"content_id": cid, "version": version, "session": session, "source": "subscription",
-		"prefix": "res://dot_cloud/%s/%s" % [cid, version],
+		"prefix": "res://gs_cloud/%s/%s" % [cid, version],
 		"provides": {
 			"schema": 1, "title": "Utopia surf maps", "kinds": ["map", "weapon"],
 			"entries": [
@@ -407,7 +407,7 @@ func _test_workshop_maps() -> void:
 		"%d maps" % catalogue.size())
 	_check(catalogue.get_map(&"utopia_odd") == null and catalogue.get_map(&"utopia_gun") == null,
 		"a map kind the game does not accept, and a weapon, are offered to nobody")
-	_check(one.scene_path == "res://dot_cloud/alice/utopia/1.0.0/maps/one.tscn"
+	_check(one.scene_path == "res://gs_cloud/alice/utopia/1.0.0/maps/one.tscn"
 			and hop.zones_path.ends_with("/maps/hop_zones.json")
 			and one.kind == &"surf" and one.tier == 4 and one.max_players == 12
 			and String(one.content_id) == "alice/utopia" and one.content_version == "1.0.0"
@@ -565,7 +565,7 @@ class FakeCtx:
 
 func _test_commands() -> void:
 	print("")
-	_section("-- `map` belongs here, not in dot-server")
+	_section("-- `map` belongs here, not in gs-server")
 
 	var session := GSMapSession.new()
 	session.catalogue = _catalogue(4)
@@ -576,9 +576,9 @@ func _test_commands() -> void:
 	var commands := GSMapCommands.install(host, session)
 
 	_check(commands.registered.size() == 5, "five commands register on a duck-typed host")
-	_check(host.commands.has("map"), "including the plain name dot-server used to hold")
+	_check(host.commands.has("map"), "including the plain name gs-server used to hold")
 	_check(host.commands.has("maps") and host.commands.has("mapinfo"), "and the two beside it")
-	_check(not host.commands.has("nextmap") and not host.commands.has("timeleft"), "and NOT nextmap or timeleft, which dot-vote registers over the same maps")
+	_check(not host.commands.has("nextmap") and not host.commands.has("timeleft"), "and NOT nextmap or timeleft, which gs-vote registers over the same maps")
 
 	var map_cmd: FakeCommand = host.commands["map"]
 	_check(map_cmd.permission == "changemap", "changing the map needs a permission")
@@ -693,7 +693,7 @@ func _test_commands_naming(session: GSMapSession) -> void:
 	GSMapCommands.install(synced_host, session, sync)
 	_check(
 		synced_host.commands.has("map"),
-		"and a sync host stands in for the session without dot-map caring which it got"
+		"and a sync host stands in for the session without gs-map caring which it got"
 	)
 	sync.queue_free()
 

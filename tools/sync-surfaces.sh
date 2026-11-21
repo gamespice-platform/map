@@ -28,7 +28,7 @@ for a in "$@"; do
 done
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$HERE/addons/dot_map/surfaces"
+SRC="$HERE/addons/gs_map/surfaces"
 GAME="$(cd "$GAME" && pwd)"
 OUT="$GAME/$DEST"
 LIST="$OUT/kinds.txt"
@@ -46,7 +46,7 @@ done
 
 if [ "$CHECK" -eq 0 ]; then
     mkdir -p "$OUT"
-    printf '# Surface kinds this game vendors (dot-map tools/sync-surfaces.sh); one per line.\n' > "$LIST"
+    printf '# Surface kinds this game vendors (gs-map tools/sync-surfaces.sh); one per line.\n' > "$LIST"
     printf '%s\n' "${KINDS[@]}" | sort -u >> "$LIST"
 fi
 
@@ -66,7 +66,7 @@ for k in "${KINDS[@]}"; do
                 # Source path rewritten and the uid and dest lines dropped: a copied uid would be the
                 # addon's own, and a game that links GameSpice Map then has two resources under one uid.
                 # Godot writes a fresh uid and dest hash on its first import.
-                sed -e "s#res://addons/dot_map/surfaces/#res://$DEST/#g" -e '/^uid=/d' -e '/^path=/d' -e '/^dest_files=/d' "$from.import" > "$to.import"
+                sed -e "s#res://addons/gs_map/surfaces/#res://$DEST/#g" -e '/^uid=/d' -e '/^path=/d' -e '/^dest_files=/d' "$from.import" > "$to.import"
             fi
             # Mipmaps are not optional for a surface: a copy imported without them (as a game's own import settings may) is set right.
             sed -i 's#^mipmaps/generate=false#mipmaps/generate=true#' "$to.import"

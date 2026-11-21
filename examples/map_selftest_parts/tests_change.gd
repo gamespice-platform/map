@@ -185,7 +185,7 @@ func _test_change_survives_a_failure() -> void:
 
 
 func _test_loader_without_cloud() -> void:
-	_section("the loader without dot-cloud")
+	_section("the loader without gs-cloud")
 
 	var loader := GSMapLoader.new()
 	var delivered := _map(&"surf_delivered")

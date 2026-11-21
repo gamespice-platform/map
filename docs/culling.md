@@ -17,7 +17,7 @@ An honest summary: Godot does the culling. These two classes feed it the occlude
 
 ## 1. Bake occluders from the walls
 
-In the editor, open your level scene (a `Node3D` root) and choose Project, Tools, **Bake occluders for the edited scene**; save. Or headless, for CI and scripts, from the dot-map checkout or with the script's path:
+In the editor, open your level scene (a `Node3D` root) and choose Project, Tools, **Bake occluders for the edited scene**; save. Or headless, for CI and scripts, from the gs-map checkout or with the script's path:
 
 ```bash
 godot --headless --path . --import
@@ -28,7 +28,7 @@ It prints `N meshes, N large faces, N quads` and writes one `OccluderInstance3D`
 
 What becomes a quad: a group of one mesh's triangles on one plane that is at least 6 m² (`min_area`), at least 1.5 m on its short side (`min_side`) and at least 85% filled (`min_fill`). A wall with a doorway cut into one mesh fails the fill test and is skipped, because a quad over the hole would hide the next room; build it as several boxes instead, or put a `GSAreaPortal` in the hole. Every quad is pulled in 4 cm from its edges so it never hides the face it lies on. At most 256 are kept, the largest first.
 
-Never baked: hidden nodes, translucent meshes (`transparency`, or a material with alpha), shadow-only meshes, and anything in the group `dot_no_occluder`. Set the group on glass, foliage planes and anything that moves or can be destroyed.
+Never baked: hidden nodes, translucent meshes (`transparency`, or a material with alpha), shadow-only meshes, and anything in the group `gs_no_occluder`. Set the group on glass, foliage planes and anything that moves or can be destroyed.
 
 Then turn on **Rendering, Occlusion Culling, Use Occlusion Culling** in Project Settings. In code, `GSOccluderBaker.new().bake(level_root)` returns a `GSResult` whose value is the node; set `min_area`, `min_side`, `min_fill`, `inset` and `max_quads` on the baker first.
 
@@ -66,7 +66,7 @@ The frame does not change: [before](img/culling_before.png) and [after](img/cull
 
 ## Limits
 
-- Static geometry only: a quad does not follow a moved mesh. Rebake after moving walls, and keep movers out with `dot_no_occluder`.
+- Static geometry only: a quad does not follow a moved mesh. Rebake after moving walls, and keep movers out with `gs_no_occluder`.
 - Planar groups are per mesh. Curved walls and subdivided floors produce few or no quads; add a `BoxOccluder3D` by hand there.
 - Characters and particles are hidden by the same occluders; anything that must show through walls on purpose sets `ignore_occlusion_culling` on its node.
 

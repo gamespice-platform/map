@@ -18,7 +18,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map drop intake")
+	print("gs-map drop intake")
 	_wipe(BASE)
 	var cache_was := GSMapLocalMaps.zip_cache
 	GSMapLocalMaps.zip_cache = BASE.path_join(".zip_cache")

@@ -19,7 +19,7 @@ A second change while one is in progress is **refused, not queued**: two overlap
 
 `GSMapSession` changes the map **in this process** only. Without a protocol, a dedicated server freed its world, loaded the next one, and every connected client carried on playing the map that no longer existed; broadcasting a map id and hoping every client has the scene in its build works until the first map that is delivered rather than shipped.
 
-`addons/dot_map/net/` is the protocol. Five messages:
+`addons/gs_map/net/` is the protocol. Five messages:
 
 ```
 announce  host -> peer   here is the map we are going to; go and get it
@@ -66,7 +66,7 @@ A rotation running through `GSGameManager.change_game` would put every player th
 
 ## The host may say *which* map, never *what* the map is
 
-`GSMapSyncClient` takes the map from **its own catalogue** when it has the id. The announced definition is only used for a map it does not have, and then it must be *delivered*: it has to name a `content_id`, and its scene and zone paths have to resolve inside `res://dot_cloud/<id>/<version>/` after `simplify_path()`.
+`GSMapSyncClient` takes the map from **its own catalogue** when it has the id. The announced definition is only used for a map it does not have, and then it must be *delivered*: it has to name a `content_id`, and its scene and zone paths have to resolve inside `res://gs_cloud/<id>/<version>/` after `simplify_path()`.
 
 This is the rule `GSClientLink._resolve_scene` enforces, for the same reason, and the `simplify_path` is there because `"res://a/b/../../evil"` does `begins_with("res://a/b/")`. Without the delivered requirement a host could name any scene in the client's own build; with it, the worst it can do is make the client download its content, which is what connecting to it already meant. `accept_unknown_maps = false` is for a client that ships every map it will ever play.
 
@@ -74,7 +74,7 @@ This is the rule `GSClientLink._resolve_scene` enforces, for the same reason, an
 
 ### Template scenes
 
-A game whose maps are data (a manifest and a mesh, turned into a world by one scene the game ships) can never put that scene in the pack, because a pack's script cannot extend a class of the build it is mounted into; the strict rule refused every such map. `trusted_template_scenes` (empty by default, which is the strict rule unchanged) lets a client accept an announce naming that exact scene, after `simplify_path`, if the map names a `content_id` and its data resolves inside `res://dot_cloud/<content_id>/<version>/`: `zones_path`, every key in `template_path_keys` (default `manifest`, at least one required), and every *path-shaped* string anywhere in `meta`, nested or not.
+A game whose maps are data (a manifest and a mesh, turned into a world by one scene the game ships) can never put that scene in the pack, because a pack's script cannot extend a class of the build it is mounted into; the strict rule refused every such map. `trusted_template_scenes` (empty by default, which is the strict rule unchanged) lets a client accept an announce naming that exact scene, after `simplify_path`, if the map names a `content_id` and its data resolves inside `res://gs_cloud/<content_id>/<version>/`: `zones_path`, every key in `template_path_keys` (default `manifest`, at least one required), and every *path-shaped* string anywhere in `meta`, nested or not.
 
 The sweep of the whole of `meta` is fail-closed on purpose: a template that one day reads a key nobody listed must not be the day a host can point it at `user://` or a file in the build. What a hostile host can still do is make the client fetch any content from the client's own origin (or from the announce's `manifest_url`; signed manifests stop that from mounting anything) and instantiate a listed scene over it. **So the template is the attack surface**: it must treat what the pack holds as untrusted input and take paths only from keys the check covers. The class doc on `trusted_template_scenes` says the same, where the next person to add a key will read it.
 

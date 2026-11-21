@@ -14,7 +14,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map io")
+	print("gs-map io")
 	_test_delay_and_times()
 	_test_relay()
 	_test_cycles()
@@ -362,14 +362,14 @@ func _test_commands_and_document() -> void:
 	_check(events == [["say", "say"], ["cvar", "sv_gravity"], ["cvar", "mp_roundtime"]], "only a chat line and allow-listed cvars reach the game: %s" % [events])
 	_check(io.coverage()["commands_denied"] == 2, "the others are denied and counted")
 	_check(io.load_document({"format": "other"}).code() == GSError.CODE_PARSE, "a foreign document is a parse failure")
-	_check(io.load_document({"format": "dot-bsp-source", "version": 9, "entities": []}).code() == GSError.CODE_VERSION, "a newer version is refused")
-	_check(io.load_document({"format": "dot-bsp-source", "version": 1}).code() == GSError.CODE_PARSE, "a document without entities is refused")
+	_check(io.load_document({"format": "gs-bsp-source", "version": 9, "entities": []}).code() == GSError.CODE_VERSION, "a newer version is refused")
+	_check(io.load_document({"format": "gs-bsp-source", "version": 1}).code() == GSError.CODE_PARSE, "a document without entities is refused")
 	_done()
 
 
 func _test_map_scripts() -> void:
 	_section("lua_run: translated operations are replayed as events, script text is never run")
-	var hostile := "os.execute('touch /tmp/dotmap_pwned') RunConsoleCommand('rcon_password','x')"
+	var hostile := "os.execute('touch /tmp/gsmap_pwned') RunConsoleCommand('rcon_password','x')"
 	var io := _io([
 		_rec(0, "lua_run", "speed", [["code", "for i, ply in pairs(player.GetAll()) do if (ply:IsValid()) then ply:SetRunSpeed( 185 ) end end"]]),
 		_rec(1, "lua_run", "evil", [["code", hostile]]),
@@ -391,11 +391,11 @@ func _test_map_scripts() -> void:
 	_check(io.scripts.size() == 7 and io.scripts.filter(func(r: Dictionary) -> bool: return not r["allowed"]).size() == 5, "every attempt is recorded, five refused")
 	_check(io.coverage()["scripts_refused"] == 5, "the refusals are counted in coverage")
 	_check(io.unhandled.get("lua_run|runpassedcode", 0) == 1, "RunPassedCode is an unhandled input, its text is never read")
-	_check(not FileAccess.file_exists("/tmp/dotmap_pwned"), "the hostile snippet did not run")
+	_check(not FileAccess.file_exists("/tmp/gsmap_pwned"), "the hostile snippet did not run")
 	_check(not GSMapScript.valid_op({"op": "set_player_speed", "kind": "run"}) and not GSMapScript.valid_op("kill_players") and not GSMapScript.valid_op({"op": "cleanup_map", "delay": -1}), "malformed operations are refused")
 	_check(GSMapScript.valid_op({"op": "cleanup_map", "delay": 0.25}) and GSMapScript.valid_op({"op": "kill_players"}), "and well-formed ones pass")
 	_check(GSMapCommand.judge("lua_run os.execute('x')", PackedStringArray(["lua_run"]))["allowed"] == false, "lua_run is still never an allowed console command")
-	_check(io.load_document({"format": "dot-bsp-source", "version": 1, "entities": [_rec(0, "lua_run", "a", [["code", hostile]])]}).ok, "a stored document with a script loads")
+	_check(io.load_document({"format": "gs-bsp-source", "version": 1, "entities": [_rec(0, "lua_run", "a", [["code", hostile]])]}).ok, "a stored document with a script loads")
 	_check(io.entities[0] is GSMapScript and io.scripts.size() == 7, "loading a document runs nothing")
 	_check(io.entities[0].keys.get("code", "") == hostile and events.size() == 2, "the code key is kept as data only")
 	_done()

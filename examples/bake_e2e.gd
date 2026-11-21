@@ -22,7 +22,7 @@ var _completed := 0
 
 func _ready() -> void:
 	GSLog.set_level(GSLog.Level.ERROR)
-	print("dot-map texture bake, end to end")
+	print("gs-map texture bake, end to end")
 	_test_variant_pick()
 	_test_real_textures()
 	print("%d passed, %d failed" % [_passed, _failed])

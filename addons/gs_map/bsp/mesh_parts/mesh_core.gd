@@ -1,0 +1,744 @@
+extends "mesh_glass.gd"
+
+## The reading, caching, lightmap and mesh-building half of [GSMapBspMesh]; split out only to keep each file small.
+
+const CHANNEL := "gs_map.bsp_mesh"
+
+const FORMAT := "gs-bsp-mesh"
+## Version 2 adds a second UV set per surface and the manifest's [code]lightmap[/code] atlas pages; version 1 maps read as before.
+const VERSION := 2
+
+## The renderer's limit on surfaces in one mesh; a chunk with more is split over meshes.
+const MAX_SURFACES := 256
+
+## Model 0 is the world; the rest are brush entities, one model each.
+const WORLD := 0
+
+var manifest: Dictionary = {}
+var surfaces: Array = []
+var hulls: Array = []
+var source_path: String = ""
+## Takes a glass surface record, returns its [Material]; the built-in [method glass_material] when unset.
+var glass_material_for: Callable = Callable()
+## Metres a stand-in prop is drawn to per metre of its longest side, never under
+## [member prop_view_min]: a can is gone at 30 m, a shelf at 120. 0 draws every prop at any range.
+var prop_view_per_metre: float = 60.0
+var prop_view_min: float = 30.0
+## Workers for the pure-CPU build stages ([code]map_load_threads[/code]): 0 inline, -1 automatic, never on the web. The output is identical.
+var load_threads: int = GSMapParallelBuild.default_workers
+## Converter cells (16 m) per drawn chunk along each axis: a chunk costs a draw per material plus a shadow proxy, so merging n x n x n cells draws the same triangles with far fewer draws.
+## 1 keeps the converter's cells; 0 picks the smallest n leaving a model at most [member chunk_target] chunks, so a small map keeps its fine cells (and PVS culling).
+var chunk_merge: int = 0
+## The most drawn chunks per model [code]chunk_merge = 0[/code] aims for; 0 never merges.
+var chunk_target: int = 512
+var _merge_n: int = 1
+var _merge_low: Array = []
+
+var _blob: PackedByteArray = PackedByteArray()
+var _movers: Dictionary = {}
+var _pages: Dictionary = {}
+var _ambient: PackedFloat32Array = PackedFloat32Array()
+var _floor_mean: Dictionary = {}
+var _entities: GSMapEntities = null
+## Built shapes by model (and kinds), shared by every body made from this mesh: a shape is a read-only resource.
+var _hull_cache: Dictionary = {}
+var _concave_cache: Dictionary = {}
+
+
+## Loaded meshes kept per prefix so a round-start rebuild of the same stage skips the read, hash and
+## decompress; keyed on both files' modification times so a regenerated map is read again.
+static var cache_meshes := true
+static var cache_limit := 24
+static var _cache: Dictionary = {}
+static var _slim_shared: Dictionary = {}
+static var _slim_mutex := Mutex.new()
+
+
+## Forgets every cached mesh (and the shapes each holds).
+static func clear_cache() -> void:
+	_cache.clear()
+	clear_slim_cache()
+
+
+## Forgets the textures [method slim_model_textures] shares between models.
+static func clear_slim_cache() -> void:
+	_slim_mutex.lock()
+	_slim_shared.clear()
+	_slim_mutex.unlock()
+
+
+## Reads [code]<prefix>.json[/code] and [code]<prefix>.bin[/code]; the result is shared with every
+## other caller of the same prefix while [member cache_meshes] is on, so treat it as read-only.
+static func load_prefix(prefix: String) -> GSResult:
+	var json_path := prefix + ".json"
+	if not FileAccess.file_exists(json_path):
+		return GSResult.fail(GSError.CODE_IO, "no mesh manifest", json_path)
+	var stamp := _stamp(prefix, json_path)
+	var hit: Dictionary = _cache.get(prefix, {})
+	if cache_meshes and hit.get("stamp") == stamp:
+		return GSResult.success(hit["mesh"])
+	return _remember(prefix, stamp, _read_prefix(prefix, json_path, _read_raw(prefix, json_path)))
+
+
+## [method load_prefix] with the file reads, the JSON parse, the hash and the decompress on a worker thread, this one
+## awaiting frames until they are done: on a large pack they are 125 ms (docs/load-threads.md), one frozen frame of a
+## client's map load. Inline where [method GSParallel.available] is false (the web). A coroutine: `await` it.
+static func load_prefix_async(prefix: String) -> GSResult:
+	var json_path := prefix + ".json"
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null or not GSParallel.available() or not FileAccess.file_exists(json_path):
+		return load_prefix(prefix)
+	var stamp := _stamp(prefix, json_path)
+	var hit: Dictionary = _cache.get(prefix, {})
+	if cache_meshes and hit.get("stamp") == stamp:
+		return GSResult.success(hit["mesh"])
+	var raw := {}
+	var task := WorkerThreadPool.add_task(func() -> void: raw.merge(_read_raw(prefix, json_path)), false, "gs-map read")
+	while not WorkerThreadPool.is_task_completed(task):
+		await tree.process_frame
+	WorkerThreadPool.wait_for_task_completion(task)
+	return _remember(prefix, stamp, _read_prefix(prefix, json_path, raw))
+
+
+static func _stamp(prefix: String, json_path: String) -> String:
+	return str(FileAccess.get_modified_time(json_path)) + ":" + str(FileAccess.get_modified_time(prefix + ".bin"))
+
+
+static func _remember(prefix: String, stamp: String, res: GSResult) -> GSResult:
+	if res.ok and cache_meshes:
+		if _cache.size() >= cache_limit and not _cache.has(prefix):
+			_cache.erase(_cache.keys()[0])
+		_cache[prefix] = {"stamp": stamp, "mesh": res.value}
+	return res
+
+
+## The pure part of a read: the parsed manifest ([code]doc[/code]), the .bin's path, its stored bytes and what
+## [method _unpack] makes of them. No log, node or shared state, so it runs on a worker ([method load_prefix_async]).
+static func _read_raw(prefix: String, json_path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(json_path))
+	var out := {"doc": parsed}
+	if not parsed is Dictionary:
+		return out
+	var doc: Dictionary = parsed
+	var bin_path := prefix.get_base_dir().path_join(str(doc.get("bin", {}).get("file", prefix.get_file() + ".bin")))
+	out["bin_path"] = bin_path
+	if FileAccess.file_exists(bin_path):
+		var stored := FileAccess.get_file_as_bytes(bin_path)
+		out["stored"] = stored
+		out.merge(_unpack(doc, stored))
+	return out
+
+
+static func _read_prefix(prefix: String, json_path: String, raw: Dictionary) -> GSResult:
+	if not raw.get("doc") is Dictionary:
+		return GSResult.fail(GSError.CODE_PARSE, "mesh manifest is not a JSON object", json_path)
+	if not raw.has("stored"):
+		return GSResult.fail(GSError.CODE_IO, "no mesh data", str(raw.get("bin_path", "")))
+	var res := from_data(raw["doc"], raw["stored"], raw)
+	if res.ok:
+		res.value.source_path = prefix  # a GSMapBspMesh
+	return res if res.ok else res.wrap("loading " + prefix)
+
+
+## The stored bytes' SHA-256 ([code]sha[/code]) when the manifest names one, and the data ([code]blob[/code]), gunzipped
+## when the manifest says so and the hash matches. Pure.
+static func _unpack(doc: Dictionary, stored: PackedByteArray) -> Dictionary:
+	var info: Dictionary = doc.get("bin", {})
+	var want := str(info.get("sha256", ""))
+	var out := {"blob": stored}
+	if not want.is_empty():
+		var ctx := HashingContext.new()
+		ctx.start(HashingContext.HASH_SHA256)
+		ctx.update(stored)
+		out["sha"] = ctx.finish().hex_encode()
+		if out["sha"] != want:
+			return out
+	if str(info.get("compression", "")) == "gzip":
+		out["blob"] = stored.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP)
+	return out
+
+
+## Builds from a parsed manifest and the stored .bin bytes (as delivered: gzip'd or not). [param unpacked] is
+## [method _unpack]'s result when a worker already made it.
+static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictionary = {}) -> GSResult:
+	if str(doc.get("format", "")) != FORMAT:
+		return GSResult.fail(GSError.CODE_INVALID, "not a %s manifest" % FORMAT, str(doc.get("format", "")))
+	if int(doc.get("version", 0)) > VERSION:
+		return GSResult.fail(GSError.CODE_VERSION, "mesh manifest is newer than this reader",
+				"%s > %d" % [doc.get("version"), VERSION])
+	if not unpacked.has("blob"):
+		unpacked = _unpack(doc, stored)
+	var info: Dictionary = doc.get("bin", {})
+	var want := str(info.get("sha256", ""))
+	if not want.is_empty() and str(unpacked.get("sha", "")) != want:
+		return GSResult.fail(GSError.CODE_INTEGRITY, "mesh data does not match its manifest",
+				"%s != %s" % [unpacked.get("sha", ""), want])
+	var blob: PackedByteArray = unpacked["blob"]
+	if blob.size() != int(info.get("bytes", blob.size())):
+		return GSResult.fail(GSError.CODE_PARSE, "mesh data is the wrong size",
+				"%d != %s" % [blob.size(), info.get("bytes")])
+	# GSMapBspMesh, loaded: this file is one of its bases, so naming it would keep both parsers alive.
+	var m: RefCounted = (load("uid://bgtb6hc6o6j52") as GDScript).new()
+	m.manifest = doc
+	m.surfaces = doc.get("surfaces", [])
+	m.hulls = doc.get("hulls", [])
+	m._blob = blob
+	for page: Dictionary in doc.get("lightmap", {}).get("pages", []):
+		var bytes := 4 * int(page.get("width", 0)) * int(page.get("height", 0))
+		if not m._fits(page, bytes, "offset"):
+			return GSResult.fail(GSError.CODE_PARSE, "a lightmap page points outside the mesh data")
+	for rec: Dictionary in doc.get("movers", []):
+		var mi: Variant = rec.get("model")
+		if mi is float or mi is int:        # a mover with no brushes of its own has a null model
+			m._movers[int(mi)] = rec
+	for rec: Dictionary in m.surfaces:
+		if not m._fits(rec, 3 * 4 * int(rec.get("vertex_count", 0)), "position_offset") \
+				or not m._fits(rec, 3 * 4 * int(rec.get("vertex_count", 0)), "normal_offset") \
+				or not m._fits(rec, 2 * 4 * int(rec.get("vertex_count", 0)), "uv_offset") \
+				or (rec.has("uv2_offset") and not m._fits(rec, 2 * 4 * int(rec.get("vertex_count", 0)), "uv2_offset")) \
+				or not m._fits(rec, 4 * int(rec.get("index_count", 0)), "index_offset"):
+			return GSResult.fail(GSError.CODE_PARSE, "a surface points outside the mesh data", str(rec.get("material")))
+	for rec: Dictionary in m.hulls:
+		if not m._fits(rec, 12 * int(rec.get("point_count", 0)), "point_offset"):
+			return GSResult.fail(GSError.CODE_PARSE, "a hull points outside the mesh data", str(rec.get("brush")))
+	GSLog.debug(CHANNEL, "mesh read", {"name": doc.get("name"), "surfaces": m.surfaces.size(),
+			"hulls": m.hulls.size(), "bytes": blob.size()})
+	return GSResult.success(m)
+
+
+func _fits(rec: Dictionary, length: int, key: String) -> bool:
+	var at := int(rec.get(key, -1))
+	return at >= 0 and at + length <= _blob.size()
+
+
+## Every model with something drawn or solid, world first.
+func models() -> PackedInt32Array:
+	var seen := {}
+	for rec: Dictionary in surfaces:
+		seen[int(rec["model"])] = true
+	for rec: Dictionary in hulls:
+		seen[int(rec["model"])] = true
+	var out := PackedInt32Array(seen.keys())
+	out.sort()
+	return out
+
+
+## The entities of this map (movers, volumes, links, data), built on first use.
+func entities() -> GSMapEntities:
+	if _entities == null:
+		_entities = GSMapEntities.from_manifest(manifest)
+	return _entities
+
+
+## The mover record for a brush entity (direction, distance, speed, what opens it), or {}.
+func mover(model: int) -> Dictionary:
+	return _movers.get(model, {})
+
+
+## Where a brush entity's node goes: its origin, so turning the node turns it about it.
+func model_origin(model: int) -> Vector3:
+	var o: Variant = mover(model).get("origin")
+	if model == WORLD or not o is Array or (o as Array).size() < 3:
+		return Vector3.ZERO
+	return Vector3(o[0], o[1], o[2])
+
+
+## The engine arrays of one surface ([constant Mesh.ARRAY_MAX] long), world positions.
+func surface_arrays(rec: Dictionary) -> Array:
+	var n := int(rec["vertex_count"])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	var p := int(rec["position_offset"])
+	arrays[Mesh.ARRAY_VERTEX] = _blob.slice(p, p + 12 * n).to_vector3_array()
+	var q := int(rec["normal_offset"])
+	arrays[Mesh.ARRAY_NORMAL] = _blob.slice(q, q + 12 * n).to_vector3_array()
+	var u := int(rec["uv_offset"])
+	arrays[Mesh.ARRAY_TEX_UV] = _blob.slice(u, u + 8 * n).to_vector2_array()
+	if rec.has("uv2_offset"):
+		var u2 := int(rec["uv2_offset"])
+		arrays[Mesh.ARRAY_TEX_UV2] = _blob.slice(u2, u2 + 8 * n).to_vector2_array()
+	if rec.has("alpha_offset"):
+		var a0 := int(rec["alpha_offset"])
+		var alpha := _blob.slice(a0, a0 + 4 * n).to_float32_array()
+		var cols := PackedColorArray()
+		cols.resize(n)
+		for k in n:
+			cols[k] = Color(alpha[k], 0.0, 0.0, 1.0)
+		arrays[Mesh.ARRAY_COLOR] = cols
+	var i := int(rec["index_offset"])
+	arrays[Mesh.ARRAY_INDEX] = _blob.slice(i, i + 4 * int(rec["index_count"])).to_int32_array()
+	return arrays
+
+
+## Whether the map carries its author's baked lighting (a [code]lightmap[/code] record).
+func has_lightmap() -> bool:
+	return not (manifest.get("lightmap", {}) as Dictionary).get("pages", []).is_empty()
+
+
+## Linear-light exposure of the baked lighting, 1.0 as the author compiled it.
+func lightmap_scale() -> float:
+	return float((manifest.get("lightmap", {}) as Dictionary).get("scale", 1.0))
+
+
+## Atlas page [param index] as an RGB9E5 texture, or null; built once.
+func lightmap_page(index: int) -> Texture2D:
+	if _pages.has(index):
+		return _pages[index]
+	var pages: Array = (manifest.get("lightmap", {}) as Dictionary).get("pages", [])
+	if index < 0 or index >= pages.size():
+		return null
+	var rec: Dictionary = pages[index]
+	var w := int(rec["width"])
+	var h := int(rec["height"])
+	var at := int(rec["offset"])
+	var img := Image.create_from_data(w, h, false, Image.FORMAT_RGBE9995, _blob.slice(at, at + 4 * w * h))
+	_pages[index] = ImageTexture.create_from_image(img)
+	return _pages[index]
+
+
+## The author's per-leaf ambient at [param point] (the nearest sample's cube, weighted by [param normal]), linear;
+## black when the map has none. For a prop or a character the lightmap cannot reach. Scans every sample.
+func ambient_at(point: Vector3, normal: Vector3 = Vector3.UP) -> Color:
+	var rec: Variant = (manifest.get("lightmap", {}) as Dictionary).get("ambient")
+	if not rec is Dictionary:
+		return Color.BLACK
+	var n := int(rec["count"])
+	var at := int(rec["offset"])
+	if n <= 0 or at < 0 or at + 84 * n > _blob.size():
+		return Color.BLACK
+	if _ambient.is_empty():
+		_ambient = _blob.slice(at, at + 84 * n).to_float32_array()
+	var best := 0
+	var best_d := INF
+	for i in n:
+		var d := point.distance_squared_to(Vector3(_ambient[21 * i], _ambient[21 * i + 1], _ambient[21 * i + 2]))
+		if d < best_d:
+			best_d = d
+			best = i
+	var nn := normal.normalized()
+	var w := [nn.x * nn.x, nn.x * nn.x, nn.y * nn.y, nn.y * nn.y, nn.z * nn.z, nn.z * nn.z]
+	var c := Vector3.ZERO
+	for face in 6:
+		# faces are +x, -x, +y, -y, +z, -z; only the side the normal points at counts
+		var sign_ok: bool = (face % 2 == 0) == ([nn.x, nn.x, nn.y, nn.y, nn.z, nn.z][face] >= 0.0)
+		if sign_ok:
+			var o := 21 * best + 3 + 3 * face
+			c += Vector3(_ambient[o], _ambient[o + 1], _ambient[o + 2]) * float(w[face])
+	return Color(c.x, c.y, c.z)
+
+
+## The light no lit surface falls below: the mean sky-facing ambient cube of the map (lump 56), or the sun entity's ambient, never under [member visibility_floor] so an outdoor frame is never black.
+func light_floor() -> Color:
+	var c := Vector3.ZERO
+	var rec: Variant = (manifest.get("lightmap", {}) as Dictionary).get("ambient")
+	if rec is Dictionary and int(rec["count"]) > 0:
+		var n := int(rec["count"])
+		var at := int(rec["offset"])
+		if at >= 0 and at + 84 * n <= _blob.size():
+			if _ambient.is_empty():
+				_ambient = _blob.slice(at, at + 84 * n).to_float32_array()
+			if not _floor_mean.has(n):    # every material of the map asks, and the scan is 1 ms
+				_floor_mean[n] = GSMapParallelBuild.sky_mean(_ambient, n)
+			c = _floor_mean[n]
+	var sun: Dictionary = environment_data().get("sun", {})
+	var a: Variant = sun.get("ambient_hdr", sun.get("ambient"))
+	if a is Array and (a as Array).size() >= 3:
+		c = c.max(Vector3(float(a[0]), float(a[1]), float(a[2])))
+	var lum := (c.x + c.y + c.z) / 3.0
+	if visibility_floor > 0.0 and lum < visibility_floor:
+		c = c * (visibility_floor / lum) if lum > 0.0 else Vector3.ONE * visibility_floor
+	return _limit_tint(c)
+
+
+## The strongest ratio of brightest to dimmest channel a floor keeps: a sky-lit map's blue floor (0.1, 0.1, 0.5) tinted every pale surface of it.
+const MAX_TINT_RATIO := 2.5
+
+
+## Pulls [param c] toward its own grey until its channels are within [constant MAX_TINT_RATIO] (and [member lightmap_max_chroma_ratio] when set); the author's warm or cool cast stays, a saturated one does not.
+static func _limit_tint(c: Vector3) -> Color:
+	c = GSMapSurfaces.limit_chroma(c, MAX_TINT_RATIO)
+	c = GSMapSurfaces.limit_chroma(c, lightmap_max_chroma_ratio)
+	return Color(c.x, c.y, c.z)
+
+
+## Strongest brightest/dimmest channel ratio the lightmap, floor light and actor ambient keep; 0 (default) = off.
+## Process-wide. The actor ambient and floor light read it live, but the world shader gets a copy only
+## when its materials are built, so set it before building the world.
+static var lightmap_max_chroma_ratio: float = 0.0
+
+
+## Sets [member lightmap_max_chroma_ratio] (process-wide; set before the world's materials are built) for a caller that reaches this script by path.
+static func set_lightmap_max_chroma_ratio(value: float) -> void:
+	lightmap_max_chroma_ratio = maxf(value, 0.0)
+
+
+## The default [member visibility_floor].
+const MIN_FLOOR := 0.3
+
+## Mean luminance a lit surface (and an actor's ambient, [GSMapLitWorld]) never falls below, tinted by the author's ambient, so a map the author lit darkly stays playable. 0 turns the floor off; a game wires its cvar to this before the world's materials are built.
+static var visibility_floor: float = MIN_FLOOR
+
+
+## Sets [member visibility_floor] for a caller that reaches this script by path.
+static func set_visibility_floor(value: float) -> void:
+	visibility_floor = maxf(value, 0.0)
+## The sun's least energy over a baked world: the bake of a weak outdoor sun is near black and this is what shows the outdoors.
+const SUN_MIN_LIT := 1.0
+
+func _glass_for(rec: Dictionary) -> Material:
+	if glass_material_for.is_valid():
+		var m: Variant = glass_material_for.call(rec)
+		if m is Material:
+			return m
+	return glass_material(StringName(str(rec["glass"])), rec.get("tint", []))
+
+
+## A model's surfaces as meshes, grouped by chunk (the converter's columns of the world), each mesh under
+## [constant MAX_SURFACES].
+func build_meshes(model: int, material_for: Callable = Callable()) -> Array[Dictionary]:
+	var planned := _mesh_plan(model, material_for)
+	var out: Array[Dictionary] = []
+	var state := {"mesh": null, "key": ""}
+	var step := GSMapParallelBuild.batch_size(load_threads)
+	for from in range(0, planned["plan"].size(), step):
+		_mesh_batch(planned, from, step, out, state)
+	return out
+
+
+## [method build_meshes] that awaits [method GSFrameSlice.pause] between batches, so a cover keeps drawing.
+func build_meshes_async(model: int, material_for: Callable, slice: GSFrameSlice) -> Array[Dictionary]:
+	var planned: Dictionary = await _mesh_plan_async(model, material_for, slice)
+	var out: Array[Dictionary] = []
+	var state := {"mesh": null, "key": ""}
+	var step := GSMapParallelBuild.batch_size(load_threads)
+	for from in range(0, planned["plan"].size(), step):
+		if slice.due():
+			await slice.pause()
+		var merged := _mesh_merge(planned, from, step)
+		var chunk: Array = merged["chunk"]
+		for i in chunk.size():
+			if i > 0 and slice.due():    # each surface add is a main-thread upload: a batch of them must not hold one frame
+				await slice.pause()
+			_mesh_add(planned, chunk[i], merged["arrays"][i], out, state)
+	return out
+
+
+## Groups a model's surface records by chunk and material: {plan: [[group key, entry]], groups}.
+func _mesh_plan(model: int, material_for: Callable) -> Dictionary:
+	var groups := _chunk_groups(model)
+	var plan: Array = []    # [group key, entry]
+	for key: String in groups:
+		# Material instance id -> {material, recs}, in first-seen order so the build is stable.
+		var by_material := {}
+		for rec: Dictionary in groups[key]:
+			_plan_rec(by_material, rec, material_for)
+		for entry: Dictionary in by_material.values():
+			plan.append([key, entry])
+	return {"plan": plan, "groups": groups}
+
+
+## [method _mesh_plan] that awaits [method GSFrameSlice.pause] between records: a record's first material reads and uploads its textures.
+func _mesh_plan_async(model: int, material_for: Callable, slice: GSFrameSlice) -> Dictionary:
+	var groups := _chunk_groups(model)
+	var plan: Array = []
+	for key: String in groups:
+		var by_material := {}
+		for rec: Dictionary in groups[key]:
+			if slice.due():
+				await slice.pause()
+			_plan_rec(by_material, rec, material_for)
+		for entry: Dictionary in by_material.values():
+			plan.append([key, entry])
+	return {"plan": plan, "groups": groups}
+
+
+## A decal surface record's material: [param material_for]'s when it gives a decal material (the game's
+## surfaces lighting it, or an internal pack's own texture), else the built-in [method decal_material].
+func _decal_for(rec: Dictionary, material_for: Callable) -> Material:
+	if material_for.is_valid():
+		var m: Variant = material_for.call(rec)
+		if m is Material and is_decal_material(m):
+			return m
+	return decal_material(StringName(str(rec["decal"])), rec.get("colour", []))
+
+
+## A converter chunk's coordinates in drawn chunks ([member chunk_merge] cells each way, counted from the model's lowest
+## cell so a map straddling the origin merges like any other); others pass through.
+func merged_chunk(chunk: Variant) -> Variant:
+	return _merged_by(chunk, chunk_merge if chunk_merge > 0 else _merge_n, _merge_low)
+
+
+static func _merged_by(chunk: Variant, n: int, low: Array) -> Variant:
+	if n <= 1 or not chunk is Array:
+		return chunk
+	var out := []
+	for i in (chunk as Array).size():
+		var v: Variant = chunk[i]
+		var lo: int = low[i] if i < low.size() else 0
+		out.append(floori(float(int(v) - lo) / n) if (v is int or v is float) else v)
+	return out
+
+
+## The lowest converter cell of [param model] on each axis.
+func _low_cell(model: int) -> Array:
+	var low := []
+	for rec: Dictionary in surfaces:
+		if int(rec["model"]) != model or not rec.get("chunk") is Array:
+			continue
+		var c: Array = rec["chunk"]
+		for i in c.size():
+			if not (c[i] is int or c[i] is float):
+				continue
+			if i >= low.size():
+				low.resize(i + 1)
+				low[i] = int(c[i])
+			low[i] = mini(low[i] if low[i] != null else int(c[i]), int(c[i]))
+	return low
+
+
+## The merge factor [code]chunk_merge = 0[/code] uses for [param model]: the smallest that leaves at most [member chunk_target] chunks.
+func auto_merge(model: int) -> int:
+	if chunk_target <= 0:
+		return 1
+	var low := _low_cell(model)
+	var cells := {}
+	for rec: Dictionary in surfaces:
+		if int(rec["model"]) == model:
+			cells[str(rec.get("chunk", []))] = rec.get("chunk", [])
+	var n := 1
+	while n < 64:
+		var merged := {}
+		for c: Variant in cells.values():
+			merged[str(_merged_by(c, n, low))] = true
+		if merged.size() <= chunk_target:
+			break
+		n += 1
+	return n
+
+
+func _chunk_groups(model: int) -> Dictionary:
+	_merge_n = auto_merge(model) if chunk_merge <= 0 else chunk_merge
+	_merge_low = _low_cell(model)
+	var groups := {}
+	for rec: Dictionary in surfaces:
+		if int(rec["model"]) != model:
+			continue
+		var key := "%s|%s|%s" % [str(merged_chunk(rec.get("chunk", []))), rec.get("sky3d", false), rec.has("glass")]
+		if rec.has("decal"):
+			key += "|decal"
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(rec)
+	return groups
+
+
+func _plan_rec(by_material: Dictionary, rec: Dictionary, material_for: Callable) -> void:
+	var mat: Material = null
+	if rec.has("decal"):
+		mat = _decal_for(rec, material_for)
+	elif rec.has("glass"):
+		mat = _glass_for(rec)
+	elif material_for.is_valid():
+		var m: Variant = material_for.call(rec)
+		mat = m as Material if m is Material else null
+		if mat != null and rec.get("two_sided", false):
+			mat = _two_sided(mat)
+	var id := mat.get_instance_id() if mat != null else 0
+	if not by_material.has(id):
+		by_material[id] = {"material": mat, "recs": []}
+	(by_material[id]["recs"] as Array).append(rec)
+
+
+## Builds plan entries [param from] to [param from] + [param step] into [param out]; [param state] carries the open mesh between batches.
+func _mesh_batch(planned: Dictionary, from: int, step: int, out: Array[Dictionary], state: Dictionary) -> void:
+	var merged := _mesh_merge(planned, from, step)
+	for i in merged["chunk"].size():
+		_mesh_add(planned, merged["chunk"][i], merged["arrays"][i], out, state)
+
+
+## The surface arrays of plan entries [param from] to [param from] + [param step], merged on the workers: {chunk, arrays}.
+func _mesh_merge(planned: Dictionary, from: int, step: int) -> Dictionary:
+	var chunk := (planned["plan"] as Array).slice(from, from + step)
+	return {"chunk": chunk, "arrays": GSMapParallelBuild.merged(self, chunk.map(func(p: Array) -> Array: return p[1]["recs"]), load_threads)}
+
+
+## Adds one plan entry [param item] ([group key, entry]) with its merged [param arrays] to the open mesh in [param state].
+func _mesh_add(planned: Dictionary, item: Array, arrays: Array, out: Array[Dictionary], state: Dictionary) -> void:
+	var groups: Dictionary = planned["groups"]
+	var key: String = item[0]
+	var entry: Dictionary = item[1]
+	var first: Dictionary = entry["recs"][0]
+	var mesh: ArrayMesh = state["mesh"]
+	if key != state["key"] or mesh.get_surface_count() >= MAX_SURFACES:
+		state["key"] = key
+		mesh = ArrayMesh.new()
+		state["mesh"] = mesh
+		out.append({"mesh": mesh, "chunk": merged_chunk(first.get("chunk", [])), "sky3d": bool(first.get("sky3d", false)),
+				"glass": first.has("glass"), "decal": first.has("decal"), "clusters": _clusters_of(groups[key])})
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var s := mesh.get_surface_count() - 1
+	mesh.surface_set_name(s, str(first.get("material", "")))
+	if entry["material"] != null:
+		mesh.surface_set_material(s, entry["material"])
+
+
+## The union of the records' clusters, or null when any record has none (drawn from everywhere).
+static func _clusters_of(recs: Array) -> Variant:
+	var seen := {}
+	for rec: Dictionary in recs:
+		var c: Variant = rec.get("clusters")
+		if not c is Array or (c as Array).is_empty():
+			return null
+		for k: Variant in c:
+			seen[int(k)] = true
+	return PackedInt32Array(seen.keys())
+
+
+## Bytes of one block the manifest's [code]vis[/code] record points at ([code]{offset, count}[/code]
+## of [param width]-byte items), empty when it is absent or outside the data.
+func vis_bytes(key: String, width: int = 4) -> PackedByteArray:
+	var rec: Variant = (manifest.get("vis", {}) as Dictionary).get(key)
+	if not rec is Dictionary:
+		return PackedByteArray()
+	var at := int(rec.get("offset", -1))
+	var length := int(rec.get("count", 0)) * width
+	if at < 0 or at + length > _blob.size():
+		return PackedByteArray()
+	return _blob.slice(at, at + length)
+
+
+## [method surface_arrays] of several records as one, the indices offset onto the joined vertices.
+func _merged_arrays(recs: Array) -> Array:
+	if recs.size() == 1:
+		return surface_arrays(recs[0])
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
+	var any_uv2 := false
+	var cols := PackedColorArray()
+	var index := PackedInt32Array()
+	for rec: Dictionary in recs:
+		var a := surface_arrays(rec)
+		var base := verts.size()
+		var part_uv2: Variant = a[Mesh.ARRAY_TEX_UV2]
+		if part_uv2 != null:
+			any_uv2 = true
+		else:
+			part_uv2 = PackedVector2Array()
+			part_uv2.resize((a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+		uv2s.append_array(part_uv2)
+		var part_col: Variant = a[Mesh.ARRAY_COLOR]
+		if part_col == null:
+			part_col = PackedColorArray()
+			part_col.resize((a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+		cols.append_array(part_col)
+		var part: PackedInt32Array = a[Mesh.ARRAY_INDEX]
+		for k in part.size():
+			part[k] += base
+		verts.append_array(a[Mesh.ARRAY_VERTEX])
+		normals.append_array(a[Mesh.ARRAY_NORMAL])
+		uvs.append_array(a[Mesh.ARRAY_TEX_UV])
+		index.append_array(part)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	if any_uv2:
+		arrays[Mesh.ARRAY_TEX_UV2] = uv2s
+	if recs.any(func(r: Dictionary) -> bool: return r.has("alpha_offset")):
+		arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_INDEX] = index
+	return arrays
+
+
+## Convex shapes of a model's player-solid brushes, relative to [method model_origin].
+## [param kinds] filters (empty is every kind). Returns [code][{shape, kind, brush}][/code].
+func hull_shapes(model: int, kinds: PackedStringArray = PackedStringArray()) -> Array[Dictionary]:
+	var key := "%d:%s" % [model, ",".join(kinds)]
+	if not _hull_cache.has(key):
+		_hull_cache[key] = _build_hull_shapes(model, kinds)
+	return _hull_cache[key].duplicate()
+
+
+func _build_hull_shapes(model: int, kinds: PackedStringArray) -> Array[Dictionary]:
+	var recs: Array = hulls.filter(func(r: Dictionary) -> bool:
+		return int(r["model"]) == model and (kinds.is_empty() or str(r["kind"]) in kinds))
+	var points := GSMapParallelBuild.hull_points(self, recs, model_origin(model), load_threads)
+	var out: Array[Dictionary] = []
+	for i in recs.size():
+		var shape := ConvexPolygonShape3D.new()
+		shape.points = points[i]
+		out.append({"shape": shape, "kind": str(recs[i]["kind"]), "brush": int(recs[i]["brush"])})
+	return out
+
+
+## Moves the legacy blob's hulls of other kinds into a body each; [param layers] maps a hull kind ("clip", "fence", "glass") to its layer, and shapes are matched to the named hulls by bounds.
+## A body keeps the legacy mask of 0 and carries `hull_kind` (and `gs_material` for fence and glass), so a shot whose mask skips those layers passes. Returns kind to hulls moved.
+func split_legacy_hulls(body: StaticBody3D, layers: Dictionary) -> Dictionary:
+	var solids: Array[CollisionShape3D] = []
+	for child in body.get_children():
+		if child is CollisionShape3D and (child as CollisionShape3D).shape is ConvexPolygonShape3D:
+			solids.append(child)
+	var moved := {}
+	for kind: String in layers:
+		var dest := StaticBody3D.new()
+		dest.name = "Imported" + kind.capitalize()
+		dest.collision_layer = int(layers[kind])
+		dest.collision_mask = 0
+		dest.set_meta(&"hull_kind", kind)
+		if kind == "fence" or kind == "glass":
+			dest.set_meta(&"gs_material", StringName(kind))
+		for model in models():
+			var origin := model_origin(model)
+			for h: Dictionary in hull_shapes(model, PackedStringArray([kind])):
+				var want := _points_box((h["shape"] as ConvexPolygonShape3D).points, origin)
+				for s in solids:
+					var have := _points_box((s.shape as ConvexPolygonShape3D).points, Vector3.ZERO)
+					if have.position.distance_to(want.position) < 0.06 and have.size.distance_to(want.size) < 0.06:
+						solids.erase(s)
+						body.remove_child(s)
+						dest.add_child(s)
+						break
+		moved[kind] = dest.get_child_count()
+		if dest.get_child_count() > 0:
+			body.add_child(dest)
+		else:
+			dest.free()
+	return moved
+
+
+static func _points_box(points: PackedVector3Array, origin: Vector3) -> AABB:
+	var box := AABB(points[0] + origin, Vector3.ZERO) if points.size() > 0 else AABB()
+	for p in points:
+		box = box.expand(p + origin)
+	return box
+
+
+## Triangle shapes for the surfaces that collide as drawn (displacements: terrain has no
+## brushes), relative to [method model_origin].
+func concave_shapes(model: int) -> Array[ConcavePolygonShape3D]:
+	if not _concave_cache.has(model):
+		_concave_cache[model] = _build_concave_shapes(model)
+	return _concave_cache[model].duplicate()
+
+
+func _build_concave_shapes(model: int) -> Array[ConcavePolygonShape3D]:
+	var recs: Array = surfaces.filter(func(r: Dictionary) -> bool: return int(r["model"]) == model and r.get("collide", false))
+	var faces := GSMapParallelBuild.concave_faces(self, recs, model_origin(model), load_threads)
+	var out: Array[ConcavePolygonShape3D] = []
+	for f: PackedVector3Array in faces:
+		out.append(ConcavePolygonShape3D.new())
+		out[-1].set_faces(f)
+	return out
+
+
+## The [code]environment[/code] block (sky, sun, fog, tonemap, cubemaps), or {}.
+func environment_data() -> Dictionary:
+	return manifest.get("environment", {})
+
+
+## The [code]sounds[/code] block (ambient, soundscapes, triggers, files), or {}.
+func sounds_data() -> Dictionary:
+	return manifest.get("sounds", {})

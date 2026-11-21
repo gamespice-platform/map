@@ -20,7 +20,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map bsp entities")
+	print("gs-map bsp entities")
 	_doc = JSON.parse_string(FileAccess.get_file_as_string(REAL))
 	if _doc is Dictionary and not _doc.is_empty():
 		var ents := GSMapEntities.from_manifest(_doc)

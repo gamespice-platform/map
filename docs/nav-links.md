@@ -1,6 +1,6 @@
 # Doors and teleports for a navigation mesh
 
-A navigation mesh is baked from static colliders, so the map's own logic is invisible to it: a door shut at the bake is a wall, a teleport is a box in the floor, and a door that a button, a trigger volume or a shot opens looks the same as one nothing opens. `GSMapNavLinks` (`addons/dot_map/io/dot_map_nav_links.gd`) reads that logic from a built map world and returns plain data. It moves nothing and runs no input; a bake, a bot or a tool decides what to do with it.
+A navigation mesh is baked from static colliders, so the map's own logic is invisible to it: a door shut at the bake is a wall, a teleport is a box in the floor, and a door that a button, a trigger volume or a shot opens looks the same as one nothing opens. `GSMapNavLinks` (`addons/gs_map/io/gs_map_nav_links.gd`) reads that logic from a built map world and returns plain data. It moves nothing and runs no input; a bake, a bot or a tool decides what to do with it.
 
 ## Why here, and not in the bot
 
@@ -28,4 +28,4 @@ Not covered: keys and counts of presses, a chain that needs something carried, a
 
 ## Proof
 
-`examples/nav_links_demo.tscn` builds a synthetic entity set: a button through a relay to a door, a closer that must not count, a walk-in pad to a touch door, a shot button to a disabled teleport. dot-bot's `bot_selftest` section "unlock export" covers the gadget. mg-wipeout's `headless_io_bots` pins the first real runs on its Oaks and Pauls courses.
+`examples/nav_links_demo.tscn` builds a synthetic entity set: a button through a relay to a door, a closer that must not count, a walk-in pad to a touch door, a shot button to a disabled teleport. gs-bot's `bot_selftest` section "unlock export" covers the gadget. mg-wipeout's `headless_io_bots` pins the first real runs on its Oaks and Pauls courses.

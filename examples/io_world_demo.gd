@@ -13,7 +13,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map io world")
+	print("gs-map io world")
 	_test_toggle_brush()
 	_test_breakable()
 	_test_door()

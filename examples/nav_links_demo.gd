@@ -24,7 +24,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map nav links")
+	print("gs-map nav links")
 	var links := _build()
 	_test_doors(links)
 	_test_teleports(links)

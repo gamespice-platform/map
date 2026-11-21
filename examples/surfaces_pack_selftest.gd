@@ -3,7 +3,7 @@ extends Node
 ## The surface textures left out of the client shell's pck still resolve once a pack carrying them is mounted and listed in
 ## GSMapSurfaces.fallback_roots. The pack is built here (PCKPacker, three 4x4 textures for one kind); no CDN, no GameSpice Cloud.
 
-const POOL := "res://dot_cloud/synth/1/surfaces"
+const POOL := "res://gs_cloud/synth/1/surfaces"
 const MISSING_ROOT := "res://shell_without_surfaces"
 
 var _passed := 0
@@ -24,7 +24,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-map surfaces pack")
+	print("gs-map surfaces pack")
 	var pck := _build_pack()
 	_check(not pck.is_empty(), "synthetic pack built")
 

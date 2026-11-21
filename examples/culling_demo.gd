@@ -21,7 +21,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map culling")
+	print("gs-map culling")
 	_level = _build_level()
 	add_child(_level)
 	var shot := ""

@@ -33,7 +33,7 @@ func _arg(key: String, fallback: String) -> String:
 
 
 func _run() -> void:
-	print("dot-map visibility")
+	print("gs-map visibility")
 	_test_synthetic()
 	_test_sun_reach()
 	_test_light_cache()

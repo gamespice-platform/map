@@ -22,7 +22,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map source (VPK, VTF)")
+	print("gs-map source (VPK, VTF)")
 	_wipe(ROOT)
 	var sections := 4
 	var checks := 48
@@ -54,7 +54,7 @@ func _test_crc() -> void:
 	var big := PackedByteArray()
 	for i in 5003:
 		big.append((i * 131 + 7) & 0xFF)
-	_c(GSMapVpk.crc32(big) == GSMapVpk.crc32_script(big), "the native one (when dot-sim is loaded) equals the script one")
+	_c(GSMapVpk.crc32(big) == GSMapVpk.crc32_script(big), "the native one (when gs-sim is loaded) equals the script one")
 	_done()
 
 

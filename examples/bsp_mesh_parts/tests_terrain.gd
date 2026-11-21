@@ -6,7 +6,7 @@ const TERRAIN := "res://examples/bsp_mesh/terrain_fixture.json"
 
 
 func _test_terrain() -> void:
-	_section("terrain reads as the converter wrote it (dot-map-convert/tests/test_terrain.py)")
+	_section("terrain reads as the converter wrote it (gs-map-convert/tests/test_terrain.py)")
 	var fx: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TERRAIN))
 	var res := GSMapTerrain.from_dict(fx["terrain"])
 	_check(res.ok, "the terrain fixture reads: %s" % ("" if res.ok else str(res)))

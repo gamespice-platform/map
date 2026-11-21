@@ -17,7 +17,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map self-test")
+	print("gs-map self-test")
 	print("")
 
 	_test_map_validation()
@@ -248,8 +248,8 @@ func _test_rotation_play() -> void:
 
 func _test_rotation_profile() -> void:
 	_section("rotation entries carry a mode/cfg profile")
-	var base := OS.get_temp_dir().path_join("dot_map_profile_%d" % Time.get_ticks_usec())
-	var pdir := base.path_join("server/addon/dot_map/cfg")
+	var base := OS.get_temp_dir().path_join("gs_map_profile_%d" % Time.get_ticks_usec())
+	var pdir := base.path_join("server/addon/gs_map/cfg")
 	_put(pdir.path_join("ctf.yml"), "cvars:\n  timelimit: 20\n  nested:\n    a: 1\n")
 	_put(pdir.path_join("koth.yaml"), "capture_time: 5\nmode: ignored_for_an_id\n")
 	_put(pdir.path_join("night/fast.yml"), "mode: koth\ngravity: 600\n")
@@ -338,7 +338,7 @@ const CFG_ROOT := "user://mapcfg_test"
 
 
 func _cfg_file(tier: String, name: String, body: String) -> void:
-	var dir := CFG_ROOT.path_join(tier).path_join("dot_map/map")
+	var dir := CFG_ROOT.path_join(tier).path_join("gs_map/map")
 	DirAccess.make_dir_recursive_absolute(dir)
 	var f := FileAccess.open(dir.path_join(name + ".yml"), FileAccess.WRITE)
 	f.store_string(body)
@@ -383,8 +383,8 @@ func _test_map_config() -> void:
 	s = cfg.resolve("surf_abc").value["settings"]
 	_check(s["fc_air"] == 50.0, "a server wildcard beats a shipped exact file (%s)" % [s])
 	_check(cfg.resolve("surf_exact").value["settings"]["fc_gravity"] == 400.0, "a server exact file wins")
-	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/dot_map/map/surf_*.yml"))
-	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/dot_map/map/surf_exact.yml"))
+	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/gs_map/map/surf_*.yml"))
+	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/gs_map/map/surf_exact.yml"))
 	s = cfg.resolve("surf_zzz").value["settings"]
 	_check(s["fc_air"] == 100.0 and s["fc_gravity"] == 800.0, "the wildcard sets a surf map's keys (%s)" % [s])
 	_check(cfg.resolve("surf_abx").value["settings"]["fc_air"] == 120.0, "the more specific wildcard wins")
@@ -417,7 +417,7 @@ func _test_map_config() -> void:
 	pc.allow("fc_air", {"type": "float"}).allow("fc_gravity", {"type": "float"})
 	var ps: Dictionary = pc.resolve("pf_zzz").value["settings"]
 	_check(ps["fc_air"] == 66.0 and ps["fc_gravity"] == 22.0, "`%%` spells `*`: a server pf_%% beats the shipped one (%s)" % [ps])
-	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/dot_map/map/pf_%.yml"))
+	DirAccess.remove_absolute(CFG_ROOT.path_join("server/addons/gs_map/map/pf_%.yml"))
 	_check(pc.resolve("pf_zzz").value["settings"]["fc_air"] == 11.0, "the shipped `%` file applies")
 	_check(pc.resolve("pf_abx").value["settings"]["fc_air"] == 33.0, "a longer literal prefix beats a shorter one")
 	_check(pc.resolve("pf_abc").value["settings"]["fc_air"] == 55.0, "an exact file beats a `%` glob")
@@ -462,7 +462,7 @@ func _test_map_config_restore(cfg: GSMapConfig) -> void:
 
 func _test_model_texture_max() -> void:
 	_section("model_texture_max: family default 2048, layered")
-	var mesh := load("res://addons/dot_map/bsp/mesh_parts/mesh_props.gd") as GDScript
+	var mesh := load("res://addons/gs_map/bsp/mesh_parts/mesh_props.gd") as GDScript
 	var kept: Variant = mesh.get("model_texture_max")
 	_check(kept == 2048, "the default is 2048 (%s)" % [kept])
 	mesh.call("apply_config")

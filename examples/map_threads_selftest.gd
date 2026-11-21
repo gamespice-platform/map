@@ -23,7 +23,7 @@ var _watchdog := Thread.new()
 
 func _ready() -> void:
 	GSLog.set_level(GSLog.Level.ERROR)
-	print("dot-map threaded load")
+	print("gs-map threaded load")
 	_watchdog.start(_watch)
 	var world := _big_world()
 	_test_defaults(world)

@@ -27,7 +27,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map use")
+	print("gs-map use")
 	var prefix := ProjectSettings.globalize_path("res://").path_join(WORLD)
 	var res := GSMapBspMesh.load_prefix(prefix)
 	if not res.ok:

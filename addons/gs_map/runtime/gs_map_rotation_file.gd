@@ -1,0 +1,549 @@
+class_name GSMapRotationFile
+extends RefCounted
+
+## The maps a server PLAYS, read from `cfg/addons/gs_map/maps.yml` and its tiers; the catalogue is what is merely installed. A map not in the rotation stays loadable by `map <id>` but is left out of the pool, ballots and nominations ([member GSMapDef.in_rotation]).
+## Keys: `defaults:` and `games: <game>:` with `rotation`, `mode` (random with `cooldown`, or cycle), `maps` (patterns), `rotations: {name: {maps}}`. No file means every installed map rotates, sorted by id; `merge: true` adds to the shipped file. `exempt: [patterns]` (alias `remove:`; ids, `owner/map`, name globs) keeps maps out of the rotation, at the top of any layer or inside one rotation; a file with only `exempt:` rotates every installed map except those.
+## Layers, weakest first: shipped file, server `defaults:`, server `games:`. Parsing and matching are GameSpice Core's [GSRotationSpec]; patterns expand at [method apply], called on every map change and rescan. A per-map PROFILE (`mode:` or its alias `cfg:` on an entry, a rotation or a section) is resolved by [method resolve_profile] and set on [member GSMapDef.profile]; GameSpice Map never reads the mode or the cvars, the game does. See docs/rotation.md#per-map-profiles.
+
+## A map changed and this is the profile its rotation entry gave it (`{}` for none). Emitted by [method attach]'s handler, and by [method note_changed] for a game that follows the session itself.
+signal profile_changed(map: GSMapDef, profile: Dictionary)
+
+const CHANNEL := "map.rotation_file"
+const EXTENSIONS := ["yml", "yaml"]
+
+## A `mode:` with one of these values picks the next map (GameSpice Core's [GSRotationSpec]); any other value is a profile.
+const SELECTION_MODES := ["random", "cycle", "sequential"]
+
+## Where a profile name is looked up, under each gs_map config tier (`cfg/server/addon/gs_map/cfg/ctf.yml`).
+const PROFILE_SUBDIR := "cfg"
+
+## The game this server runs, as a section key matches it (`game-airdrift`).
+var game: String = ""
+
+## The merged spec ([GSRotationSpec]).
+var spec: Dictionary = {}
+
+## The name `sv_map_rotation` last switched to; empty follows the file.
+var requested: String = ""
+
+## `owner/collection` to the `owner/map` refs it publishes, for `owner/collection/*`. GS-map
+## downloads nothing; the host that knows the collections (the server's content step) sets it.
+var collections: Dictionary = {}
+
+## Where the layers were read from, weakest first.
+var sources: PackedStringArray = PackedStringArray()
+
+## Patterns (id, `owner/map`, name glob) taken out of every rotation, from `exempt:` (or `remove:`) in any layer.
+var exempt: PackedStringArray = PackedStringArray()
+
+## The same, per rotation name, from `rotations: <name>: exempt:`.
+var exempt_by_rotation: Dictionary = {}
+
+## Old name of [member exempt].
+var removed: PackedStringArray:
+	get:
+		return exempt
+
+var warnings: PackedStringArray = PackedStringArray()
+var _warned: Dictionary = {}
+
+## Profile values written above the entries, layered (stronger wins): key "" for a whole section, else a rotation name.
+var profile_defaults: Dictionary = {}
+
+## The `--config` root profiles are read under; empty reads [method config_dir_arg].
+var config_dir: String = ""
+
+## Resolved profiles by written value, so a missing file warns once and is not looked for on every map change.
+var _profiles: Dictionary = {}
+var _last: PackedStringArray = PackedStringArray()
+var _last_name: String = ""
+
+## `(GSMapDef) -> bool`, asked per map when a rotation is empty and so nothing is listed. The default is
+## every map; a game that keeps some out when there is no file gives the same rule here, so an empty rotation
+## and an absent file mean the same thing.
+var fallback_in: Callable = Callable()
+var _fell_back: bool = false
+
+## The rotation [method apply] last marked, held weakly: the catalogue's signal holds this file,
+## and a strong reference back would be a cycle nothing frees.
+var _bound: WeakRef = null
+var _bound_catalogue: GSMapCatalogue = null
+
+
+## The stem games pass for the default file; it resolves to `cfg/addons/gs_map/maps.yml`, with the old flat path read through [GSCfgLegacy].
+const DEFAULT_STEM := "cfg/maps.yml"
+
+
+## Where a path given as [param stem] (with or without extension) is: in [param config_dir] first when one is
+## given (the directory the host was started with, a plain filesystem path), then beside the project, in
+## `user://`, beside the executable. "" when there is none.
+static func find(stem: String, config_dir: String = "") -> String:
+	if stem.strip_edges().is_empty():
+		return ""
+	if stem.trim_suffix(".yml").trim_suffix(".yaml") == DEFAULT_STEM.trim_suffix(".yml"):
+		return GSCfgLegacy.find(_find_flat(stem, config_dir), _strongest(GSAddonConfig.file_layers("gs-map", "maps.yml", config_dir)))
+	return _find_flat(stem, config_dir)
+
+
+## The `maps.yml` files that apply, weakest first: `cfg/addons/gs_map/`, the game's `cfg/game/<game>/gs_map/`, the operator's `cfg/server/addons/gs_map/` and `cfg/server/game/<game>/gs_map/`. An operator file replaces every weaker one unless it starts `merge: true` ([method GSAddonConfig.replace_aware_layers]). [param p_game] stands in for [member GSAddonConfig.game] when that is unset.
+static func find_layers(config_dir: String = "", p_game: String = "") -> PackedStringArray:
+	var had := GSAddonConfig.game
+	if had == "" and p_game != "":
+		GSAddonConfig.game = p_game
+	var out := GSAddonConfig.replace_aware_layers("gs-map", "maps.yml", config_dir)
+	GSAddonConfig.game = had
+	return out
+
+
+static func _strongest(paths: PackedStringArray) -> String:
+	return "" if paths.is_empty() else paths[paths.size() - 1]
+
+
+static func _find_flat(stem: String, config_dir: String) -> String:
+	var names := PackedStringArray([stem]) if stem.get_extension() != "" \
+		else PackedStringArray(EXTENSIONS.map(func(e: String) -> String: return "%s.%s" % [stem, e]))
+	if config_dir != "":
+		for n in names:
+			var beside := config_dir.path_join(n.get_file())
+			if FileAccess.file_exists(beside):
+				return beside
+	var bases := PackedStringArray([""])
+	if stem.is_relative_path() and not stem.begins_with("res://") and not stem.begins_with("user://"):
+		bases = PackedStringArray(["res://", "user://", OS.get_executable_path().get_base_dir() + "/"])
+	for base in bases:
+		for n in names:
+			if FileAccess.file_exists(base + n):
+				return base + n
+	return ""
+
+
+## The `--config DIR` (or `--config=DIR`) the process was started with, or "". A game cannot
+## ask the host for it, and the flag is the one thing the host and the game both see.
+static func config_dir_arg() -> String:
+	var args := OS.get_cmdline_user_args() + OS.get_cmdline_args()
+	for i in args.size():
+		if args[i] == "--config" and i + 1 < args.size():
+			return args[i + 1]
+		if args[i].begins_with("--config="):
+			return args[i].substr(9)
+	return ""
+
+
+## Layers parsed trees, weakest first (the game's shipped file, then the server's).
+static func from_trees(trees: Array, p_game: String = "", p_sources: PackedStringArray = PackedStringArray()) -> GSResult:
+	var file := GSMapRotationFile.new()
+	file.game = p_game
+	file.sources = p_sources
+	var layers: Array = []
+	for t: Variant in trees:
+		var tree := t as Dictionary
+		file._read_exempt(tree)
+		var where := "maps.yml"
+		if tree.get("defaults") is Dictionary:
+			file._read_exempt(tree["defaults"])
+			var section := file._take_profiles(tree["defaults"], where + " defaults")
+			layers.append(GSRotationSpec.normalize(section, "maps", file.warnings, where + " defaults"))
+		if tree.get("games") is Dictionary:
+			for key: Variant in (tree["games"] as Dictionary):
+				if GSRotationSpec.key_matches(str(key), p_game) and (tree["games"] as Dictionary)[key] is Dictionary:
+					file._read_exempt((tree["games"] as Dictionary)[key])
+					var at := "%s games.%s" % [where, key]
+					var section := file._take_profiles((tree["games"] as Dictionary)[key], at)
+					layers.append(GSRotationSpec.normalize(section, "maps", file.warnings, at))
+	file.spec = GSRotationSpec.layer(layers)
+	for w in file.warnings:
+		GSLog.warn(CHANNEL, w)
+	return GSResult.success(file)
+
+
+## [param section] without its profile keys, which go to [member profile_defaults]: a game-mode `mode:` would
+## otherwise reach [GSRotationSpec] and be read as "random" with a warning. The tree itself is not changed.
+func _take_profiles(section: Dictionary, where: String) -> Dictionary:
+	var out := section.duplicate()
+	var v := _take_profile_value(out, where)
+	if v != "":
+		profile_defaults[""] = v
+	if out.get("rotations") is Dictionary:
+		var rots := (out["rotations"] as Dictionary).duplicate()
+		for name: Variant in rots:
+			if rots[name] is Dictionary:
+				var body := (rots[name] as Dictionary).duplicate()
+				var rv := _take_profile_value(body, "%s rotations.%s" % [where, name])
+				if rv != "":
+					profile_defaults[str(name)] = rv
+				rots[name] = body
+		out["rotations"] = rots
+	return out
+
+
+## Erases a game-mode `mode:` and any `cfg:` from [param d] and returns the profile they name, or "".
+func _take_profile_value(d: Dictionary, where: String) -> String:
+	var m := ""
+	if d.has("mode") and not SELECTION_MODES.has(_text(d["mode"]).to_lower()):
+		m = _text(d["mode"])
+		d.erase("mode")
+	var c := ""
+	if d.has("cfg"):
+		c = _text(d["cfg"])
+		d.erase("cfg")
+	return _pick_profile(m, c, where)
+
+
+## `mode:` and `cfg:` are one setting; when both are written and differ, `mode:` wins and the operator hears once.
+func _pick_profile(m: String, c: String, where: String) -> String:
+	if m != "" and c != "" and m != c:
+		_warn_once("both|%s|%s|%s" % [where, m, c], "mode: and cfg: name different profiles; mode: is used",
+			{"where": where, "mode": m, "cfg": c})
+	return m if m != "" else c
+
+
+static func _text(v: Variant) -> String:
+	return "" if v == null else str(v).strip_edges()
+
+
+func _warn_once(key: String, message: String, fields: Dictionary) -> void:
+	if not _warned.has(key):
+		_warned[key] = true
+		GSLog.warn(CHANNEL, message, fields)
+
+
+## Collects `exempt:`/`remove:` from one section (a file, `defaults:` or a game's entry) and from its rotations.
+func _read_exempt(section: Dictionary) -> void:
+	exempt.append_array(_patterns(section))
+	if section.get("rotations") is Dictionary:
+		for name: Variant in (section["rotations"] as Dictionary):
+			var body: Variant = (section["rotations"] as Dictionary)[name]
+			if body is Dictionary:
+				var found := _patterns(body as Dictionary)
+				if not found.is_empty():
+					var had: PackedStringArray = exempt_by_rotation.get(str(name), PackedStringArray())
+					had.append_array(found)
+					exempt_by_rotation[str(name)] = had
+
+
+static func _patterns(section: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	for key in ["exempt", "remove"]:
+		var v: Variant = section.get(key)
+		if v is Array:
+			for r: Variant in (v as Array):
+				out.append(str(r))
+		elif v is String or v is int:
+			out.append(str(v))
+	return out
+
+
+## Reads the given files (a missing one is skipped, an unreadable one fails), weakest first.
+static func load_files(paths: PackedStringArray, p_game: String = "") -> GSResult:
+	var trees: Array = []
+	var used := PackedStringArray()
+	for path in paths:
+		if path == "" or not FileAccess.file_exists(path):
+			continue
+		var parsed := GSYaml.parse_file(path)
+		if not parsed.ok:
+			return parsed.wrap("reading %s" % path)
+		trees.append(parsed.value)
+		used.append(path)
+	return from_trees(trees, p_game, used)
+
+
+## The merged `commands:` block (`prefix`, `names`): what the vote commands are called. See
+## [GSRotationSpec]; the commands classes take it through their `spec_fn`.
+func commands() -> Dictionary:
+	return spec.get("commands", {"names": {}})
+
+
+func has_rotations() -> bool:
+	return not (spec.get("rotations", {}) as Dictionary).is_empty()
+
+
+func rotation_names() -> PackedStringArray:
+	var out := PackedStringArray()
+	for n: Variant in (spec.get("rotations", {}) as Dictionary):
+		out.append(str(n))
+	return out
+
+
+## The name in force: a live switch, else the file's `rotation:`, else `main`.
+func active_name() -> String:
+	return GSRotationSpec.active_name(spec, requested)
+
+
+## The ids the rotation named [param name] (default: the active one) plays, in order, against
+## [param catalogue]. Empty means "no file or nothing matched": the caller then plays everything.
+func resolve(catalogue: GSMapCatalogue, name: String = "") -> PackedStringArray:
+	var use := name if name != "" else active_name()
+	var rots: Dictionary = spec.get("rotations", {})
+	if catalogue == null:
+		return PackedStringArray()
+	var candidates := _candidates(catalogue)
+	var unmatched := PackedStringArray()
+	var ids := PackedStringArray()
+	var listed: bool = rots.has(use) and not ((rots[use] as Dictionary)["entries"] as PackedStringArray).is_empty()
+	if listed:
+		ids = GSRotationSpec.expand((rots[use] as Dictionary)["entries"], candidates, collections, unmatched)
+	elif has_exempt() and (rots.is_empty() or rots.has(use)):
+		# Only exemptions: every installed map, sorted by id.
+		for c: Dictionary in candidates:
+			ids.append(str(c["id"]))
+		ids.sort()
+	else:
+		return PackedStringArray()
+	var out_patterns := exempt.duplicate()
+	out_patterns.append_array(exempt_by_rotation.get(use, PackedStringArray()))
+	if not out_patterns.is_empty():
+		var gone := GSRotationSpec.expand(out_patterns, candidates, collections, unmatched)
+		var kept := PackedStringArray()
+		for id in ids:
+			if not gone.has(id):
+				kept.append(id)
+		ids = kept
+	for entry in unmatched:
+		var key := "%s|%s" % [use, entry]
+		if not _warned.has(key):
+			_warned[key] = true
+			GSLog.warn(CHANNEL, "a map rotation entry matches no installed map", {"rotation": use, "entry": entry})
+	return ids
+
+
+## Whether any `exempt:` was written, anywhere.
+func has_exempt() -> bool:
+	return not exempt.is_empty() or not exempt_by_rotation.is_empty()
+
+
+func _candidates(catalogue: GSMapCatalogue) -> Array:
+	var candidates: Array = []
+	for m in catalogue.maps:
+		var content := String(m.content_id)
+		candidates.append({"id": String(m.id), "ref": content if content.count("/") == 1 else ""})
+	return candidates
+
+
+## The per-map settings the rotation [param name] (default: the active one) gives [param id]
+## (`{waves: easy}` from a mapping entry), empty for a bare entry or no match.
+func settings_for(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> Dictionary:
+	var use := name if name != "" else active_name()
+	if use == "" or catalogue == null or not (spec.get("rotations", {}) as Dictionary).has(use):
+		return {}
+	return GSRotationSpec.settings_for(spec, use, String(id), _candidates(catalogue), collections)
+
+
+## The profile value (a mode id or a path, as written) the rotation [param name] gives [param id]: its entry's
+## `mode:`/`cfg:`, else the rotation's, else the section's. "" for none.
+func profile_value(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> String:
+	var use := name if name != "" else active_name()
+	return _value_from(settings_for(catalogue, id, use), use, String(id))
+
+
+func _value_from(settings: Dictionary, rotation_name: String, id: String) -> String:
+	var v := _pick_profile(_text(settings.get("mode")), _text(settings.get("cfg")), "entry %s" % id)
+	if v == "":
+		v = str(profile_defaults.get(rotation_name, profile_defaults.get("", "")))
+	return v
+
+
+## The resolved profile for [param id] in rotation [param name]: see [method resolve_profile].
+func profile_for(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> Dictionary:
+	return resolve_profile(profile_value(catalogue, id, name))
+
+
+## What a written profile value means: `{value, mode, cfg_path, values}`, or `{}` for "".
+## A bare word (no `/`, not ending `.yml`/`.yaml`) is a mode id, and `cfg/<id>.yml` (or `.yaml`) supplies its cvars when present.
+## Anything else is a file: absolute (`/`, `res://`, `user://`) as is, else under `cfg/` of the gs_map tiers; missing, it WARNs once and gives no mode and no cvars.
+func resolve_profile(value: String) -> Dictionary:
+	if value == "":
+		return {}
+	if _profiles.has(value):
+		return (_profiles[value] as Dictionary).duplicate(true)
+	var out := {"value": value, "mode": "", "cfg_path": "", "values": {}}
+	var is_id := is_mode_id(value)
+	if is_id:
+		out["mode"] = value
+	var path := _profile_path(value, is_id)
+	if path == "" and not is_id:
+		_warn_once("missing|" + value, "a rotation profile file was not found; the map plays with the game's default",
+			{"profile": value, "dir": "cfg/server/addon/gs_map/" + PROFILE_SUBDIR})
+	elif path != "":
+		var read := read_profile(path)
+		if not read.ok:
+			_warn_once("bad|" + path, "a rotation profile file could not be read; the map plays with the game's default",
+				{"path": path, "why": read.error.message})
+			if not is_id:
+				out["mode"] = ""
+		else:
+			var got := read.value as Dictionary
+			out["cfg_path"] = path
+			out["values"] = got["values"]
+			if not is_id:
+				out["mode"] = got["mode"]
+	_profiles[value] = out
+	return out.duplicate(true)
+
+
+## Whether a profile value names a mode rather than a file.
+static func is_mode_id(value: String) -> bool:
+	return not value.contains("/") and not value.contains("\\") and not EXTENSIONS.has(value.get_extension().to_lower())
+
+
+func _profile_path(value: String, is_id: bool) -> String:
+	var names := PackedStringArray()
+	if is_id or value.get_extension() == "":
+		for e: String in EXTENSIONS:
+			names.append("%s.%s" % [value, e])
+	if not is_id:
+		names.append(value)
+	if value.begins_with("/") or value.begins_with("res://") or value.begins_with("user://"):
+		for n in names:
+			if FileAccess.file_exists(n):
+				return n
+		return ""
+	var had := GSAddonConfig.game
+	if had == "" and game != "":
+		GSAddonConfig.game = game
+	var found := ""
+	for n in names:
+		found = _strongest(GSAddonConfig.file_layers("gs-map", PROFILE_SUBDIR.path_join(n), config_dir))
+		if found != "":
+			break
+	GSAddonConfig.game = had
+	return found
+
+
+## One profile file: `{mode, values}`. `values` is `cvars:` when the file has that map, else every other
+## top-level scalar (`mode:` aside). A nested value is not a cvar and is skipped.
+static func read_profile(path: String) -> GSResult:
+	var parsed := GSYaml.parse_file(path)
+	if not parsed.ok:
+		return parsed
+	if parsed.value == null:
+		return GSResult.success({"mode": "", "values": {}})
+	if not parsed.value is Dictionary:
+		return GSResult.fail(GSError.CODE_INVALID, "A profile file must be a map of cvar: value.")
+	var d := parsed.value as Dictionary
+	var nested := d.get("cvars") is Dictionary
+	var src: Dictionary = d["cvars"] if nested else d
+	var values := {}
+	for k: Variant in src:
+		if not nested and (str(k) == "mode" or str(k) == "cvars"):
+			continue
+		var v: Variant = src[k]
+		if v is Dictionary or v is Array or v == null:
+			continue
+		values[str(k)] = v
+	return GSResult.success({"mode": _text(d.get("mode")), "values": values})
+
+
+## The profile the map was given when the rotation was last applied ([member GSMapDef.profile]); `{}` for null.
+func profile_of(map: GSMapDef) -> Dictionary:
+	return {} if map == null else map.profile
+
+
+## Emits [signal profile_changed] for [param map]: for a game that follows the session's `changed` itself instead of [method attach].
+func note_changed(map: GSMapDef) -> void:
+	if map != null:
+		profile_changed.emit(map, map.profile)
+
+
+## Marks every catalogue map in or out of rotation and sets the rotation's order, mode and
+## cooldown. No file, an unknown rotation or an empty result leaves every map in (the whole
+## catalogue): a rotation that empties the server must never leave it stuck.
+func apply(rotation: GSMapRotation, name: String = "") -> GSResult:
+	if rotation == null or rotation.catalogue == null:
+		return GSResult.fail(GSError.CODE_INVALID, "A rotation with a catalogue is needed.")
+	var use := name if name != "" else active_name()
+	var ids := resolve(rotation.catalogue, use)
+	_fell_back = false
+	if (has_rotations() or has_exempt()) and ids.is_empty():
+		_fell_back = true
+		var key := "empty|%s" % use
+		if not _warned.has(key):
+			_warned[key] = true
+			GSLog.warn(CHANNEL, "the map rotation is empty; every installed map plays", {"rotation": use})
+	_bind(rotation)
+	var order: Array[StringName] = []
+	for id in ids:
+		order.append(StringName(id))
+	for m in rotation.catalogue.maps:
+		if ids.is_empty():
+			m.in_rotation = bool(fallback_in.call(m)) if fallback_in.is_valid() else true
+		else:
+			m.in_rotation = ids.has(String(m.id))
+		m.play = settings_for(rotation.catalogue, m.id, use) if m.in_rotation and not ids.is_empty() else {}
+		m.profile = resolve_profile(_value_from(m.play, use, String(m.id))) if m.in_rotation and not ids.is_empty() else {}
+	rotation.order = order
+	if has_rotations() and use != "" and (spec["rotations"] as Dictionary).has(use):
+		rotation.mode = GSMapRotation.Mode.SEQUENTIAL if GSRotationSpec.mode_of(spec, use) == "cycle" \
+			else GSMapRotation.Mode.RANDOM
+		rotation.cooldown = GSRotationSpec.cooldown_of(spec, use, rotation.cooldown)
+	if use != _last_name:
+		rotation.reset_cursor()
+	_last = ids
+	_last_name = use
+	return GSResult.success(ids)
+
+
+## Follows the catalogue of the rotation last applied, so a content refresh (a pack installed,
+## a session turned) re-applies the marks to the fresh defs it just made. Applying to another
+## rotation moves the connection; the old catalogue is no longer followed.
+func _bind(rotation: GSMapRotation) -> void:
+	_bound = weakref(rotation)
+	var catalogue := rotation.catalogue
+	if catalogue == _bound_catalogue:
+		return
+	if _bound_catalogue != null and _bound_catalogue.content_refreshed.is_connected(_on_content_refreshed):
+		_bound_catalogue.content_refreshed.disconnect(_on_content_refreshed)
+	_bound_catalogue = catalogue
+	catalogue.content_refreshed.connect(_on_content_refreshed)
+
+
+func _on_content_refreshed() -> void:
+	var rotation := _bound.get_ref() as GSMapRotation if _bound != null else null
+	if rotation == null or rotation.catalogue != _bound_catalogue:
+		return
+	# The name last applied, so a game that applied a named rotation keeps it; a live switch
+	# has already moved it through [member requested].
+	apply(rotation, _last_name)
+
+
+## Whether the last [method apply] found its rotation empty and so left every map in.
+## A game that keeps some maps out by default (a kind that is another mode's) puts its own
+## rule back when this is true.
+func fell_back() -> bool:
+	return _fell_back
+
+
+## Switches the live rotation (`sv_map_rotation <name>`). An unknown name changes nothing.
+func switch(rotation: GSMapRotation, name: String) -> GSResult:
+	var rots: Dictionary = spec.get("rotations", {})
+	if not rots.has(name):
+		return GSResult.fail(GSError.CODE_INVALID, "No rotation called '%s'." % name,
+			"rotations: %s" % ", ".join(rotation_names()))
+	requested = name
+	return apply(rotation)
+
+
+## Re-applies after every map change, so a map installed meanwhile that matches joins.
+func attach(session: GSMapSession) -> void:
+	session.changed.connect(func(map: GSMapDef, _world: Node) -> void:
+		note_changed(map)
+		if session.rotation != null:
+			apply(session.rotation))
+
+
+func describe() -> Dictionary:
+	return {
+		"game": game, "sources": ", ".join(sources), "rotations": ", ".join(rotation_names()),
+		"active": active_name(), "plays": _last.size(), "fell_back": _fell_back,
+	}
+
+
+func describe_lines() -> PackedStringArray:
+	var lines := PackedStringArray()
+	for n in rotation_names():
+		var mark := "*" if n == (_last_name if _last_name != "" else active_name()) else " "
+		var entries: PackedStringArray = (spec["rotations"] as Dictionary)[n]["entries"]
+		var prof := str(profile_defaults.get(n, profile_defaults.get("", "")))
+		lines.append("%s %s (%s, cooldown %d%s): %s" % [mark, n, GSRotationSpec.mode_of(spec, n),
+			GSRotationSpec.cooldown_of(spec, n, 0), (", profile " + prof) if prof != "" else "", ", ".join(entries)])
+	return lines

@@ -1,10 +1,10 @@
 # Visibility: drawing only what the camera can see
 
-A converted map is drawn as 16 m chunks (a 6 m height band each) of merged faces plus stand-in props. Without culling every chunk inside the frustum is drawn, including the shop behind three walls. `GSMapVisibility` (`addons/dot_map/bsp/dot_map_visibility.gd`) uses the map's own precomputed visibility data to draw only the chunks the camera's position could see, and adds occluders made from the map's large solid brushes for whatever that data cannot cover.
+A converted map is drawn as 16 m chunks (a 6 m height band each) of merged faces plus stand-in props. Without culling every chunk inside the frustum is drawn, including the shop behind three walls. `GSMapVisibility` (`addons/gs_map/bsp/gs_map_visibility.gd`) uses the map's own precomputed visibility data to draw only the chunks the camera's position could see, and adds occluders made from the map's large solid brushes for whatever that data cannot cover.
 
 ## What the converter keeps
 
-`dot-map-convert/dotbsp/vis.py`, called at the end of `mesh.build` (on by default, `visibility=False` turns it off), writes a `vis` record into the `dot-bsp-mesh` manifest. Every array lives in the `.bin` as an `{offset, count}` block, so a map without the data costs nothing and an older reader ignores it (the manifest version is unchanged).
+`gs-map-convert/gsbsp/vis.py`, called at the end of `mesh.build` (on by default, `visibility=False` turns it off), writes a `vis` record into the `gs-bsp-mesh` manifest. Every array lives in the `.bin` as an `{offset, count}` block, so a map without the data costs nothing and an older reader ignores it (the manifest version is unchanged).
 
 | Key | What |
 | --- | --- |
@@ -70,7 +70,7 @@ Screenshots from five spots in the mall, off against both, differ only where a p
 
 ### Chunk size and the per-position table
 
-Chunks were 32 m columns: the mall had 42 chunks, each touching hundreds of clusters, so pvs hid little (62% of triangles were shown from random points). They are now 16 m columns with a 6 m height band (`DOTBSP_CHUNK`, `DOTBSP_CHUNK_Y` override at conversion): 119 chunks in the mall, 50% of triangles shown. 12 m / 4 m cut a little more (46%) but raised unculled draws by half. Re-run `bsp.py regen` to get the finer chunks; packs made before keep the 32 m ones.
+Chunks were 32 m columns: the mall had 42 chunks, each touching hundreds of clusters, so pvs hid little (62% of triangles were shown from random points). They are now 16 m columns with a 6 m height band (`GSBSP_CHUNK`, `GSBSP_CHUNK_Y` override at conversion): 119 chunks in the mall, 50% of triangles shown. 12 m / 4 m cut a little more (46%) but raised unculled draws by half. Re-run `bsp.py regen` to get the finer chunks; packs made before keep the 32 m ones.
 
 `tools/shot_vis_proof.sh` (`examples/vis_proof.gd`) on the GTX 1660 Ti, 640×360, no zombies, draw calls per mode at spots picked by how much of the map their PVS sees (`--world=<prefix> --spots=6 --diffs=24 --out=<dir>`; `--bisect` names the hidden chunks that change a frame; `--keepshadows`):
 

@@ -24,7 +24,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map surfaces")
+	print("gs-map surfaces")
 	_test_kinds()
 	_test_headless_shrink()
 	_test_material_flags()

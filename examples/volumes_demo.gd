@@ -14,7 +14,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map volumes")
+	print("gs-map volumes")
 	_test_hurt_cycle()
 	_test_hurt_model_and_kind()
 	_test_triggers()

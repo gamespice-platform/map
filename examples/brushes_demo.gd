@@ -21,7 +21,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-map brushes")
+	print("gs-map brushes")
 	_test_spec()
 	_build_gallery()
 	await get_tree().physics_frame

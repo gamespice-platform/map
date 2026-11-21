@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Bakes occluders into a scene file from its static meshes, headless. Run [code]--import[/code] first.
-## Meshes in group [code]dot_no_occluder[/code], hidden and translucent ones are skipped.
+## Meshes in group [code]gs_no_occluder[/code], hidden and translucent ones are skipped.
 
 func _init() -> void:
 	var path := ""

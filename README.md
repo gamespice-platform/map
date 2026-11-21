@@ -10,7 +10,7 @@ The obvious way to ship a hundred maps is a hundred Godot projects: a hundred ex
 
 ## Install
 
-Copy `addons/dot_map/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into your project and enable dot-map under **Project > Project Settings > Plugins**.
+Copy `addons/gs_map/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/gs_core/` into your project and enable gs-map under **Project > Project Settings > Plugins**.
 
 [GameSpice Cloud](https://github.com/gamespice-platform/cloud) (to fetch delivered maps) and [GameSpice Timer](https://github.com/gamespice-platform/timer) (zones) are optional and found at run time.
 
@@ -115,7 +115,7 @@ vis.setup(world, dw.visual)
 GSMapLitWorld.attach(dw, world, environment, lamps)
 ```
 
-`examples/bsp_world_shot.gd` is this flow with a camera: `tools/screenshot.sh dot-map out.png --scene res://examples/bsp_world_shot.tscn`, with `--world=<prefix>`. `world.build_node()` alone gives just the mesh tree if you want to place everything yourself.
+`examples/bsp_world_shot.gd` is this flow with a camera: `tools/screenshot.sh gs-map out.png --scene res://examples/bsp_world_shot.tscn`, with `--world=<prefix>`. `world.build_node()` alone gives just the mesh tree if you want to place everything yourself.
 
 `tools/prop_audit.gd` checks that no converted world has a library prop that failed to load or would be invisible but solid. Run it on the path a game reaches the worlds by: `godot --headless --path . -s res://tools/prop_audit.gd -- <worlds dir>...`. It exits 1 on a problem; `--allow-proxied` accepts maps drawn with box proxies.
 
@@ -123,10 +123,10 @@ When a converted map is wrong, fix the converter or its rule tables and regenera
 
 ### Maps that share art
 
-A converted map that names a shared art slice (`licence.store_pack`, see [docs/content.md](docs/content.md#shared-stores-as-dot-cloud-slices)) needs two lines in the game's loader between reading the world and building it. A scoreboard or map screen should show the credit line (CC-BY asks for it):
+A converted map that names a shared art slice (`licence.store_pack`, see [docs/content.md](docs/content.md#shared-stores-as-gs-cloud-slices)) needs two lines in the game's loader between reading the world and building it. A scoreboard or map screen should show the credit line (CC-BY asks for it):
 
 ```gdscript
-var cloud: Object = GSRegistry.get_service(&"dot_cloud_client")
+var cloud: Object = GSRegistry.get_service(&"gs_cloud_client")
 var licence: Dictionary = world.manifest.get("licence", {})
 await GSMapStore.ensure(licence, cloud)                 # download and mount the slice once
 GSMapStore.apply(licence, cloud, surfaces, world)       # before world_material_for / build_node
@@ -201,7 +201,7 @@ godot --headless --path . res://examples/map_selftest.tscn
 
 | Asset | Author / source | Licence |
 | --- | --- | --- |
-| 28 photographic PBR surface materials, one per surface kind | Lennart Demes and contributors, [ambientCG](https://ambientcg.com) (asset ids and pages in [CREDITS.md](addons/dot_map/surfaces/CREDITS.md)) | CC0 1.0 |
+| 28 photographic PBR surface materials, one per surface kind | Lennart Demes and contributors, [ambientCG](https://ambientcg.com) (asset ids and pages in [CREDITS.md](addons/gs_map/surfaces/CREDITS.md)) | CC0 1.0 |
 
 ## Licence
 
