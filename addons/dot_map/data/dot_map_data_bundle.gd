@@ -1,4 +1,4 @@
-class_name DotMapDataBundle
+class_name GSMapDataBundle
 extends RefCounted
 
 ## One map's tool data (spawns, nav settings, hand links, cull rules) as a JSON file keyed by game, map id
@@ -47,14 +47,14 @@ func to_dict() -> Dictionary:
 
 
 ## The file text. Checks the same caps an import does, so nothing is written that could not be read back.
-func to_json() -> DotResult:
+func to_json() -> GSResult:
 	var text := JSON.stringify(to_dict(), "\t")
 	var res := from_json(text)
-	return res if not res.ok else DotResult.success(text)
+	return res if not res.ok else GSResult.success(text)
 
 
 ## Section by section: [param over] wins where it has the section, else [param base]. Either may be null.
-static func layered(base: DotMapDataBundle, over: DotMapDataBundle) -> DotMapDataBundle:
+static func layered(base: GSMapDataBundle, over: GSMapDataBundle) -> GSMapDataBundle:
 	if base == null or over == null:
 		return over if base == null else base
 	var out := _copy(over)
@@ -66,65 +66,65 @@ static func layered(base: DotMapDataBundle, over: DotMapDataBundle) -> DotMapDat
 
 
 ## Parses and validates. Failure codes: parse, version (newer schema), invalid (shape, caps, paths).
-static func from_json(text: String) -> DotResult:
+static func from_json(text: String) -> GSResult:
 	if text.length() > MAX_BYTES:
-		return DotResult.fail(DotError.CODE_INVALID, "Map data is larger than %d bytes." % MAX_BYTES)
+		return GSResult.fail(GSError.CODE_INVALID, "Map data is larger than %d bytes." % MAX_BYTES)
 	var json := JSON.new()
 	var parsed: Variant = json.data if json.parse(text) == OK else null
 	if not parsed is Dictionary:
-		return DotResult.fail(DotError.CODE_PARSE, "Map data is not a JSON object.")
+		return GSResult.fail(GSError.CODE_PARSE, "Map data is not a JSON object.")
 	var d: Dictionary = parsed
 	if d.get("format") != FORMAT:
-		return DotResult.fail(DotError.CODE_INVALID, "Not a %s file." % FORMAT)
+		return GSResult.fail(GSError.CODE_INVALID, "Not a %s file." % FORMAT)
 	if not (d.get("schema") is float or d.get("schema") is int) or d["schema"] != floorf(d["schema"]):
-		return DotResult.fail(DotError.CODE_INVALID, "Map data has no schema number.")
+		return GSResult.fail(GSError.CODE_INVALID, "Map data has no schema number.")
 	if int(d["schema"]) > SCHEMA:
-		return DotResult.fail(DotError.CODE_VERSION, "Map data schema %d is newer than %d." % [int(d["schema"]), SCHEMA])
+		return GSResult.fail(GSError.CODE_VERSION, "Map data schema %d is newer than %d." % [int(d["schema"]), SCHEMA])
 	var map: Variant = d.get("map")
 	if not map is Dictionary or not d.get("game") is String or not d.get("sections", {}) is Dictionary or not d.get("meta", {}) is Dictionary:
-		return DotResult.fail(DotError.CODE_INVALID, "Map data has the wrong shape.")
-	var b := DotMapDataBundle.new()
+		return GSResult.fail(GSError.CODE_INVALID, "Map data has the wrong shape.")
+	var b := GSMapDataBundle.new()
 	b.game = d["game"]
 	b.map_id = str(map.get("id", ""))
 	b.map_version = str(map.get("version", ""))
 	b.digest = str(map.get("digest", ""))
 	if not is_safe_id(b.game) or not is_safe_id(b.map_id) or not is_safe_id(b.map_version):
-		return DotResult.fail(DotError.CODE_INVALID, "Game, map id and version must be 1 to %d letters, digits, _ - ." % MAX_ID)
+		return GSResult.fail(GSError.CODE_INVALID, "Game, map id and version must be 1 to %d letters, digits, _ - ." % MAX_ID)
 	if b.digest.length() > 128:
-		return DotResult.fail(DotError.CODE_INVALID, "Digest is too long.")
+		return GSResult.fail(GSError.CODE_INVALID, "Digest is too long.")
 	var budget := [MAX_NODES]
 	for part: Variant in [d.get("meta", {}), d.get("sections", {})]:
 		var bad := _scan(part, 0, budget)
 		if bad != "":
-			return DotResult.fail(DotError.CODE_INVALID, bad)
+			return GSResult.fail(GSError.CODE_INVALID, bad)
 	b.meta = d.get("meta", {}).duplicate(true)
 	var secs: Dictionary = d.get("sections", {})
 	for key: String in secs:
 		if not key in SECTIONS:
 			continue
 		if not secs[key] is Dictionary:
-			return DotResult.fail(DotError.CODE_INVALID, "Section %s is not an object." % key)
+			return GSResult.fail(GSError.CODE_INVALID, "Section %s is not an object." % key)
 		b.sections[key] = secs[key].duplicate(true)
-	return DotResult.success(b)
+	return GSResult.success(b)
 
 
 ## A file handed in by a person. It must be for this map (conflict otherwise). A different version or
 ## geometry digest is refused unless [param force]; [method import_warnings] says what differs.
-static func import_json(text: String, map_id: String, map_version: String, digest: String = "", force: bool = false) -> DotResult:
+static func import_json(text: String, map_id: String, map_version: String, digest: String = "", force: bool = false) -> GSResult:
 	var res := from_json(text)
 	if not res.ok:
 		return res
-	var b: DotMapDataBundle = res.value
+	var b: GSMapDataBundle = res.value
 	if b.map_id != map_id:
-		return DotResult.fail(DotError.CODE_CONFLICT, "This data is for map %s, not %s." % [b.map_id, map_id])
+		return GSResult.fail(GSError.CODE_CONFLICT, "This data is for map %s, not %s." % [b.map_id, map_id])
 	var warnings := import_warnings(b, map_version, digest)
 	if not warnings.is_empty() and not force:
-		return DotResult.fail(DotError.CODE_CONFLICT, "; ".join(warnings) + " (import again with force).")
-	return DotResult.success(b)
+		return GSResult.fail(GSError.CODE_CONFLICT, "; ".join(warnings) + " (import again with force).")
+	return GSResult.success(b)
 
 
 ## What differs between a bundle and the map it is imported onto.
-static func import_warnings(b: DotMapDataBundle, map_version: String, digest: String = "") -> PackedStringArray:
+static func import_warnings(b: GSMapDataBundle, map_version: String, digest: String = "") -> PackedStringArray:
 	var out := PackedStringArray()
 	if b.map_version != map_version:
 		out.append("made for version %s, map is %s" % [b.map_version, map_version])
@@ -133,8 +133,8 @@ static func import_warnings(b: DotMapDataBundle, map_version: String, digest: St
 	return out
 
 
-static func _copy(src: DotMapDataBundle) -> DotMapDataBundle:
-	var b := DotMapDataBundle.new()
+static func _copy(src: GSMapDataBundle) -> GSMapDataBundle:
+	var b := GSMapDataBundle.new()
 	b.game = src.game
 	b.map_id = src.map_id
 	b.map_version = src.map_version

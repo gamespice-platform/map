@@ -1,8 +1,8 @@
-class_name DotMapBreakable
-extends DotMapEntity
+class_name GSMapBreakable
+extends GSMapEntity
 
 ## func_breakable, func_breakable_surf and a breakable prop_physics: health, damage from the game ([method
-## DotMapIO.hurt]), and a break that fires OnBreak, hides the model and lets it go.
+## GSMapIO.hurt]), and a break that fires OnBreak, hides the model and lets it go.
 
 const MATERIALS: PackedStringArray = ["glass", "wood", "metal", "flesh", "concrete", "tile", "computer",
 		"unbreakable_glass", "rock", "web"]
@@ -15,7 +15,7 @@ var material := "glass"
 ## Damage under this is ignored (minhealthdmg).
 var min_damage := 0.0
 ## Set by the game when the break is its own to render ([code]effect(kind, entity, on)[/code] still fires).
-var glass: DotMapGlass = null
+var glass: GSMapGlass = null
 
 var _damage_blocked := false
 

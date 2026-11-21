@@ -1,7 +1,7 @@
-class_name DotMapSurfaces
+class_name GSMapSurfaces
 extends "dot_map_surfaces_kinds.gd"
 
-# "world" parameters here are DotMapBspMesh, typed RefCounted, and its static helpers are reached through its glass
+# "world" parameters here are GSMapBspMesh, typed RefCounted, and its static helpers are reached through its glass
 # part or the instance: the mesh scripts name this file, so naming the mesh back would keep both parsers alive.
 const _MESH_GLASS := preload("uid://cb3jej8cfm0h0")
 
@@ -9,7 +9,7 @@ const _MESH_GLASS := preload("uid://cb3jej8cfm0h0")
 ## Textures load by path under [member root] (or [member path_fn]), never referenced by a scene, so a delivered pack that mounts elsewhere still finds them.
 ## Albedo is untouched ([param tint] multiplies it); normal maps are the OpenGL (Y+) convention. Credits: [code]surfaces/CREDITS.md[/code].
 
-## A `material_for` callable for [method DotMapBspMesh.build_node] that draws a converted map with its free
+## A `material_for` callable for [method GSMapBspMesh.build_node] that draws a converted map with its free
 ## textures: a surface's `free` key names a surface kind, or a generated flat colour the pack carries as a file
 ## beside [param dir] (the pack's directory).
 func world_material_for(world: RefCounted, dir: String) -> Callable:
@@ -93,12 +93,12 @@ func _warm_file_async(path: String, pace: Dictionary, slice_ms: int, tree: Scene
 		return
 	await _pace(pace, slice_ms, tree)
 	t0 = Time.get_ticks_usec()
-	var shrunk := DotMapImagePrep.shrink_image(img, path, max_texture_size, half_res_masks, half_res_normals)
+	var shrunk := GSMapImagePrep.shrink_image(img, path, max_texture_size, half_res_masks, half_res_normals)
 	pace["guess"] = maxi(pace["guess"], Time.get_ticks_usec() - t0)
 	if shrunk:
 		await _pace(pace, slice_ms, tree)
 		t0 = Time.get_ticks_usec()
-		DotMapImagePrep.compress_image(img, -1)
+		GSMapImagePrep.compress_image(img, -1)
 		pace["guess"] = maxi(pace["guess"], Time.get_ticks_usec() - t0)
 	await _pace(pace, slice_ms, tree)
 	_textures[path] = ImageTexture.create_from_image(img)
@@ -139,7 +139,7 @@ func _make_materials_async(world: RefCounted, material_for: Callable, slice_ms: 
 		if took > SLOW_MATERIAL_USEC:
 			_tell("materials: %s took %.1f ms" % [str(rec.get("free", "")), took / 1000.0])
 	await tree.process_frame    # the mesh build that follows starts a frame of its own
-	DotLog.debug(CHANNEL, "world materials made ahead", {"surfaces": world.surfaces.size(), "dearest_ms": guess / 1000.0})
+	GSLog.debug(CHANNEL, "world materials made ahead", {"surfaces": world.surfaces.size(), "dearest_ms": guess / 1000.0})
 
 
 func _note_sets(world: RefCounted, dir: String) -> Dictionary:
@@ -148,7 +148,7 @@ func _note_sets(world: RefCounted, dir: String) -> Dictionary:
 		if not missing_sets.has(key):
 			missing_sets.append(key)
 	if not (sets["stand_in"] as Dictionary).is_empty():
-		DotLog.debug(CHANNEL, "PBR sets not installed; each is drawn as a stand-in kind in its faces' own colour", {"sets": (sets["stand_in"] as Dictionary).size()})
+		GSLog.debug(CHANNEL, "PBR sets not installed; each is drawn as a stand-in kind in its faces' own colour", {"sets": (sets["stand_in"] as Dictionary).size()})
 	return sets
 
 
@@ -303,20 +303,20 @@ func _prefetch_plan(world: RefCounted, generated: Dictionary, library: Dictionar
 
 
 func _prefetch(world: RefCounted, generated: Dictionary, library: Dictionary, stand_in: Dictionary = {}) -> void:
-	if DotParallel.resolve_workers(load_threads) == 0:
+	if GSParallel.resolve_workers(load_threads) == 0:
 		return
 	var plan := _prefetch_plan(world, generated, library, stand_in)
 	var started := Time.get_ticks_msec()
-	_textures.merge(DotMapParallelBuild.textures(plan["disk"], load_threads, max_texture_size, half_res_masks, half_res_normals))
+	_textures.merge(GSMapParallelBuild.textures(plan["disk"], load_threads, max_texture_size, half_res_masks, half_res_normals))
 	_prefetch_done(plan, Time.get_ticks_msec() - started)
 
 
 func _prefetch_async(world: RefCounted, generated: Dictionary, library: Dictionary, slice_ms: int, stand_in: Dictionary = {}) -> void:
-	if DotParallel.resolve_workers(load_threads) == 0:
+	if GSParallel.resolve_workers(load_threads) == 0:
 		return
 	var plan := _prefetch_plan(world, generated, library, stand_in)
 	var started := Time.get_ticks_msec()
-	_textures.merge(await DotMapParallelBuild.textures_async(plan["disk"], load_threads, max_texture_size, half_res_masks, slice_ms, half_res_normals))
+	_textures.merge(await GSMapParallelBuild.textures_async(plan["disk"], load_threads, max_texture_size, half_res_masks, slice_ms, half_res_normals))
 	# load_threaded_get blocks until its load is done: wait for the imported ones a frame at a time instead.
 	var tree := Engine.get_main_loop() as SceneTree
 	for p: String in plan["imported"]:
@@ -330,7 +330,7 @@ func _prefetch_done(plan: Dictionary, decode_ms: int) -> void:
 		var tex := ResourceLoader.load_threaded_get(p) as Texture2D
 		if tex != null:    # a stray .import marker whose .ctex is not mounted loads null: leave it to the raw read in _file_texture
 			_textures[p] = _masked(p, tex)
-	DotLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
+	GSLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
 
 
 ## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world drawn later does not stop a frame for the compile (about 85 ms for the lightmapped one on a desktop GPU). Call once at a quiet moment, e.g. under a boot cover; a second call returns at once.

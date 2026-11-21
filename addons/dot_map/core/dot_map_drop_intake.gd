@@ -1,4 +1,4 @@
-class_name DotMapDropIntake
+class_name GSMapDropIntake
 extends Node
 
 ## Maps a person hands a game: dropped on the window, dropped on the executable (command-line paths, [method take_cmdline]),
@@ -21,7 +21,7 @@ const ENGINE_VALUE_FLAGS := ["--path", "--main-pack", "--scene", "--script", "-s
 signal handled(result: Dictionary)
 
 ## Where acceptors copy what they take.
-var into := DotMapLocalMaps.DROP_ROOT
+var into := GSMapLocalMaps.DROP_ROOT
 
 ## How many folders below a dropped folder a converted map is looked for; 0 is no limit.
 var search_depth := 3
@@ -86,7 +86,7 @@ func add_acceptor(what: String, fn: Callable) -> void:
 
 
 ## Adds the converted-map acceptor: a map folder (searched [member search_depth] folders down), a convert folder, a zip of
-## either, or a [code].json[/code]/[code].bin[/code] beside its pair, copied by [method DotMapLocalMaps.accept_dropped].
+## either, or a [code].json[/code]/[code].bin[/code] beside its pair, copied by [method GSMapLocalMaps.accept_dropped].
 func add_converted_maps() -> void:
 	add_acceptor("a converted map folder or its .zip", _accept_converted)
 
@@ -134,11 +134,11 @@ func handle(paths: PackedStringArray, source: String = "window") -> Dictionary:
 		if not claimed:
 			errors.append("%s: not a map this game can load (it takes %s)" % [shown, " or ".join(accepted_kinds())])
 	if not added.is_empty():
-		DotWeb.sync_filesystem()
+		GSWeb.sync_filesystem()
 	for line in errors:
-		DotLog.error(CHANNEL, "%s drop refused: %s" % [source, line])
+		GSLog.error(CHANNEL, "%s drop refused: %s" % [source, line])
 	for e in added:
-		DotLog.info(CHANNEL, "%s drop added: %s" % [source, str(e.get("id", "?"))])
+		GSLog.info(CHANNEL, "%s drop added: %s" % [source, str(e.get("id", "?"))])
 	var result := {"source": source, "paths": seen, "added": added, "errors": errors}
 	last_result = result
 	drops += 1
@@ -195,7 +195,7 @@ static func strip_config_args(args: PackedStringArray, prefixes: PackedStringArr
 	return out
 
 
-## Whether [param stem] names a non-boolean key of [param config] (a GameSpice Core [code]DotConfig[/code]): a bare boolean option is a
+## Whether [param stem] names a non-boolean key of [param config] (a GameSpice Core [code]GSConfig[/code]): a bare boolean option is a
 ## switch, so the argument after it is not its value, nor after an unknown key.
 static func config_takes_value(config: Object, stem: String) -> bool:
 	var key := str(config.call(&"_match_key", stem, config.call(&"config_keys")))
@@ -295,22 +295,22 @@ func _accept_converted(path: String, to: String) -> Dictionary:
 	var take := ""
 	var ext := path.get_extension().to_lower()
 	if DirAccess.dir_exists_absolute(path):
-		var entry := DotMapLocalMaps.entry_within(path.rstrip("/"), search_depth)
+		var entry := GSMapLocalMaps.entry_within(path.rstrip("/"), search_depth)
 		if entry.is_empty():
 			return {}
 		take = str(entry["folder"])
 	elif ext == "zip":
-		var why := DotMapLocalMaps.zip_problem(path)
-		if why == DotMapLocalMaps.ZIP_NO_MAP or why == DotMapLocalMaps.ZIP_UNREADABLE:
+		var why := GSMapLocalMaps.zip_problem(path)
+		if why == GSMapLocalMaps.ZIP_NO_MAP or why == GSMapLocalMaps.ZIP_UNREADABLE:
 			return {}
 		take = path
 	elif ext == "json" or ext == "bin":
-		if DotMapLocalMaps.prefix_in(path.get_base_dir()).is_empty() or not FileAccess.file_exists(path.get_basename() + ".bin"):
+		if GSMapLocalMaps.prefix_in(path.get_base_dir()).is_empty() or not FileAccess.file_exists(path.get_basename() + ".bin"):
 			return {}
 		take = path
 	else:
 		return {}
-	return DotMapLocalMaps.accept_dropped(PackedStringArray([take]), to)
+	return GSMapLocalMaps.accept_dropped(PackedStringArray([take]), to)
 
 
 ## [param raw] as a path this process can open: Windows separators made forward when the raw path does not exist as given.

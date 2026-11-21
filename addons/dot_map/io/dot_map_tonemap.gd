@@ -1,5 +1,5 @@
-class_name DotMapTonemap
-extends DotMapEntity
+class_name GSMapTonemap
+extends GSMapEntity
 
 ## env_tonemap_controller: SetAutoExposureMin/Max and SetBloomScale keep the value and send a [code]tonemap[/code] event
 ## ([code]{entity, name, setting, value}[/code]) for a game that has an environment to adjust. Its other inputs stay

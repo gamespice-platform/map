@@ -1,4 +1,4 @@
-class_name DotMapUsePrompt
+class_name GSMapUsePrompt
 extends Label
 
 ## The look-at prompt: "[E] Use" while the eye is on something pressable in reach, "Locked" when it is locked, hidden otherwise.
@@ -15,9 +15,9 @@ func _init() -> void:
 	visible = false
 
 
-## Shows what [method DotMapUse.aim] returned (an empty dictionary hides it). With [param rules] the
+## Shows what [method GSMapUse.aim] returned (an empty dictionary hides it). With [param rules] the
 ## reach is the current [code]sv_use_reach[/code], the server's own test, not the one when [code]info[/code] was made.
-func show_aim(info: Dictionary, rules: DotMapUse = null) -> void:
+func show_aim(info: Dictionary, rules: GSMapUse = null) -> void:
 	var label := String(info.get("label", ""))
 	var reachable: bool = rules.in_reach(info) if rules != null else bool(info.get("in_range", false))
 	visible = not info.is_empty() and reachable and label != ""

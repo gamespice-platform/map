@@ -1,4 +1,4 @@
-class_name DotMapCredits
+class_name GSMapCredits
 extends RefCounted
 ## The credits of a loaded converted map, read from its manifest's licence block (the rows `bsp.py` writes to
 ## CREDITS.md and credits.json): the map's author, and every free texture, model and sound it shows.
@@ -33,7 +33,7 @@ static func works(manifest: Dictionary, only_attribution: bool = false) -> Array
 	return out
 
 
-## The one line a scoreboard or menu shows: the map's author and page, the authors whose licence asks for a credit, and [method DotMapStore.notice] when its art is not installed.
+## The one line a scoreboard or menu shows: the map's author and page, the authors whose licence asks for a credit, and [method GSMapStore.notice] when its art is not installed.
 static func line(manifest: Dictionary) -> String:
 	var parts := PackedStringArray()
 	var credit: Dictionary = manifest.get("credit", {})
@@ -45,7 +45,7 @@ static func line(manifest: Dictionary) -> String:
 			names[w["author"]] = true
 	if not names.is_empty():
 		parts.append("Art: %s" % ", ".join(PackedStringArray(names.keys())))
-	var missing := DotMapStore.notice(manifest.get("licence", {}))
+	var missing := GSMapStore.notice(manifest.get("licence", {}))
 	if not missing.is_empty():
 		parts.append(missing)
 	return " | ".join(parts)

@@ -1,5 +1,5 @@
-class_name DotMapMeasureMovement
-extends DotMapEntity
+class_name GSMapMeasureMovement
+extends GSMapEntity
 
 ## logic_measure_movement: copies one entity's movement onto another. The runtime holds no
 ## positions, so it keeps the four names (which inputs can change) and tells the game through

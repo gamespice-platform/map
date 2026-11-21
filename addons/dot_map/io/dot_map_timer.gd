@@ -1,5 +1,5 @@
-class_name DotMapTimer
-extends DotMapEntity
+class_name GSMapTimer
+extends GSMapEntity
 
 ## logic_timer: fires OnTimer every RefireTime seconds (or a random time between two bounds),
 ## alternating OnTimerHigh and OnTimerLow, while enabled.

@@ -2,7 +2,7 @@
 
 ## The order of a change
 
-`DotMapSession.change_to_map` is the most dangerous thing a server does: players are in runs, entities are replicated, content may still be downloading, and the scene about to be freed is the one everything holds a reference to. The order is:
+`GSMapSession.change_to_map` is the most dangerous thing a server does: players are in runs, entities are replicated, content may still be downloading, and the scene about to be freed is the one everything holds a reference to. The order is:
 
 1. **announce** (`changing`) before anything is torn down, so a timer can abandon its runs and a netcode can stop replicating entities that are about to vanish;
 2. **fetch and load the new scene** before freeing the old one;
@@ -17,7 +17,7 @@ A second change while one is in progress is **refused, not queued**: two overlap
 
 ## Changing the map for everybody
 
-`DotMapSession` changes the map **in this process** only. Without a protocol, a dedicated server freed its world, loaded the next one, and every connected client carried on playing the map that no longer existed; broadcasting a map id and hoping every client has the scene in its build works until the first map that is delivered rather than shipped.
+`GSMapSession` changes the map **in this process** only. Without a protocol, a dedicated server freed its world, loaded the next one, and every connected client carried on playing the map that no longer existed; broadcasting a map id and hoping every client has the scene in its build works until the first map that is delivered rather than shipped.
 
 `addons/dot_map/net/` is the protocol. Five messages:
 
@@ -48,27 +48,27 @@ Confusing them is how you get a server that reconnects everybody every four minu
 | --- | --- | --- |
 | What is replaced | The module, the netcode, the client's scene | The world, and nothing else |
 | What happens to players | `SPAWNED -> DOWNLOADING -> LOADING -> SPAWNED` | They stay spawned |
-| Who owns it | `DotGameManager` | `DotMapSyncHost` |
+| Who owns it | `GSGameManager` | `GSMapSyncHost` |
 | How often | Rarely: an operator's decision | Every few minutes, by a vote or a timer |
 | What a client is told | A game id, a content key and a scene | A map definition |
 | Cost | A signon | A content fetch, and often not even that |
 
-A rotation running through `DotGameManager.change_game` would put every player through signon on every map.
+A rotation running through `GSGameManager.change_game` would put every player through signon on every map.
 
 ## The commands
 
 **`map` is a command here, not in GameSpice Server.** Every server operator types `map` for the thing that swaps the level, and on a server running one game and a hundred maps that means the right-hand column of the table above. GameSpice Server's game change is `changelevel`, `game` and `gamechange`.
 
-`DotMapCommands.install(host, session)` registers `map`, `maps` and `mapinfo` on anything with `add_command` (a `DotModule`) or `command` (a `DotConsole`), duck-typed, so this file names no GameSpice Server class. Pass a `DotMapSyncHost` as the third argument when the change has to reach clients; it has the same three change methods, deliberately.
+`GSMapCommands.install(host, session)` registers `map`, `maps` and `mapinfo` on anything with `add_command` (a `GSModule`) or `command` (a `GSConsole`), duck-typed, so this file names no GameSpice Server class. Pass a `GSMapSyncHost` as the third argument when the change has to reach clients; it has the same three change methods, deliberately.
 
 - **`map` says nothing about chat.** `admin_permission` (`changemap`) decides who may change the map, the same way wherever the line was typed; `map` is left at `ChatPolicy.DEFAULT` so the host's `sv_chat_commands` has the last word, and `allow_chat_change = false` marks it `no_chat()` for a records server that wants a map change to cost a trip to the console.
 - **`nextmap` is not registered here.** GameSpice Vote registers `nextmap` and `timeleft` over the same maps, and two commands of one name is the last one registered winning silently. `mapinfo` answers both questions without taking a name somebody else has.
 
 ## The host may say *which* map, never *what* the map is
 
-`DotMapSyncClient` takes the map from **its own catalogue** when it has the id. The announced definition is only used for a map it does not have, and then it must be *delivered*: it has to name a `content_id`, and its scene and zone paths have to resolve inside `res://dot_cloud/<id>/<version>/` after `simplify_path()`.
+`GSMapSyncClient` takes the map from **its own catalogue** when it has the id. The announced definition is only used for a map it does not have, and then it must be *delivered*: it has to name a `content_id`, and its scene and zone paths have to resolve inside `res://dot_cloud/<id>/<version>/` after `simplify_path()`.
 
-This is the rule `DotClientLink._resolve_scene` enforces, for the same reason, and the `simplify_path` is there because `"res://a/b/../../evil"` does `begins_with("res://a/b/")`. Without the delivered requirement a host could name any scene in the client's own build; with it, the worst it can do is make the client download its content, which is what connecting to it already meant. `accept_unknown_maps = false` is for a client that ships every map it will ever play.
+This is the rule `GSClientLink._resolve_scene` enforces, for the same reason, and the `simplify_path` is there because `"res://a/b/../../evil"` does `begins_with("res://a/b/")`. Without the delivered requirement a host could name any scene in the client's own build; with it, the worst it can do is make the client download its content, which is what connecting to it already meant. `accept_unknown_maps = false` is for a client that ships every map it will ever play.
 
 **`accept_unknown_maps` defaults to on because of records servers**: one carries two hundred maps and its clients ship none of them.
 

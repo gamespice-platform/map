@@ -1,5 +1,5 @@
-class_name DotMapEffect
-extends DotMapEntity
+class_name GSMapEffect
+extends GSMapEntity
 
 ## The env_* effects (sprite, trail, glow, spotlight, laser, beam, spark, steam, fire, smoke stack,
 ## explosion, shake, fade, particle system).

@@ -33,7 +33,7 @@ void vertex() {
 	blend_w = COLOR.r;
 }
 
-// Pulls a bake toward its own mean until brightest/dimmest channel is within max_chroma_ratio (0 = off); DotMapSurfaces.limit_chroma is the CPU twin.
+// Pulls a bake toward its own mean until brightest/dimmest channel is within max_chroma_ratio (0 = off); GSMapSurfaces.limit_chroma is the CPU twin.
 vec3 limit_chroma(vec3 c) {
 	float g = (c.r + c.g + c.b) / 3.0;
 	float hi = max(c.r, max(c.g, c.b));

@@ -2,8 +2,8 @@ extends "tests_defs.gd"
 
 ## Changing maps, and the host and client pair every sync section builds.
 
-## Stands in for a GameSpice Server DotServer: the signal and the question
-## [method DotMapSession.follow_hibernation] duck-types.
+## Stands in for a GameSpice Server GSServer: the signal and the question
+## [method GSMapSession.follow_hibernation] duck-types.
 class FakeHibernatingServer extends Node:
 	signal hibernation_changed(hibernating: bool)
 
@@ -20,24 +20,24 @@ class FakeHibernatingServer extends Node:
 func _test_change_maps() -> void:
 	_section("changing maps")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
 
 	session.catalogue = _catalogue(3)
-	session.rotation = DotMapRotation.of(session.catalogue)
+	session.rotation = GSMapRotation.of(session.catalogue)
 
 	var announced: Array[String] = []
 	session.changing.connect(
-		func(_from: DotMapDef, to: DotMapDef) -> void:
+		func(_from: GSMapDef, to: GSMapDef) -> void:
 			announced.append("changing:" + (String(to.id) if to else "-"))
 	)
 	session.changed.connect(
-		func(map: DotMapDef, _world: Node) -> void:
+		func(map: GSMapDef, _world: Node) -> void:
 			announced.append("changed:" + String(map.id))
 	)
 
-	var loaded: DotResult = await session.change_to(&"surf_0")
+	var loaded: GSResult = await session.change_to(&"surf_0")
 
 	_check(loaded.ok, "a map loads", loaded.error.message if not loaded.ok else "")
 	_check(session.current != null and session.current.id == &"surf_0", "and is current")
@@ -57,7 +57,7 @@ func _test_change_maps() -> void:
 
 	var first_world := session.world
 
-	var second: DotResult = await session.change_to(&"surf_1")
+	var second: GSResult = await session.change_to(&"surf_1")
 
 	_check(second.ok, "a second map loads")
 	_check(
@@ -84,19 +84,19 @@ func _test_change_maps() -> void:
 	_done()
 
 
-func _test_map_clock(session: DotMapSession) -> void:
+func _test_map_clock(session: GSMapSession) -> void:
 	# The clock restarts on every map, and the session reports the map being over
 	# rather than changing it — what happens then is a game's decision.
 	_check(session.time_limit.running, "the map clock is running")
 
 	var over := PackedStringArray()
 	session.map_over.connect(
-		func(_map: DotMapDef, reason: StringName) -> void:
+		func(_map: GSMapDef, reason: StringName) -> void:
 			over.append(String(reason))
 	)
 
 	# A hibernating server's map clock waits, and starts again from the map's own limit
-	# when somebody joins. Followed through the duck-typed signal a DotServer emits.
+	# when somebody joins. Followed through the duck-typed signal a GSServer emits.
 	_check(session.restart_on_wake, "waking starts the map's clock again by default")
 	var server := FakeHibernatingServer.new()
 	add_child(server)
@@ -141,12 +141,12 @@ func _test_change_survives_a_failure() -> void:
 	# The property a live server rests on, and the reason the new scene is loaded
 	# BEFORE the old one is freed. Freeing first is simpler, uses less memory, and
 	# turns a bad download into a server with no map and no way back.
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
 
 	session.catalogue = _catalogue(2)
-	session.rotation = DotMapRotation.of(session.catalogue)
+	session.rotation = GSMapRotation.of(session.catalogue)
 
 	await session.change_to(&"surf_0")
 
@@ -159,10 +159,10 @@ func _test_change_survives_a_failure() -> void:
 
 	var failures := PackedStringArray()
 	session.change_failed.connect(
-		func(_map: DotMapDef, reason: String) -> void: failures.append(reason)
+		func(_map: GSMapDef, reason: String) -> void: failures.append(reason)
 	)
 
-	var result: DotResult = await session.change_to(&"surf_broken")
+	var result: GSResult = await session.change_to(&"surf_broken")
 
 	_check(not result.ok, "a map whose scene is missing fails to load")
 	_check(failures.size() == 1, "and the failure is announced", str(failures))
@@ -176,7 +176,7 @@ func _test_change_survives_a_failure() -> void:
 	)
 
 	# And it can still change afterwards, so the failure left nothing latched.
-	var recovered: DotResult = await session.change_to(&"surf_1")
+	var recovered: GSResult = await session.change_to(&"surf_1")
 	_check(recovered.ok, "and a later change still works")
 	_check(not session.changing_now, "with nothing left latched")
 
@@ -187,25 +187,25 @@ func _test_change_survives_a_failure() -> void:
 func _test_loader_without_cloud() -> void:
 	_section("the loader without dot-cloud")
 
-	var loader := DotMapLoader.new()
+	var loader := GSMapLoader.new()
 	var delivered := _map(&"surf_delivered")
 	delivered.content_id = &"a_pack"
 
 	# No cloud client registered. The permissive default treats it as "this map
 	# ships in the build" — which is a legitimate configuration and is also exactly
 	# what a cloud client that failed to register looks like.
-	var permissive: DotResult = await loader.ensure_content(delivered)
+	var permissive: GSResult = await loader.ensure_content(delivered)
 	_check(permissive.ok, "with no cloud client the loader falls back to the disk")
 
 	loader.require_cloud = true
-	var strict: DotResult = await loader.ensure_content(delivered)
+	var strict: GSResult = await loader.ensure_content(delivered)
 
 	_check(
 		not strict.ok,
 		"and require_cloud turns that ambiguity into a loud failure"
 	)
 	_check(
-		strict.ok or strict.code() == DotError.CODE_STATE,
+		strict.ok or strict.code() == GSError.CODE_STATE,
 		"reported as a state error rather than as a missing file"
 	)
 
@@ -221,10 +221,10 @@ func _test_loader_without_cloud() -> void:
 class SyncPair:
 	extends RefCounted
 
-	var host: DotMapSyncHost = null
-	var client: DotMapSyncClient = null
-	var host_session: DotMapSession = null
-	var client_session: DotMapSession = null
+	var host: GSMapSyncHost = null
+	var client: GSMapSyncClient = null
+	var host_session: GSMapSession = null
+	var client_session: GSMapSession = null
 
 	## Payloads held back instead of delivered, so a straggler can be simulated.
 	var deaf: bool = false
@@ -232,9 +232,9 @@ class SyncPair:
 	var to_client: Array[Dictionary] = []
 	var to_host: Array[Dictionary] = []
 
-	## Peers other than 1: peer -> DotMapSyncClient. A peer with no entry never answers.
+	## Peers other than 1: peer -> GSMapSyncClient. A peer with no entry never answers.
 	var others: Dictionary = {}
-	var other_sessions: Array[DotMapSession] = []
+	var other_sessions: Array[GSMapSession] = []
 	## [peer, payload] in flight to and from those peers.
 	var to_others: Array = []
 	var from_others: Array = []
@@ -253,31 +253,31 @@ class SyncPair:
 
 func _make_pair(
 	parent: Node,
-	host_catalogue: DotMapCatalogue,
-	client_catalogue: DotMapCatalogue
+	host_catalogue: GSMapCatalogue,
+	client_catalogue: GSMapCatalogue
 ) -> SyncPair:
 	var pair := SyncPair.new()
 
-	pair.host_session = DotMapSession.new()
+	pair.host_session = GSMapSession.new()
 	pair.host_session.name = "HostSession"
 	parent.add_child(pair.host_session)
 
-	pair.client_session = DotMapSession.new()
+	pair.client_session = GSMapSession.new()
 	pair.client_session.name = "ClientSession"
 	parent.add_child(pair.client_session)
 
 	await parent.get_tree().process_frame
 
 	pair.host_session.catalogue = host_catalogue
-	pair.host_session.rotation = DotMapRotation.of(host_catalogue)
+	pair.host_session.rotation = GSMapRotation.of(host_catalogue)
 	pair.client_session.catalogue = client_catalogue
 
-	pair.host = DotMapSyncHost.new()
+	pair.host = GSMapSyncHost.new()
 	pair.host.session = pair.host_session
 	pair.host.poll_interval_sec = 0.05
 	parent.add_child(pair.host)
 
-	pair.client = DotMapSyncClient.new()
+	pair.client = GSMapSyncClient.new()
 	pair.client.session = pair.client_session
 	parent.add_child(pair.client)
 
@@ -287,7 +287,7 @@ func _make_pair(
 	pair.host.send_fn = func(peer: int, payload: Dictionary) -> void:
 		var named: Variant = payload.get("map", "")
 		var map_id := str((named as Dictionary).get("id", "")) if named is Dictionary else str(named)
-		pair.sent.append("%d %s %s" % [peer, DotMapMessage.kind_of(payload), map_id])
+		pair.sent.append("%d %s %s" % [peer, GSMapMessage.kind_of(payload), map_id])
 		if peer == 1:
 			pair.to_client.append(payload)
 		else:
@@ -323,7 +323,7 @@ func _pump(pair: SyncPair) -> void:
 			pair.host.handle(1, payload)
 
 		for item in for_others:
-			var other: DotMapSyncClient = pair.others.get(int(item[0]))
+			var other: GSMapSyncClient = pair.others.get(int(item[0]))
 			if other != null:
 				other.handle(item[1])
 
@@ -334,15 +334,15 @@ func _pump(pair: SyncPair) -> void:
 
 
 ## A second (third, ...) peer with its own session, answering through the pair's pump.
-func _add_peer_client(pair: SyncPair, peer: int, catalogue: DotMapCatalogue) -> DotMapSyncClient:
-	var session := DotMapSession.new()
+func _add_peer_client(pair: SyncPair, peer: int, catalogue: GSMapCatalogue) -> GSMapSyncClient:
+	var session := GSMapSession.new()
 	session.name = "PeerSession%d" % peer
 	add_child(session)
 	await get_tree().process_frame
 	session.catalogue = catalogue
 	pair.other_sessions.append(session)
 
-	var client := DotMapSyncClient.new()
+	var client := GSMapSyncClient.new()
 	client.name = "PeerClient%d" % peer
 	client.session = session
 	add_child(client)
@@ -382,11 +382,11 @@ func _change_and_pump(
 	var outcome := {"done": false, "ok": false, "reason": "", "ms": 0}
 	var started := Time.get_ticks_msec()
 
-	var on_finished := func(_map: DotMapDef) -> void:
+	var on_finished := func(_map: GSMapDef) -> void:
 		outcome["done"] = true
 		outcome["ok"] = true
 		outcome["ms"] = Time.get_ticks_msec() - started
-	var on_failed := func(_map: DotMapDef, reason: String) -> void:
+	var on_failed := func(_map: GSMapDef, reason: String) -> void:
 		outcome["done"] = true
 		outcome["reason"] = reason
 		outcome["ms"] = Time.get_ticks_msec() - started

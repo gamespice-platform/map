@@ -1,17 +1,17 @@
-class_name DotMapRotationFile
+class_name GSMapRotationFile
 extends RefCounted
 
-## The maps a server PLAYS, read from `cfg/addons/dot_map/maps.yml` and its tiers; the catalogue is what is merely installed. A map not in the rotation stays loadable by `map <id>` but is left out of the pool, ballots and nominations ([member DotMapDef.in_rotation]).
+## The maps a server PLAYS, read from `cfg/addons/dot_map/maps.yml` and its tiers; the catalogue is what is merely installed. A map not in the rotation stays loadable by `map <id>` but is left out of the pool, ballots and nominations ([member GSMapDef.in_rotation]).
 ## Keys: `defaults:` and `games: <game>:` with `rotation`, `mode` (random with `cooldown`, or cycle), `maps` (patterns), `rotations: {name: {maps}}`. No file means every installed map rotates, sorted by id; `merge: true` adds to the shipped file. `exempt: [patterns]` (alias `remove:`; ids, `owner/map`, name globs) keeps maps out of the rotation, at the top of any layer or inside one rotation; a file with only `exempt:` rotates every installed map except those.
-## Layers, weakest first: shipped file, server `defaults:`, server `games:`. Parsing and matching are GameSpice Core's [DotRotationSpec]; patterns expand at [method apply], called on every map change and rescan. A per-map PROFILE (`mode:` or its alias `cfg:` on an entry, a rotation or a section) is resolved by [method resolve_profile] and set on [member DotMapDef.profile]; GameSpice Map never reads the mode or the cvars, the game does. See docs/rotation.md#per-map-profiles.
+## Layers, weakest first: shipped file, server `defaults:`, server `games:`. Parsing and matching are GameSpice Core's [GSRotationSpec]; patterns expand at [method apply], called on every map change and rescan. A per-map PROFILE (`mode:` or its alias `cfg:` on an entry, a rotation or a section) is resolved by [method resolve_profile] and set on [member GSMapDef.profile]; GameSpice Map never reads the mode or the cvars, the game does. See docs/rotation.md#per-map-profiles.
 
 ## A map changed and this is the profile its rotation entry gave it (`{}` for none). Emitted by [method attach]'s handler, and by [method note_changed] for a game that follows the session itself.
-signal profile_changed(map: DotMapDef, profile: Dictionary)
+signal profile_changed(map: GSMapDef, profile: Dictionary)
 
 const CHANNEL := "map.rotation_file"
 const EXTENSIONS := ["yml", "yaml"]
 
-## A `mode:` with one of these values picks the next map (GameSpice Core's [DotRotationSpec]); any other value is a profile.
+## A `mode:` with one of these values picks the next map (GameSpice Core's [GSRotationSpec]); any other value is a profile.
 const SELECTION_MODES := ["random", "cycle", "sequential"]
 
 ## Where a profile name is looked up, under each dot_map config tier (`cfg/server/addon/dot_map/cfg/ctf.yml`).
@@ -20,7 +20,7 @@ const PROFILE_SUBDIR := "cfg"
 ## The game this server runs, as a section key matches it (`game-airdrift`).
 var game: String = ""
 
-## The merged spec ([DotRotationSpec]).
+## The merged spec ([GSRotationSpec]).
 var spec: Dictionary = {}
 
 ## The name `sv_map_rotation` last switched to; empty follows the file.
@@ -58,7 +58,7 @@ var _profiles: Dictionary = {}
 var _last: PackedStringArray = PackedStringArray()
 var _last_name: String = ""
 
-## `(DotMapDef) -> bool`, asked per map when a rotation is empty and so nothing is listed. The default is
+## `(GSMapDef) -> bool`, asked per map when a rotation is empty and so nothing is listed. The default is
 ## every map; a game that keeps some out when there is no file gives the same rule here, so an empty rotation
 ## and an absent file mean the same thing.
 var fallback_in: Callable = Callable()
@@ -67,10 +67,10 @@ var _fell_back: bool = false
 ## The rotation [method apply] last marked, held weakly: the catalogue's signal holds this file,
 ## and a strong reference back would be a cycle nothing frees.
 var _bound: WeakRef = null
-var _bound_catalogue: DotMapCatalogue = null
+var _bound_catalogue: GSMapCatalogue = null
 
 
-## The stem games pass for the default file; it resolves to `cfg/addons/dot_map/maps.yml`, with the old flat path read through [DotCfgLegacy].
+## The stem games pass for the default file; it resolves to `cfg/addons/dot_map/maps.yml`, with the old flat path read through [GSCfgLegacy].
 const DEFAULT_STEM := "cfg/maps.yml"
 
 
@@ -81,17 +81,17 @@ static func find(stem: String, config_dir: String = "") -> String:
 	if stem.strip_edges().is_empty():
 		return ""
 	if stem.trim_suffix(".yml").trim_suffix(".yaml") == DEFAULT_STEM.trim_suffix(".yml"):
-		return DotCfgLegacy.find(_find_flat(stem, config_dir), _strongest(DotAddonConfig.file_layers("dot-map", "maps.yml", config_dir)))
+		return GSCfgLegacy.find(_find_flat(stem, config_dir), _strongest(GSAddonConfig.file_layers("dot-map", "maps.yml", config_dir)))
 	return _find_flat(stem, config_dir)
 
 
-## The `maps.yml` files that apply, weakest first: `cfg/addons/dot_map/`, the game's `cfg/game/<game>/dot_map/`, the operator's `cfg/server/addons/dot_map/` and `cfg/server/game/<game>/dot_map/`. An operator file replaces every weaker one unless it starts `merge: true` ([method DotAddonConfig.replace_aware_layers]). [param p_game] stands in for [member DotAddonConfig.game] when that is unset.
+## The `maps.yml` files that apply, weakest first: `cfg/addons/dot_map/`, the game's `cfg/game/<game>/dot_map/`, the operator's `cfg/server/addons/dot_map/` and `cfg/server/game/<game>/dot_map/`. An operator file replaces every weaker one unless it starts `merge: true` ([method GSAddonConfig.replace_aware_layers]). [param p_game] stands in for [member GSAddonConfig.game] when that is unset.
 static func find_layers(config_dir: String = "", p_game: String = "") -> PackedStringArray:
-	var had := DotAddonConfig.game
+	var had := GSAddonConfig.game
 	if had == "" and p_game != "":
-		DotAddonConfig.game = p_game
-	var out := DotAddonConfig.replace_aware_layers("dot-map", "maps.yml", config_dir)
-	DotAddonConfig.game = had
+		GSAddonConfig.game = p_game
+	var out := GSAddonConfig.replace_aware_layers("dot-map", "maps.yml", config_dir)
+	GSAddonConfig.game = had
 	return out
 
 
@@ -130,8 +130,8 @@ static func config_dir_arg() -> String:
 
 
 ## Layers parsed trees, weakest first (the game's shipped file, then the server's).
-static func from_trees(trees: Array, p_game: String = "", p_sources: PackedStringArray = PackedStringArray()) -> DotResult:
-	var file := DotMapRotationFile.new()
+static func from_trees(trees: Array, p_game: String = "", p_sources: PackedStringArray = PackedStringArray()) -> GSResult:
+	var file := GSMapRotationFile.new()
 	file.game = p_game
 	file.sources = p_sources
 	var layers: Array = []
@@ -142,22 +142,22 @@ static func from_trees(trees: Array, p_game: String = "", p_sources: PackedStrin
 		if tree.get("defaults") is Dictionary:
 			file._read_exempt(tree["defaults"])
 			var section := file._take_profiles(tree["defaults"], where + " defaults")
-			layers.append(DotRotationSpec.normalize(section, "maps", file.warnings, where + " defaults"))
+			layers.append(GSRotationSpec.normalize(section, "maps", file.warnings, where + " defaults"))
 		if tree.get("games") is Dictionary:
 			for key: Variant in (tree["games"] as Dictionary):
-				if DotRotationSpec.key_matches(str(key), p_game) and (tree["games"] as Dictionary)[key] is Dictionary:
+				if GSRotationSpec.key_matches(str(key), p_game) and (tree["games"] as Dictionary)[key] is Dictionary:
 					file._read_exempt((tree["games"] as Dictionary)[key])
 					var at := "%s games.%s" % [where, key]
 					var section := file._take_profiles((tree["games"] as Dictionary)[key], at)
-					layers.append(DotRotationSpec.normalize(section, "maps", file.warnings, at))
-	file.spec = DotRotationSpec.layer(layers)
+					layers.append(GSRotationSpec.normalize(section, "maps", file.warnings, at))
+	file.spec = GSRotationSpec.layer(layers)
 	for w in file.warnings:
-		DotLog.warn(CHANNEL, w)
-	return DotResult.success(file)
+		GSLog.warn(CHANNEL, w)
+	return GSResult.success(file)
 
 
 ## [param section] without its profile keys, which go to [member profile_defaults]: a game-mode `mode:` would
-## otherwise reach [DotRotationSpec] and be read as "random" with a warning. The tree itself is not changed.
+## otherwise reach [GSRotationSpec] and be read as "random" with a warning. The tree itself is not changed.
 func _take_profiles(section: Dictionary, where: String) -> Dictionary:
 	var out := section.duplicate()
 	var v := _take_profile_value(out, where)
@@ -204,7 +204,7 @@ static func _text(v: Variant) -> String:
 func _warn_once(key: String, message: String, fields: Dictionary) -> void:
 	if not _warned.has(key):
 		_warned[key] = true
-		DotLog.warn(CHANNEL, message, fields)
+		GSLog.warn(CHANNEL, message, fields)
 
 
 ## Collects `exempt:`/`remove:` from one section (a file, `defaults:` or a game's entry) and from its rotations.
@@ -234,13 +234,13 @@ static func _patterns(section: Dictionary) -> PackedStringArray:
 
 
 ## Reads the given files (a missing one is skipped, an unreadable one fails), weakest first.
-static func load_files(paths: PackedStringArray, p_game: String = "") -> DotResult:
+static func load_files(paths: PackedStringArray, p_game: String = "") -> GSResult:
 	var trees: Array = []
 	var used := PackedStringArray()
 	for path in paths:
 		if path == "" or not FileAccess.file_exists(path):
 			continue
-		var parsed := DotYaml.parse_file(path)
+		var parsed := GSYaml.parse_file(path)
 		if not parsed.ok:
 			return parsed.wrap("reading %s" % path)
 		trees.append(parsed.value)
@@ -249,7 +249,7 @@ static func load_files(paths: PackedStringArray, p_game: String = "") -> DotResu
 
 
 ## The merged `commands:` block (`prefix`, `names`): what the vote commands are called. See
-## [DotRotationSpec]; the commands classes take it through their `spec_fn`.
+## [GSRotationSpec]; the commands classes take it through their `spec_fn`.
 func commands() -> Dictionary:
 	return spec.get("commands", {"names": {}})
 
@@ -267,12 +267,12 @@ func rotation_names() -> PackedStringArray:
 
 ## The name in force: a live switch, else the file's `rotation:`, else `main`.
 func active_name() -> String:
-	return DotRotationSpec.active_name(spec, requested)
+	return GSRotationSpec.active_name(spec, requested)
 
 
 ## The ids the rotation named [param name] (default: the active one) plays, in order, against
 ## [param catalogue]. Empty means "no file or nothing matched": the caller then plays everything.
-func resolve(catalogue: DotMapCatalogue, name: String = "") -> PackedStringArray:
+func resolve(catalogue: GSMapCatalogue, name: String = "") -> PackedStringArray:
 	var use := name if name != "" else active_name()
 	var rots: Dictionary = spec.get("rotations", {})
 	if catalogue == null:
@@ -282,7 +282,7 @@ func resolve(catalogue: DotMapCatalogue, name: String = "") -> PackedStringArray
 	var ids := PackedStringArray()
 	var listed: bool = rots.has(use) and not ((rots[use] as Dictionary)["entries"] as PackedStringArray).is_empty()
 	if listed:
-		ids = DotRotationSpec.expand((rots[use] as Dictionary)["entries"], candidates, collections, unmatched)
+		ids = GSRotationSpec.expand((rots[use] as Dictionary)["entries"], candidates, collections, unmatched)
 	elif has_exempt() and (rots.is_empty() or rots.has(use)):
 		# Only exemptions: every installed map, sorted by id.
 		for c: Dictionary in candidates:
@@ -293,7 +293,7 @@ func resolve(catalogue: DotMapCatalogue, name: String = "") -> PackedStringArray
 	var out_patterns := exempt.duplicate()
 	out_patterns.append_array(exempt_by_rotation.get(use, PackedStringArray()))
 	if not out_patterns.is_empty():
-		var gone := DotRotationSpec.expand(out_patterns, candidates, collections, unmatched)
+		var gone := GSRotationSpec.expand(out_patterns, candidates, collections, unmatched)
 		var kept := PackedStringArray()
 		for id in ids:
 			if not gone.has(id):
@@ -303,7 +303,7 @@ func resolve(catalogue: DotMapCatalogue, name: String = "") -> PackedStringArray
 		var key := "%s|%s" % [use, entry]
 		if not _warned.has(key):
 			_warned[key] = true
-			DotLog.warn(CHANNEL, "a map rotation entry matches no installed map", {"rotation": use, "entry": entry})
+			GSLog.warn(CHANNEL, "a map rotation entry matches no installed map", {"rotation": use, "entry": entry})
 	return ids
 
 
@@ -312,7 +312,7 @@ func has_exempt() -> bool:
 	return not exempt.is_empty() or not exempt_by_rotation.is_empty()
 
 
-func _candidates(catalogue: DotMapCatalogue) -> Array:
+func _candidates(catalogue: GSMapCatalogue) -> Array:
 	var candidates: Array = []
 	for m in catalogue.maps:
 		var content := String(m.content_id)
@@ -322,16 +322,16 @@ func _candidates(catalogue: DotMapCatalogue) -> Array:
 
 ## The per-map settings the rotation [param name] (default: the active one) gives [param id]
 ## (`{waves: easy}` from a mapping entry), empty for a bare entry or no match.
-func settings_for(catalogue: DotMapCatalogue, id: StringName, name: String = "") -> Dictionary:
+func settings_for(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> Dictionary:
 	var use := name if name != "" else active_name()
 	if use == "" or catalogue == null or not (spec.get("rotations", {}) as Dictionary).has(use):
 		return {}
-	return DotRotationSpec.settings_for(spec, use, String(id), _candidates(catalogue), collections)
+	return GSRotationSpec.settings_for(spec, use, String(id), _candidates(catalogue), collections)
 
 
 ## The profile value (a mode id or a path, as written) the rotation [param name] gives [param id]: its entry's
 ## `mode:`/`cfg:`, else the rotation's, else the section's. "" for none.
-func profile_value(catalogue: DotMapCatalogue, id: StringName, name: String = "") -> String:
+func profile_value(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> String:
 	var use := name if name != "" else active_name()
 	return _value_from(settings_for(catalogue, id, use), use, String(id))
 
@@ -344,7 +344,7 @@ func _value_from(settings: Dictionary, rotation_name: String, id: String) -> Str
 
 
 ## The resolved profile for [param id] in rotation [param name]: see [method resolve_profile].
-func profile_for(catalogue: DotMapCatalogue, id: StringName, name: String = "") -> Dictionary:
+func profile_for(catalogue: GSMapCatalogue, id: StringName, name: String = "") -> Dictionary:
 	return resolve_profile(profile_value(catalogue, id, name))
 
 
@@ -398,28 +398,28 @@ func _profile_path(value: String, is_id: bool) -> String:
 			if FileAccess.file_exists(n):
 				return n
 		return ""
-	var had := DotAddonConfig.game
+	var had := GSAddonConfig.game
 	if had == "" and game != "":
-		DotAddonConfig.game = game
+		GSAddonConfig.game = game
 	var found := ""
 	for n in names:
-		found = _strongest(DotAddonConfig.file_layers("dot-map", PROFILE_SUBDIR.path_join(n), config_dir))
+		found = _strongest(GSAddonConfig.file_layers("dot-map", PROFILE_SUBDIR.path_join(n), config_dir))
 		if found != "":
 			break
-	DotAddonConfig.game = had
+	GSAddonConfig.game = had
 	return found
 
 
 ## One profile file: `{mode, values}`. `values` is `cvars:` when the file has that map, else every other
 ## top-level scalar (`mode:` aside). A nested value is not a cvar and is skipped.
-static func read_profile(path: String) -> DotResult:
-	var parsed := DotYaml.parse_file(path)
+static func read_profile(path: String) -> GSResult:
+	var parsed := GSYaml.parse_file(path)
 	if not parsed.ok:
 		return parsed
 	if parsed.value == null:
-		return DotResult.success({"mode": "", "values": {}})
+		return GSResult.success({"mode": "", "values": {}})
 	if not parsed.value is Dictionary:
-		return DotResult.fail(DotError.CODE_INVALID, "A profile file must be a map of cvar: value.")
+		return GSResult.fail(GSError.CODE_INVALID, "A profile file must be a map of cvar: value.")
 	var d := parsed.value as Dictionary
 	var nested := d.get("cvars") is Dictionary
 	var src: Dictionary = d["cvars"] if nested else d
@@ -431,16 +431,16 @@ static func read_profile(path: String) -> DotResult:
 		if v is Dictionary or v is Array or v == null:
 			continue
 		values[str(k)] = v
-	return DotResult.success({"mode": _text(d.get("mode")), "values": values})
+	return GSResult.success({"mode": _text(d.get("mode")), "values": values})
 
 
-## The profile the map was given when the rotation was last applied ([member DotMapDef.profile]); `{}` for null.
-func profile_of(map: DotMapDef) -> Dictionary:
+## The profile the map was given when the rotation was last applied ([member GSMapDef.profile]); `{}` for null.
+func profile_of(map: GSMapDef) -> Dictionary:
 	return {} if map == null else map.profile
 
 
 ## Emits [signal profile_changed] for [param map]: for a game that follows the session's `changed` itself instead of [method attach].
-func note_changed(map: DotMapDef) -> void:
+func note_changed(map: GSMapDef) -> void:
 	if map != null:
 		profile_changed.emit(map, map.profile)
 
@@ -448,9 +448,9 @@ func note_changed(map: DotMapDef) -> void:
 ## Marks every catalogue map in or out of rotation and sets the rotation's order, mode and
 ## cooldown. No file, an unknown rotation or an empty result leaves every map in (the whole
 ## catalogue): a rotation that empties the server must never leave it stuck.
-func apply(rotation: DotMapRotation, name: String = "") -> DotResult:
+func apply(rotation: GSMapRotation, name: String = "") -> GSResult:
 	if rotation == null or rotation.catalogue == null:
-		return DotResult.fail(DotError.CODE_INVALID, "A rotation with a catalogue is needed.")
+		return GSResult.fail(GSError.CODE_INVALID, "A rotation with a catalogue is needed.")
 	var use := name if name != "" else active_name()
 	var ids := resolve(rotation.catalogue, use)
 	_fell_back = false
@@ -459,7 +459,7 @@ func apply(rotation: DotMapRotation, name: String = "") -> DotResult:
 		var key := "empty|%s" % use
 		if not _warned.has(key):
 			_warned[key] = true
-			DotLog.warn(CHANNEL, "the map rotation is empty; every installed map plays", {"rotation": use})
+			GSLog.warn(CHANNEL, "the map rotation is empty; every installed map plays", {"rotation": use})
 	_bind(rotation)
 	var order: Array[StringName] = []
 	for id in ids:
@@ -473,20 +473,20 @@ func apply(rotation: DotMapRotation, name: String = "") -> DotResult:
 		m.profile = resolve_profile(_value_from(m.play, use, String(m.id))) if m.in_rotation and not ids.is_empty() else {}
 	rotation.order = order
 	if has_rotations() and use != "" and (spec["rotations"] as Dictionary).has(use):
-		rotation.mode = DotMapRotation.Mode.SEQUENTIAL if DotRotationSpec.mode_of(spec, use) == "cycle" \
-			else DotMapRotation.Mode.RANDOM
-		rotation.cooldown = DotRotationSpec.cooldown_of(spec, use, rotation.cooldown)
+		rotation.mode = GSMapRotation.Mode.SEQUENTIAL if GSRotationSpec.mode_of(spec, use) == "cycle" \
+			else GSMapRotation.Mode.RANDOM
+		rotation.cooldown = GSRotationSpec.cooldown_of(spec, use, rotation.cooldown)
 	if use != _last_name:
 		rotation.reset_cursor()
 	_last = ids
 	_last_name = use
-	return DotResult.success(ids)
+	return GSResult.success(ids)
 
 
 ## Follows the catalogue of the rotation last applied, so a content refresh (a pack installed,
 ## a session turned) re-applies the marks to the fresh defs it just made. Applying to another
 ## rotation moves the connection; the old catalogue is no longer followed.
-func _bind(rotation: DotMapRotation) -> void:
+func _bind(rotation: GSMapRotation) -> void:
 	_bound = weakref(rotation)
 	var catalogue := rotation.catalogue
 	if catalogue == _bound_catalogue:
@@ -498,7 +498,7 @@ func _bind(rotation: DotMapRotation) -> void:
 
 
 func _on_content_refreshed() -> void:
-	var rotation := _bound.get_ref() as DotMapRotation if _bound != null else null
+	var rotation := _bound.get_ref() as GSMapRotation if _bound != null else null
 	if rotation == null or rotation.catalogue != _bound_catalogue:
 		return
 	# The name last applied, so a game that applied a named rotation keeps it; a live switch
@@ -514,18 +514,18 @@ func fell_back() -> bool:
 
 
 ## Switches the live rotation (`sv_map_rotation <name>`). An unknown name changes nothing.
-func switch(rotation: DotMapRotation, name: String) -> DotResult:
+func switch(rotation: GSMapRotation, name: String) -> GSResult:
 	var rots: Dictionary = spec.get("rotations", {})
 	if not rots.has(name):
-		return DotResult.fail(DotError.CODE_INVALID, "No rotation called '%s'." % name,
+		return GSResult.fail(GSError.CODE_INVALID, "No rotation called '%s'." % name,
 			"rotations: %s" % ", ".join(rotation_names()))
 	requested = name
 	return apply(rotation)
 
 
 ## Re-applies after every map change, so a map installed meanwhile that matches joins.
-func attach(session: DotMapSession) -> void:
-	session.changed.connect(func(map: DotMapDef, _world: Node) -> void:
+func attach(session: GSMapSession) -> void:
+	session.changed.connect(func(map: GSMapDef, _world: Node) -> void:
 		note_changed(map)
 		if session.rotation != null:
 			apply(session.rotation))
@@ -544,6 +544,6 @@ func describe_lines() -> PackedStringArray:
 		var mark := "*" if n == (_last_name if _last_name != "" else active_name()) else " "
 		var entries: PackedStringArray = (spec["rotations"] as Dictionary)[n]["entries"]
 		var prof := str(profile_defaults.get(n, profile_defaults.get("", "")))
-		lines.append("%s %s (%s, cooldown %d%s): %s" % [mark, n, DotRotationSpec.mode_of(spec, n),
-			DotRotationSpec.cooldown_of(spec, n, 0), (", profile " + prof) if prof != "" else "", ", ".join(entries)])
+		lines.append("%s %s (%s, cooldown %d%s): %s" % [mark, n, GSRotationSpec.mode_of(spec, n),
+			GSRotationSpec.cooldown_of(spec, n, 0), (", profile " + prof) if prof != "" else "", ", ".join(entries)])
 	return lines

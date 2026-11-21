@@ -1,6 +1,6 @@
 extends Node3D
 
-## [DotMapBoxBatch]: the draw budget. Boxes of one material in one cell fold into one mesh,
+## [GSMapBoxBatch]: the draw budget. Boxes of one material in one cell fold into one mesh,
 ## nothing a player touches changes, and the see-through, vetoed and lone boxes stay as they were.
 ##
 ## [codeblock]
@@ -15,7 +15,7 @@ var _failures := PackedStringArray()
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -79,9 +79,9 @@ func _run() -> void:
 	var before := _visible_meshes(root)
 	_check(before == 44, "44 boxes draw 44 meshes before batching (%d)" % before)
 	var skip := func(body: Node3D, _mi: MeshInstance3D) -> bool: return body.has_meta(&"breakable")
-	var headless := DotMapBoxBatch.build(root, DotMapBoxBatch.CELL, skip)
+	var headless := GSMapBoxBatch.build(root, GSMapBoxBatch.CELL, skip)
 	_check(int(headless["boxes"]) == 0 and _visible_meshes(root) == before, "headless: nothing folds unless forced (%s)" % [headless])
-	var got := DotMapBoxBatch.build(root, DotMapBoxBatch.CELL, skip, true)
+	var got := GSMapBoxBatch.build(root, GSMapBoxBatch.CELL, skip, true)
 	var after := _visible_meshes(root)
 	_check(int(got["boxes"]) == 40, "the 40 opaque floor boxes of two cells fold (%s)" % [got])
 	_check(after < before / 2, "the draws fall by more than half (%d -> %d)" % [before, after])
@@ -95,13 +95,13 @@ func _run() -> void:
 				if p is CollisionShape3D:
 					shapes += 1
 	_check(bodies == 44 and shapes == 44, "every box keeps its body and shape (%d, %d)" % [bodies, shapes])
-	var holder: Node = root.get_node(DotMapBoxBatch.NODE_NAME)
+	var holder: Node = root.get_node(GSMapBoxBatch.NODE_NAME)
 	var merged: MeshInstance3D = holder.get_child(0)
 	var aabb := merged.mesh.get_aabb()
 	_check(aabb.size.x > 60.0 and aabb.size.x < 90.0, "a cell's mesh spans its boxes (%s)" % [aabb.size])
 	_check(merged.mesh is ArrayMesh and merged.mesh.surface_get_material(0) == floor_m, "an ArrayMesh with the shared material")
 	_check(merged.mesh.get_faces().size() % 36 == 0 and merged.mesh.get_faces().size() > 0, "the merged mesh is whole boxes")
-	var again := DotMapBoxBatch.build(root, DotMapBoxBatch.CELL, skip, true)
+	var again := GSMapBoxBatch.build(root, GSMapBoxBatch.CELL, skip, true)
 	_check(int(again["boxes"]) == 0 and _visible_meshes(root) == after, "a second pass folds nothing")
 	_check_rotated_undo(floor_m)
 	_check_coarse(floor_m, glass, skip)
@@ -128,11 +128,11 @@ func _check_rotated_undo(floor_m: Material) -> void:
 	var lone := r.get_child(0) as Node3D
 	var orig_box := (lone.get_child(0) as MeshInstance3D).mesh.get_aabb()
 	var want := lone.transform * orig_box
-	DotMapBoxBatch.build(r, DotMapBoxBatch.CELL, Callable(), true)
-	var folded := (r.get_node(DotMapBoxBatch.NODE_NAME).get_child(0) as MeshInstance3D).mesh.get_aabb()
+	GSMapBoxBatch.build(r, GSMapBoxBatch.CELL, Callable(), true)
+	var folded := (r.get_node(GSMapBoxBatch.NODE_NAME).get_child(0) as MeshInstance3D).mesh.get_aabb()
 	_check(folded.encloses(want.grow(-0.01)), "a rotated box is folded in place")
-	var shown := DotMapBoxBatch.undo(r)
-	_check(shown == 2 and _visible_meshes(r) == 2 and not r.has_node(DotMapBoxBatch.NODE_NAME), "undo shows the originals and frees the merge (%d)" % shown)
+	var shown := GSMapBoxBatch.undo(r)
+	_check(shown == 2 and _visible_meshes(r) == 2 and not r.has_node(GSMapBoxBatch.NODE_NAME), "undo shows the originals and frees the merge (%d)" % shown)
 	r.queue_free()
 
 
@@ -141,7 +141,7 @@ func _check_coarse(floor_m: Material, glass: Material, skip: Callable) -> void:
 	add_child(big)
 	for k in 3:
 		_box(big, Vector3(k * 500, 1, 0), Vector3(1, 1, 1), floor_m)
-	var one := DotMapBoxBatch.build(big, 0.0, Callable(), true)
+	var one := GSMapBoxBatch.build(big, 0.0, Callable(), true)
 	_check(int(one["nodes"]) == 1 and int(one["boxes"]) == 3, "cell 0 folds a material into one mesh (%s)" % [one])
 	# Coarse pass: singletons of one material in one 256 m cell fold; a pair already folded, a
 	# see-through and a vetoed box do not join.
@@ -152,11 +152,11 @@ func _check_coarse(floor_m: Material, glass: Material, skip: Callable) -> void:
 	_box(c, Vector3(10, 1, 300), Vector3(1, 1, 1), floor_m)
 	_box(c, Vector3(20, 1, 20), Vector3(1, 1, 1), glass)
 	_box(c, Vector3(30, 1, 30), Vector3(1, 1, 1), floor_m, &"breakable")
-	var fine := DotMapBoxBatch.build(c, DotMapBoxBatch.CELL, skip, true)
+	var fine := GSMapBoxBatch.build(c, GSMapBoxBatch.CELL, skip, true)
 	_check(int(fine["boxes"]) == 0, "no coarse: lone boxes stay (%s)" % [fine])
-	var wide := DotMapBoxBatch.build(c, DotMapBoxBatch.CELL, skip, true, DotMapBoxBatch.CELL * 4.0)
+	var wide := GSMapBoxBatch.build(c, GSMapBoxBatch.CELL, skip, true, GSMapBoxBatch.CELL * 4.0)
 	_check(int(wide["boxes"]) == 3 and int(wide["nodes"]) == 1, "coarse folds the 3 singletons of x 0..200 into one 256 m cell (%s)" % [wide])
 	_check(_visible_meshes(c) == 5, "1 merged, two lone boxes, the see-through and the vetoed one draw (%d)" % _visible_meshes(c))
-	_check(DotMapBoxBatch.undo(c) == 3 and _visible_meshes(c) == 7, "undo restores the coarse folds")
+	_check(GSMapBoxBatch.undo(c) == 3 and _visible_meshes(c) == 7, "undo restores the coarse folds")
 	c.queue_free()
 	big.queue_free()

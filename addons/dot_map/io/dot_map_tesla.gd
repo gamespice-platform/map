@@ -1,5 +1,5 @@
-class_name DotMapTesla
-extends DotMapEntity
+class_name GSMapTesla
+extends GSMapEntity
 
 ## point_tesla: DoSpark sends one [code]tesla_spark[/code] event (origin, radius, beam count, lifetime, colour) for the
 ## game to draw; a disabled one does not spark. Nothing is simulated here.

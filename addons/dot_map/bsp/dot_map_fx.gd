@@ -1,4 +1,4 @@
-class_name DotMapFx
+class_name GSMapFx
 extends RefCounted
 
 ## Draws a converted map's sprite-like entities cheaply: [code]env_sprite[/code] and
@@ -56,7 +56,7 @@ func build(records: Array) -> Node3D:
 	_cones(root, cones)
 	_decals(root, decals)
 	_trails(root, trails)
-	DotLog.info(CHANNEL, "drawn", stats)
+	GSLog.info(CHANNEL, "drawn", stats)
 	return root
 
 
@@ -195,7 +195,7 @@ func _trails(root: Node3D, recs: Array) -> void:
 		keep.append([rec, k])
 	for pair: Array in _spread(keep, max_trails):
 		var k: Dictionary = pair[1]
-		var t := DotMapTrail.new()
+		var t := GSMapTrail.new()
 		t.position = _origin(k)
 		t.lifetime = clampf(float(k.get("lifetime", "0.5")), 0.05, 10.0)
 		t.start_width = clampf(float(k.get("startwidth", "8")) * unit_scale, 0.02, 2.0)

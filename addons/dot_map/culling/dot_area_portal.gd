@@ -1,5 +1,5 @@
 @tool
-class_name DotAreaPortal
+class_name GSAreaPortal
 extends Node3D
 
 ## A door-sized box that blocks the view while closed: place it in a doorway or window, call [method

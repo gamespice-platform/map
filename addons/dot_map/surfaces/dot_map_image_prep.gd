@@ -1,6 +1,6 @@
-class_name DotMapImagePrep
+class_name GSMapImagePrep
 extends RefCounted
-## Decoded texture images made ready for the GPU: channel slimming, half-size masks, size cap, mipmaps and VRAM compression. Split from [DotMapSurfaces], which owns what a surface kind is.
+## Decoded texture images made ready for the GPU: channel slimming, half-size masks, size cap, mipmaps and VRAM compression. Split from [GSMapSurfaces], which owns what a surface kind is.
 
 ## Whether the part named [param part] (albedo, normal, roughness, ao) is kept at half size under the two options.
 static func halves(part: String, masks: bool, normals: bool) -> bool:

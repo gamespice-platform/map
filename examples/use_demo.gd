@@ -13,38 +13,38 @@ var _failed := 0
 var _failures := PackedStringArray()
 var _entered := 0
 var _completed := 0
-var _dw: DotMapWorld
-var _use: DotMapUse
-var _button: DotMapMoverNode
-var _door: DotMapMoverNode
+var _dw: GSMapWorld
+var _use: GSMapUse
+var _button: GSMapMoverNode
+var _door: GSMapMoverNode
 var _eye := Vector3.ZERO
 var _dir := Vector3.ZERO
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	print("dot-map use")
 	var prefix := ProjectSettings.globalize_path("res://").path_join(WORLD)
-	var res := DotMapBspMesh.load_prefix(prefix)
+	var res := GSMapBspMesh.load_prefix(prefix)
 	if not res.ok:
 		print("SKIP: no converted world at " + prefix)
 		get_tree().quit(0)
 		return
-	var built := DotMapWorld.build(res.value as DotMapBspMesh, {})
+	var built := GSMapWorld.build(res.value as GSMapBspMesh, {})
 	if not built.ok:
 		printerr("cannot build: ", built.error)
 		get_tree().quit(3)
 		return
 	_dw = built.value
 	add_child(_dw)
-	_use = DotMapUse.new(_dw)
-	_button = _dw.io.entity_of(BUTTON) as DotMapMoverNode
-	for c: DotMapEntity in _dw.io.entities:
-		if _button != null and c is DotMapMoverNode and c.targetname == "jaildoor":
+	_use = GSMapUse.new(_dw)
+	_button = _dw.io.entity_of(BUTTON) as GSMapMoverNode
+	for c: GSMapEntity in _dw.io.entities:
+		if _button != null and c is GSMapMoverNode and c.targetname == "jaildoor":
 			_door = c
 	await get_tree().physics_frame
 	await get_tree().physics_frame
@@ -151,7 +151,7 @@ func _test_refusals() -> void:
 func _test_prompt_matches_press() -> void:
 	_section("the prompt is shown exactly when the server would take the press")
 	_dw.io.advance(_dw.io.ticks_for(30.0))
-	var prompt := DotMapUsePrompt.new()
+	var prompt := GSMapUsePrompt.new()
 	_use.reach = 3.5
 	var info := _use.aim(_space(), _eye, _dir)
 	prompt.show_aim(info, _use)

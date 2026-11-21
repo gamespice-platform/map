@@ -1,6 +1,6 @@
 extends Node
 
-## How much of a converted map DotMapVisibility can cull: items, their cluster spread, and the drawn
+## How much of a converted map GSMapVisibility can cull: items, their cluster spread, and the drawn
 ## share (by items and by triangles) from random points.
 ## godot --headless --path . res://examples/vis_stats.tscn -- --maps=<prefix>,<prefix> [--points=60]
 
@@ -29,15 +29,15 @@ static func tri_count(mesh: Mesh) -> int:
 func _run() -> void:
 	var points := int(_arg("points", "60"))
 	for prefix in _arg("maps", "").split(",", false):
-		var read := DotMapBspMesh.load_prefix(prefix)
+		var read := GSMapBspMesh.load_prefix(prefix)
 		if not read.ok:
 			print("STAT %s load failed" % prefix)
 			continue
-		var world: DotMapBspMesh = read.value
+		var world: GSMapBspMesh = read.value
 		var node := world.build_node()
 		node.add_child(world.build_props())
 		add_child(node)
-		var vis := DotMapVisibility.new()
+		var vis := GSMapVisibility.new()
 		vis.run_headless = true
 		add_child(vis)
 		vis.setup(world, node)

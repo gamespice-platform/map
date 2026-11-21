@@ -1,4 +1,4 @@
-class_name DotMapPropBatch
+class_name GSMapPropBatch
 extends RefCounted
 ## Draws a world's small static props as merged meshes, one surface per material per [member cell], instead of one node per prop.
 ##
@@ -7,7 +7,7 @@ extends RefCounted
 ## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree: no script, no skin, no blend shapes, no group) whose mesh has at
 ## most [member max_tris] triangles into one [ArrayMesh] per [member cell] of the map, a surface per material, so the cell is one draw
 ## per material however many props it holds. The same triangles, materials and transforms are drawn. Larger meshes keep their LOD
-## levels: the copies of one within an [member instance_cell] are drawn as one [MultiMeshInstance3D], and a lone copy keeps its node. The chunks stay direct children of [code]Props[/code], so [DotMapVisibility] culls them by their bounds.
+## levels: the copies of one within an [member instance_cell] are drawn as one [MultiMeshInstance3D], and a lone copy keeps its node. The chunks stay direct children of [code]Props[/code], so [GSMapVisibility] culls them by their bounds.
 ## A chunk fades no earlier than any prop in it did: props are grouped by fade distance (a quarter octave), and a chunk's
 ## [member GeometryInstance3D.visibility_range_end] is its members' furthest reach from the chunk's centre (Godot measures the range
 ## to an instance's bounds centre). Collision bodies, proxies (meta [code]dot_map_proxy[/code]) and anything with behaviour are left as they are.
@@ -71,7 +71,7 @@ func batch(props: Node3D) -> int:
 		mi.get_parent().remove_child(mi)
 		mi.free()
 	_instance(props, tris_of)
-	DotLog.info(CHANNEL, "props batched", {"props": batched_props, "meshes": batched_meshes, "chunks": chunks, "cell": cell, "max_tris": max_tris,
+	GSLog.info(CHANNEL, "props batched", {"props": batched_props, "meshes": batched_meshes, "chunks": chunks, "cell": cell, "max_tris": max_tris,
 			"instanced": instanced_meshes, "multimeshes": multimeshes})
 	return chunks
 

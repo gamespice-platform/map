@@ -1,6 +1,6 @@
 extends "bsp_mesh_parts/tests_batch.gd"
 
-## [DotMapBspMesh]: the converter's fixture read, built, and ray-cast.
+## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
 const CHECKS := 197
 const SECTIONS := 17
@@ -10,7 +10,7 @@ const U := 0.01905
 const ErrorCatcher := preload("res://examples/error_catcher.gd")
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -51,13 +51,13 @@ func _run() -> void:
 	get_tree().quit(1 if _failed > 0 else 0)
 
 
-func _test_read() -> DotMapBspMesh:
+func _test_read() -> GSMapBspMesh:
 	_section("reads and refuses")
-	var res := DotMapBspMesh.load_prefix(FIXTURE)
+	var res := GSMapBspMesh.load_prefix(FIXTURE)
 	_check(res.ok, "the fixture loads: %s" % (res.error if not res.ok else ""))
 	if not res.ok:
 		return null
-	var world: DotMapBspMesh = res.value
+	var world: GSMapBspMesh = res.value
 	var c := world.counts()
 	_check(c["surfaces"] == 5 and c["triangles"] == 36, "5 surfaces, 36 triangles: %s" % c)
 	_check(c["hulls"] == 3 and c["movers"] == 1, "3 hulls, 1 mover: %s" % c)
@@ -69,23 +69,23 @@ func _test_read() -> DotMapBspMesh:
 	var stored := FileAccess.get_file_as_bytes(FIXTURE + ".bin")
 	var bad := stored.duplicate()
 	bad[bad.size() / 2] = bad[bad.size() / 2] ^ 0xFF
-	var r := DotMapBspMesh.from_data(doc, bad)
-	_check(not r.ok and r.error.code == DotError.CODE_INTEGRITY, "a changed byte is refused")
+	var r := GSMapBspMesh.from_data(doc, bad)
+	_check(not r.ok and r.error.code == GSError.CODE_INTEGRITY, "a changed byte is refused")
 	var newer := doc.duplicate(true)
-	newer["version"] = DotMapBspMesh.VERSION + 1
-	r = DotMapBspMesh.from_data(newer, stored)
-	_check(not r.ok and r.error.code == DotError.CODE_VERSION, "a newer format is refused")
+	newer["version"] = GSMapBspMesh.VERSION + 1
+	r = GSMapBspMesh.from_data(newer, stored)
+	_check(not r.ok and r.error.code == GSError.CODE_VERSION, "a newer format is refused")
 	var lying := doc.duplicate(true)
 	(lying["surfaces"][0] as Dictionary)["vertex_count"] = 1 << 20
-	r = DotMapBspMesh.from_data(lying, stored)
-	_check(not r.ok and r.error.code == DotError.CODE_PARSE, "a surface past the data is refused")
-	r = DotMapBspMesh.load_prefix("res://examples/bsp_mesh/none")
-	_check(not r.ok and r.error.code == DotError.CODE_IO, "a missing file is an io failure")
+	r = GSMapBspMesh.from_data(lying, stored)
+	_check(not r.ok and r.error.code == GSError.CODE_PARSE, "a surface past the data is refused")
+	r = GSMapBspMesh.load_prefix("res://examples/bsp_mesh/none")
+	_check(not r.ok and r.error.code == GSError.CODE_IO, "a missing file is an io failure")
 	_done()
 	return world
 
 
-func _test_build(world: DotMapBspMesh) -> void:
+func _test_build(world: GSMapBspMesh) -> void:
 	_section("builds nodes, one per chunk and per brush entity")
 	var asked: Array[Dictionary] = []
 	var mat := StandardMaterial3D.new()
@@ -116,7 +116,7 @@ func _test_build(world: DotMapBspMesh) -> void:
 	_done()
 
 
-func _test_environment(world: DotMapBspMesh) -> void:
+func _test_environment(world: GSMapBspMesh) -> void:
 	_section("environment, sounds and free stand-ins")
 	_check(not world.is_free() and world.build_environment() == null, "a map with no licence pass is not free and has no environment")
 	world.manifest["licence"] = {"textures": []}
@@ -173,7 +173,7 @@ func _test_environment(world: DotMapBspMesh) -> void:
 	for cs: Node in cut.get_children():
 		var sz := ((cs as CollisionShape3D).shape as BoxShape3D).size
 		volume += sz.x * sz.y * sz.z
-	_check(cut.get_child_count() >= 2 and cut.get_child_count() <= DotMapBspMesh.decompose_max_boxes, "a hollow stand-in is cut into a few boxes: %d" % cut.get_child_count())
+	_check(cut.get_child_count() >= 2 and cut.get_child_count() <= GSMapBspMesh.decompose_max_boxes, "a hollow stand-in is cut into a few boxes: %d" % cut.get_child_count())
 	_check(volume < 0.6 * 2.0 * 2.0 * 2.0, "...which leave the empty corner free: %.2f m3 of 8" % volume)
 	var cut_again := world.build_prop_collision(ell)
 	_check(cut_again.get_child_count() == cut.get_child_count(), "cutting twice gives the same boxes")
@@ -186,13 +186,13 @@ func _test_environment(world: DotMapBspMesh) -> void:
 	_done()
 
 
-func _test_env_sounds(world: DotMapBspMesh) -> void:
+func _test_env_sounds(world: GSMapBspMesh) -> void:
 	var snd := world.build_sounds()
 	_check(snd.get_child_count() == 1 and snd.get_child(0) is AudioStreamPlayer3D, "one sound: the others have no stand-in or no file")
 	var pl := snd.get_child(0) as AudioStreamPlayer3D
 	_check(pl.position == Vector3(1, 2, 3) and is_equal_approx(pl.max_distance, 20.0) and pl.stream != null, "placed with its radius and stream")
 	_check(absf(pl.volume_db - linear_to_db(0.5)) < 0.01, "volume carried")
-	var driver := DotMapSoundDriver.new()
+	var driver := GSMapSoundDriver.new()
 	driver.root = snd
 	_check(driver.handle("sound_fade", {"entity": 1, "name": "", "seconds": 0.0, "from": 0.0, "to": 1.0}) and absf(pl.volume_db) < 0.01, "sound_fade to 1 sets full volume by entity")
 	_check(driver.handle("sound_spin", {"entity": 1, "seconds": 0.0, "from": 100.0, "to": 200.0}) and is_equal_approx(pl.pitch_scale, 2.0), "sound_spin sets the pitch")
@@ -238,35 +238,35 @@ const SOURCE := {"format": "dot-bsp-source", "version": 1, "entities": []}
 
 func _test_rebuild() -> void:
 	_section("a rebuilt world has identical collision, from cached meshes and shapes")
-	DotMapBspMesh.clear_cache()
-	var first := DotMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": true})
+	GSMapBspMesh.clear_cache()
+	var first := GSMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": true})
 	_check(first.ok, "the first build: %s" % (first.error.message if not first.ok else ""))
 	if not first.ok:
 		_done()
 		return
-	var a: DotMapWorld = first.value
-	var second := DotMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false})
+	var a: GSMapWorld = first.value
+	var second := GSMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false})
 	_check(second.ok, "the rebuild")
-	var b: DotMapWorld = second.value
+	var b: GSMapWorld = second.value
 	_check(a.mesh == b.mesh, "the rebuild reuses the loaded mesh")
 	var sig := _collision_signature(a)
 	_check(not sig.is_empty(), "the world has collision shapes")
 	_check(sig == _collision_signature(b), "the rebuilt collision is identical")
 	_check(a.mesh.hull_shapes(0)[0]["shape"] == b.mesh.hull_shapes(0)[0]["shape"], "the shapes are shared")
 	_check(not a.visual.find_children("*", "MeshInstance3D", true, false).is_empty(), "draw true builds the meshes")
-	var bare := DotMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": false})
-	_check(bare.ok and (bare.value as DotMapWorld).visual.find_children("*", "MeshInstance3D", true, false).is_empty(),
+	var bare := GSMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": false})
+	_check(bare.ok and (bare.value as GSMapWorld).visual.find_children("*", "MeshInstance3D", true, false).is_empty(),
 			"draw false builds no meshes")
 	_check(bare.ok and _collision_signature(bare.value) == sig, "draw false keeps the same collision")
-	var mo := DotMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": true, "movers_only": true})
+	var mo := GSMapWorld.build(FIXTURE, {}, {"doc": SOURCE, "environment": false, "draw": true, "movers_only": true})
 	_check(mo.ok and _collision_signature(mo.value).size() < sig.size(), "movers_only leaves the world model's collision to the caller")
-	var wnode: Node = (mo.value as DotMapWorld).visual.get_node_or_null("world") if mo.ok else null
+	var wnode: Node = (mo.value as GSMapWorld).visual.get_node_or_null("world") if mo.ok else null
 	_check(wnode != null and wnode.get_child_count() == 0, "movers_only draws no world model")
 	if mo.ok:
 		(mo.value as Node).free()
-	DotMapBspMesh.cache_meshes = false
-	var fresh := DotMapBspMesh.load_prefix(FIXTURE)
-	DotMapBspMesh.cache_meshes = true
+	GSMapBspMesh.cache_meshes = false
+	var fresh := GSMapBspMesh.load_prefix(FIXTURE)
+	GSMapBspMesh.cache_meshes = true
 	_check(fresh.ok and fresh.value != a.mesh, "the cache can be switched off")
 	for w: Variant in [a, b, bare.value if bare.ok else null]:
 		if w != null:
@@ -274,7 +274,7 @@ func _test_rebuild() -> void:
 	_done()
 
 
-func _test_collide(world: DotMapBspMesh) -> void:
+func _test_collide(world: GSMapBspMesh) -> void:
 	_section("hulls collide where the brushes are")
 	var body := StaticBody3D.new()
 	add_child(body)
@@ -313,11 +313,11 @@ func _test_collide(world: DotMapBspMesh) -> void:
 	_done()
 
 
-func _test_async_build(world: DotMapBspMesh) -> void:
+func _test_async_build(world: GSMapBspMesh) -> void:
 	_section("the sliced build yields and matches the one-frame build")
 	var plain := func(_rec: Dictionary) -> Material: return StandardMaterial3D.new()
 	var sync_root := world.build_node(plain)
-	var slice := DotFrameSlice.new()
+	var slice := GSFrameSlice.new()
 	slice.budget_ms = 0
 	var frames := [0]
 	var counter := func() -> void:
@@ -335,19 +335,19 @@ func _test_async_build(world: DotMapBspMesh) -> void:
 	_check(not slice.due() or slice.budget_ms == 0, "the slice reports itself due only past its budget")
 	sync_root.free()
 	async_root.free()
-	DotMapBspMesh.clear_cache()
-	var read: DotResult = await DotMapBspMesh.load_prefix_async(FIXTURE)
-	var plain_read := DotMapBspMesh.load_prefix(FIXTURE)
+	GSMapBspMesh.clear_cache()
+	var read: GSResult = await GSMapBspMesh.load_prefix_async(FIXTURE)
+	var plain_read := GSMapBspMesh.load_prefix(FIXTURE)
 	_check(read.ok and plain_read.ok and read.value == plain_read.value, "the worker read is cached like a plain one")
-	DotMapBspMesh.clear_cache()
-	plain_read = DotMapBspMesh.load_prefix(FIXTURE)
-	_check(read.ok and plain_read.ok and (read.value as DotMapBspMesh)._blob == (plain_read.value as DotMapBspMesh)._blob
-			and (read.value as DotMapBspMesh).surfaces == (plain_read.value as DotMapBspMesh).surfaces,
+	GSMapBspMesh.clear_cache()
+	plain_read = GSMapBspMesh.load_prefix(FIXTURE)
+	_check(read.ok and plain_read.ok and (read.value as GSMapBspMesh)._blob == (plain_read.value as GSMapBspMesh)._blob
+			and (read.value as GSMapBspMesh).surfaces == (plain_read.value as GSMapBspMesh).surfaces,
 			"the worker read matches the plain one")
 	var gone := Node3D.new()
 	var out: Array = [false, null]
 	var attach := func() -> void:
-		out[1] = await DotMapDrawnWorld.attach_async(gone, world, {"probes": 0}, slice)
+		out[1] = await GSMapDrawnWorld.attach_async(gone, world, {"probes": 0}, slice)
 		out[0] = true
 	var catcher := ErrorCatcher.new()
 	OS.add_logger(catcher)
@@ -361,11 +361,11 @@ func _test_async_build(world: DotMapBspMesh) -> void:
 	_check(catcher.errors.is_empty(), "and raises no engine error: %s" % [catcher.errors])
 	# The whole sliced attach (materials, meshes, finishing steps) draws what the one-frame attach draws.
 	var one_parent := Node3D.new()
-	var one := DotMapDrawnWorld.attach(one_parent, world, {"probes": 0})
+	var one := GSMapDrawnWorld.attach(one_parent, world, {"probes": 0})
 	var sliced_parent := Node3D.new()
 	frames[0] = 0
 	counter.call()
-	var sliced: DotMapDrawnWorld = await DotMapDrawnWorld.attach_async(sliced_parent, world, {"probes": 0}, DotFrameSlice.new(0))
+	var sliced: GSMapDrawnWorld = await GSMapDrawnWorld.attach_async(sliced_parent, world, {"probes": 0}, GSFrameSlice.new(0))
 	seen = frames[0]
 	frames[0] = -1
 	_check(sliced != null and sliced.root != null and sliced.root.get_parent() == sliced_parent, "the sliced attach hangs the world under its parent")
@@ -381,12 +381,12 @@ func _test_async_build(world: DotMapBspMesh) -> void:
 func _test_fence() -> void:
 	_section("a fence stops bodies and not shots; a wall stops both; the probe sees every solid")
 	var clip_layer := 1 << 8
-	var made := DotMapWorld.build(GLASS, {}, {"doc": SOURCE, "environment": false, "draw": false, "layers": {"fence": clip_layer}})
+	var made := GSMapWorld.build(GLASS, {}, {"doc": SOURCE, "environment": false, "draw": false, "layers": {"fence": clip_layer}})
 	_check(made.ok, "the world builds")
 	if not made.ok:
 		_done()
 		return
-	var w: DotMapWorld = made.value
+	var w: GSMapWorld = made.value
 	var holder := Node3D.new()
 	add_child(holder)
 	holder.add_child(w)
@@ -425,12 +425,12 @@ func _test_legacy_split() -> void:
 	f.store_string(JSON.stringify(doc))
 	f.close()
 	DirAccess.copy_absolute(GLASS + ".bin", "user://legacy_split/glass.bin")
-	var res := DotMapBspMesh.load_prefix("user://legacy_split/clipfix")
+	var res := GSMapBspMesh.load_prefix("user://legacy_split/clipfix")
 	_check(res.ok, "the clip fixture reads")
 	if not res.ok:
 		_done()
 		return
-	var m: DotMapBspMesh = res.value
+	var m: GSMapBspMesh = res.value
 	var blob := StaticBody3D.new()
 	blob.collision_layer = 1
 	for h: Dictionary in m.hull_shapes(0):
@@ -487,12 +487,12 @@ func _points_aabb(points: PackedVector3Array) -> AABB:
 
 func _test_decals() -> void:
 	_section("a decal record is drawn alpha-blended in its own shadowless mesh")
-	var res := DotMapBspMesh.load_prefix(GLASS)
+	var res := GSMapBspMesh.load_prefix(GLASS)
 	_check(res.ok, "the glass fixture reads")
 	if not res.ok:
 		_done()
 		return
-	var world: DotMapBspMesh = res.value
+	var world: GSMapBspMesh = res.value
 	var floor_rec: Dictionary = world.surfaces.filter(func(r: Dictionary) -> bool: return not r.has("glass") and int(r["model"]) == 0)[0]
 	floor_rec["decal"] = "decal_lines"
 	floor_rec["colour"] = [0.2, 0.4, 0.6]
@@ -511,16 +511,16 @@ func _test_decals() -> void:
 	var di: MeshInstance3D = decals[0] if not decals.is_empty() else null
 	_check(di != null and di.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "a decal casts no shadow")
 	var mat: Material = di.mesh.surface_get_material(0) if di != null else null
-	_check(DotMapBspMesh.is_decal_material(mat) and not DotMapBspMesh.is_decal_material(StandardMaterial3D.new()),
+	_check(GSMapBspMesh.is_decal_material(mat) and not GSMapBspMesh.is_decal_material(StandardMaterial3D.new()),
 			"a plain material from the game is replaced by the built-in decal material")
-	_check(mat is ShaderMaterial and is_equal_approx(float((mat as ShaderMaterial).get_shader_parameter("depth_bias")), DotMapBspMesh.decal_depth_bias),
+	_check(mat is ShaderMaterial and is_equal_approx(float((mat as ShaderMaterial).get_shader_parameter("depth_bias")), GSMapBspMesh.decal_depth_bias),
 			"it is pulled toward the camera by decal_depth_bias")
-	_check(DotMapBspMesh.decal_material(&"decal_patch", [0.2, 0.4, 0.6]).get_shader_parameter("colour").is_equal_approx(Color(0.2, 0.4, 0.6, 0.9))
-			and DotMapBspMesh.decal_material(&"decal_lines", [0.2, 0.4, 0.6]) == DotMapBspMesh.decal_material(&"decal_lines"),
+	_check(GSMapBspMesh.decal_material(&"decal_patch", [0.2, 0.4, 0.6]).get_shader_parameter("colour").is_equal_approx(Color(0.2, 0.4, 0.6, 0.9))
+			and GSMapBspMesh.decal_material(&"decal_lines", [0.2, 0.4, 0.6]) == GSMapBspMesh.decal_material(&"decal_lines"),
 			"a patch takes the record's colour, painted lines keep their own (shared)")
-	var lines := DotMapBspMesh.decal_texture(&"lines").get_image()
+	var lines := GSMapBspMesh.decal_texture(&"lines").get_image()
 	_check(lines.get_pixel(15, 128).a > 0.3 and lines.get_pixel(128, 128).a == 0.0, "the lines texture is two side stripes over clear")
-	var fade := DotMapBspMesh.decal_texture(&"fade").get_image()
+	var fade := GSMapBspMesh.decal_texture(&"fade").get_image()
 	_check(fade.get_pixel(5, 0).a > 0.95 and fade.get_pixel(5, 255).a < 0.05, "the fade is opaque at the top and clear at the bottom")
 	root.free()
 	_done()
@@ -528,12 +528,12 @@ func _test_decals() -> void:
 
 func _test_glass() -> void:
 	_section("glass is transparent, shadowless and breakable")
-	var res := DotMapBspMesh.load_prefix(GLASS)
+	var res := GSMapBspMesh.load_prefix(GLASS)
 	_check(res.ok, "the glass fixture reads")
 	if not res.ok:
 		_done()
 		return
-	var world: DotMapBspMesh = res.value
+	var world: GSMapBspMesh = res.value
 	var glass_recs := world.surfaces.filter(func(r: Dictionary) -> bool: return r.has("glass"))
 	_check(glass_recs.size() == 4, "four glass surfaces (the pane wall, the breakable and the fence in two cells): %d" % glass_recs.size())
 	_check(world.surfaces.any(func(r: Dictionary) -> bool: return not r.has("glass")), "the floor is not glass")
@@ -566,12 +566,12 @@ func _test_glass() -> void:
 	var mat := gi.mesh.surface_get_material(0) as StandardMaterial3D
 	_check(mat != null and mat.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA and mat.albedo_color.a < 0.5,
 			"glass is alpha-blended and see-through")
-	_check(DotMapBspMesh.glass_material(&"glass_frosted").albedo_color.a > DotMapBspMesh.glass_material(&"glass").albedo_color.a,
+	_check(GSMapBspMesh.glass_material(&"glass_frosted").albedo_color.a > GSMapBspMesh.glass_material(&"glass").albedo_color.a,
 			"frosted is more opaque than clear")
 	_test_cutouts(world)
 	var panes := world.build_breakables(root)
 	_check(panes.size() == 1 and panes[0].health == 20.0 and panes[0].model == 1, "a pane with the map's health")
-	var pane: DotMapGlass = panes[0]
+	var pane: GSMapGlass = panes[0]
 	_check(world.hull_shapes(1)[0]["kind"] == "glass", "its hull has kind glass")
 	await get_tree().physics_frame
 	await get_tree().physics_frame
@@ -591,15 +591,15 @@ func _test_glass() -> void:
 	_check(not (pane.visual as Node3D).visible, "it is hidden")
 	_check(not space.intersect_ray(ray).has("collider"), "a ray goes through where it stood")
 	_check(root.get_children().any(func(c: Node) -> bool: return c is CPUParticles3D), "shards were spawned")
-	var twin := DotMapGlass.new()
+	var twin := GSMapGlass.new()
 	add_child(twin)
 	twin.apply_broken(Vector3.ONE, &"host")
 	_check(twin.is_broken(), "the host's word breaks it on a client")
 	_done()
 
 
-func _test_cutouts(world: DotMapBspMesh) -> void:
-	var fence_tex := DotMapBspMesh.cutout_texture(&"diamond")
+func _test_cutouts(world: GSMapBspMesh) -> void:
+	var fence_tex := GSMapBspMesh.cutout_texture(&"diamond")
 	var fence_img := fence_tex.get_image()
 	var covered := func(level: int) -> float:
 		var lvl := Image.create_from_data(fence_img.get_width(), fence_img.get_height(), true, fence_img.get_format(), fence_img.get_data())
@@ -613,7 +613,7 @@ func _test_cutouts(world: DotMapBspMesh) -> void:
 		return float(n) / float(w * w)
 	_check(absf(covered.call(1) - covered.call(0)) < 0.12 and covered.call(2) > 0.1,
 			"a thin cutout keeps its coverage in the mips, so a fence does not vanish at distance (%.2f, %.2f vs %.2f)" % [covered.call(1), covered.call(2), covered.call(0)])
-	var leaf_img := DotMapBspMesh.cutout_texture(&"leaves").get_image()
+	var leaf_img := GSMapBspMesh.cutout_texture(&"leaves").get_image()
 	var leaf_solid := 0
 	for ly in leaf_img.get_height():
 		for lx in leaf_img.get_width():
@@ -621,8 +621,8 @@ func _test_cutouts(world: DotMapBspMesh) -> void:
 				leaf_solid += 1
 	var leaf_share := float(leaf_solid) / float(leaf_img.get_width() * leaf_img.get_height())
 	_check(leaf_share > 0.8 and leaf_share < 1.0, "a foliage card is mostly leaf, with small gaps and no black sky patches (%.2f)" % leaf_share)
-	_check(DotMapBspMesh.glass_material(&"fence").alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE, "cutouts use alpha to coverage")
-	_check(DotMapBspMesh.glass_material(&"nonsense") == DotMapBspMesh.glass_material(&"glass"), "an unknown kind is clear glass, shared")
+	_check(GSMapBspMesh.glass_material(&"fence").alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE, "cutouts use alpha to coverage")
+	_check(GSMapBspMesh.glass_material(&"nonsense") == GSMapBspMesh.glass_material(&"glass"), "an unknown kind is clear glass, shared")
 	_check(world.breakables().size() == 1 and str(world.breakables()[0]["glass"]) == "glass", "one breakable glass model")
 
 
@@ -639,15 +639,15 @@ func _test_mesh_lods() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = plain
 	root.add_child(mi)
-	_check(DotMapBspMesh.add_mesh_lods(root, 0) == 0 and mi.mesh == plain, "a minimum of 0 leaves the mesh alone")
-	_check(DotMapBspMesh.add_mesh_lods(root, whole + 1) == 0 and mi.mesh == plain, "a mesh under the minimum is left alone")
-	_check(DotMapBspMesh.add_mesh_lods(root, 1000) == 1 and mi.mesh != plain, "a mesh over it is replaced")
+	_check(GSMapBspMesh.add_mesh_lods(root, 0) == 0 and mi.mesh == plain, "a minimum of 0 leaves the mesh alone")
+	_check(GSMapBspMesh.add_mesh_lods(root, whole + 1) == 0 and mi.mesh == plain, "a mesh under the minimum is left alone")
+	_check(GSMapBspMesh.add_mesh_lods(root, 1000) == 1 and mi.mesh != plain, "a mesh over it is replaced")
 	var lod_mesh := mi.mesh as ArrayMesh
 	var capped_root := Node3D.new()
 	var capped := MeshInstance3D.new()
 	capped.mesh = plain
 	capped_root.add_child(capped)
-	var _n := DotMapBspMesh.add_mesh_lods(capped_root, 1000, whole / 4)
+	var _n := GSMapBspMesh.add_mesh_lods(capped_root, 1000, whole / 4)
 	var kept := ((capped.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
 	_check(lod_mesh != null and ((lod_mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3) == whole, "without a cap the first level keeps every triangle (%d)" % whole)
 	_check(kept <= whole / 4 and kept > 0, "a cap of a quarter starts from a level of at most that many: %d of %d" % [kept, whole])
@@ -656,7 +656,7 @@ func _test_mesh_lods() -> void:
 	_done()
 
 
-func _test_lightmap() -> DotMapBspMesh:
+func _test_lightmap() -> GSMapBspMesh:
 	_section("lightmap: a v2 surface with a second UV set, an atlas page and an ambient cube")
 	# one triangle, positions then normals then uv then uv2 then indices, then a 2x1 RGB9E5 page, then one ambient sample
 	var blob := PackedByteArray()
@@ -688,9 +688,9 @@ func _test_lightmap() -> DotMapBspMesh:
 			"surfaces": [{"model": 0, "material": "m", "vertex_count": 3, "position_offset": offs[0], "normal_offset": offs[1],
 					"uv_offset": offs[2], "uv2_offset": offs[3], "index_offset": offs[4], "index_count": 3,
 					"lightmap_page": 0}], "hulls": []}
-	var r := DotMapBspMesh.from_data(doc, blob)
+	var r := GSMapBspMesh.from_data(doc, blob)
 	_check(r.ok, "a v2 map loads: %s" % (r.error if not r.ok else ""))
-	var w: DotMapBspMesh = r.value
+	var w: GSMapBspMesh = r.value
 	_check(w.has_lightmap() and w.lightmap_page(1) == null, "it has a lightmap, one page")
 	var tex := w.lightmap_page(0)
 	_check(tex != null and tex.get_width() == 2 and tex.get_height() == 1, "the page is a 2x1 texture")
@@ -700,7 +700,7 @@ func _test_lightmap() -> DotMapBspMesh:
 	_check((a[Mesh.ARRAY_TEX_UV2] as PackedVector2Array)[1].is_equal_approx(Vector2(0.75, 0.5)), "the second UV set is read")
 	var bad := doc.duplicate(true)
 	(bad["surfaces"][0] as Dictionary)["uv2_offset"] = blob.size()
-	_check(not DotMapBspMesh.from_data(bad, blob).ok, "a uv2 block past the data is refused")
+	_check(not GSMapBspMesh.from_data(bad, blob).ok, "a uv2 block past the data is refused")
 	var built := w.build_meshes(0)
 	var arrays: Array = (built[0]["mesh"] as ArrayMesh).surface_get_arrays(0)
 	_check(built.size() == 1 and arrays[Mesh.ARRAY_TEX_UV2] != null, "the built mesh keeps UV2")
@@ -710,24 +710,24 @@ func _test_lightmap() -> DotMapBspMesh:
 	return w
 
 
-func _test_drawn(world: DotMapBspMesh, lit_world: DotMapBspMesh) -> void:
+func _test_drawn(world: GSMapBspMesh, lit_world: GSMapBspMesh) -> void:
 	_section("drawn world: model 0 only, moved into a game's frame, lit by the bake")
 	var host := Node3D.new()
 	add_child(host)
 	var at := Transform3D(Basis.IDENTITY, Vector3(10, 0, 5))
-	var drawn := DotMapDrawnWorld.attach(host, world, {"transform": at, "probes": 0, "cull": false})
+	var drawn := GSMapDrawnWorld.attach(host, world, {"transform": at, "probes": 0, "cull": false})
 	_check(drawn.root != null and drawn.root.name == "World" and drawn.root.get_parent() == host, "the node is World under the host")
 	var names := drawn.root.get_children().map(func(c: Node) -> String: return String(c.name))
 	_check(names == ["world"], "only the world model is drawn, no brush entity: %s" % [names])
 	var chunk := drawn.root.get_node("world").get_child(0) as MeshInstance3D
 	var box := chunk.global_transform * chunk.get_aabb()
 	_check(is_equal_approx(box.position.x, chunk.get_aabb().position.x + 10.0), "the meshes are drawn in the game's frame: %s" % box)
-	var all := DotMapDrawnWorld.attach(host, world, {"only_world": false, "probes": 0, "cull": false})
+	var all := GSMapDrawnWorld.attach(host, world, {"only_world": false, "probes": 0, "cull": false})
 	_check(all.root.get_child_count() == 2, "only_world off keeps the door")
 	var env := Environment.new()
 	var lamp := OmniLight3D.new()
 	host.add_child(lamp)
-	var lit := DotMapDrawnWorld.attach(host, lit_world, {"transform": at, "environment": env, "lamps": [lamp], "probes": 0, "cull": false})
+	var lit := GSMapDrawnWorld.attach(host, lit_world, {"transform": at, "environment": env, "lamps": [lamp], "probes": 0, "cull": false})
 	_check(lit.lit != null and lit.lit.frame == lit.root, "a lightmapped world gets the ambient driver, in the drawn node's frame")
 	_check(lamp.is_queued_for_deletion(), "the lamps the bake holds are freed")
 	drawn.detach()

@@ -1,8 +1,8 @@
-class_name DotMapPush
-extends DotMapEntity
+class_name GSMapPush
+extends GSMapEntity
 
 ## trigger_push: the volume's direction and speed, which SetPushSpeed and SetPushDirection change.
-## [DotMapVolumes] hands the push to [member DotMapIO.move_fn] as a [Vector3] (m/s) each step a
+## [GSMapVolumes] hands the push to [member GSMapIO.move_fn] as a [Vector3] (m/s) each step a
 ## body is inside.
 
 ## Unit direction, Godot axes.

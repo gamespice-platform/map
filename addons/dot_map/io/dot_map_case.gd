@@ -1,5 +1,5 @@
-class_name DotMapCase
-extends DotMapEntity
+class_name GSMapCase
+extends GSMapEntity
 
 ## logic_case: InValue matches its text against Case01..16 and fires OnCaseNN or OnDefault;
 ## PickRandom picks a filled case at random; PickRandomShuffle goes through each once per round.
@@ -26,7 +26,7 @@ func _input(io: RefCounted, name: String, param: String, activator: Variant, _ca
 		"pickrandomshuffle":
 			if _bag.is_empty():
 				_bag = _filled()
-				var s: DotRandomStream = io.stream_for(self)
+				var s: GSRandomStream = io.stream_for(self)
 				for i in range(_bag.size() - 1, 0, -1):
 					var j := s.next_range_i(0, i)
 					var t: Variant = _bag[i]

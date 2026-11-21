@@ -1,9 +1,9 @@
-class_name DotMapUse
+class_name GSMapUse
 extends RefCounted
 
 ## The press-E path for a converted map's buttons and doors: what the eye is looking at, whether it is in reach, and the press itself.
 ## A client calls [method aim] each frame for the prompt; the host calls [method press] when a player's use bit rises, so the map's own `OnPressed` and friends run server-side.
-## Any other usable thing (a weapon on the floor) can implement [method DotMapUse.usable_info]'s shape and share the same prompt.
+## Any other usable thing (a weapon on the floor) can implement [method GSMapUse.usable_info]'s shape and share the same prompt.
 
 const CHANNEL := "map.use"
 ## Metres a usable body may sit behind a non-usable surface and still be pressed.
@@ -15,7 +15,7 @@ var reach := 2.2
 var cooldown := 0.3
 ## Physics layers the look ray hits; players are not on the map's layer.
 var mask := 1
-## Plays a press: [code](kind: StringName, entity: DotMapEntity, at: Vector3)[/code] with kind `press`, `locked` or `toggle`.
+## Plays a press: [code](kind: StringName, entity: GSMapEntity, at: Vector3)[/code] with kind `press`, `locked` or `toggle`.
 var effect_fn := Callable()
 ## Seconds an extra `button.ogg` click is audible when [member play_sounds] is on; the map's own sounds are the game's.
 var play_sounds := true
@@ -24,7 +24,7 @@ var play_sounds := true
 var mover_ride := 0.15
 var mover_push := 1.0
 
-var _world: DotMapWorld
+var _world: GSMapWorld
 var _by_model: Dictionary = {}
 var _next_ok: Dictionary = {}
 
@@ -36,12 +36,12 @@ const _SPECS := [
 ]
 
 
-func _init(world: DotMapWorld = null) -> void:
+func _init(world: GSMapWorld = null) -> void:
 	_world = world
 
 
-## Points this at another world (a game keeps one DotMapUse, and its cvars, across map changes).
-func attach(world: DotMapWorld) -> void:
+## Points this at another world (a game keeps one GSMapUse, and its cvars, across map changes).
+func attach(world: GSMapWorld) -> void:
 	_world = world
 	_by_model.clear()
 	_next_ok.clear()
@@ -83,39 +83,39 @@ func aim(space: PhysicsDirectSpaceState3D, from: Vector3, dir: Vector3, exclude:
 ## Presses what the ray hits for [param user] (any key; the cooldown is per user and entity). Host only.
 ## Fails with CODE_INVALID (nothing usable, or out of reach), CODE_STATE (cooling down or already in).
 func press(space: PhysicsDirectSpaceState3D, from: Vector3, dir: Vector3, user: Variant, activator: Variant = null,
-		exclude: Array[RID] = []) -> DotResult:
+		exclude: Array[RID] = []) -> GSResult:
 	if _world == null or not _world.io.authoritative:
-		return DotResult.fail(DotError.CODE_INVALID, "a client runs no logic")
+		return GSResult.fail(GSError.CODE_INVALID, "a client runs no logic")
 	var info := aim(space, from, dir, exclude)
 	if info.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "nothing usable under the eye")
+		return GSResult.fail(GSError.CODE_INVALID, "nothing usable under the eye")
 	if not in_reach(info):
-		return DotResult.fail(DotError.CODE_INVALID, "out of reach")
+		return GSResult.fail(GSError.CODE_INVALID, "out of reach")
 	return press_entity(int(info["index"]), user, activator if activator != null else user, info["at"] as Vector3)
 
 
 ## The same press for an entity already chosen (a bot that knows which button it wants, or a test).
-func press_entity(index: int, user: Variant, activator: Variant = null, at: Vector3 = Vector3.ZERO) -> DotResult:
+func press_entity(index: int, user: Variant, activator: Variant = null, at: Vector3 = Vector3.ZERO) -> GSResult:
 	var io := _world.io
-	var e := io.entity_of(index) as DotMapMoverNode
+	var e := io.entity_of(index) as GSMapMoverNode
 	if e == null or e.use_state() == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "entity %d cannot be used" % index)
+		return GSResult.fail(GSError.CODE_INVALID, "entity %d cannot be used" % index)
 	var key := "%s:%d" % [str(user), index]
 	if io.now < int(_next_ok.get(key, -1)):
-		return DotResult.fail(DotError.CODE_STATE, "cooling down")
+		return GSResult.fail(GSError.CODE_STATE, "cooling down")
 	var state := e.use_state()
 	if state == &"pressed":
-		return DotResult.fail(DotError.CODE_STATE, "still in")
+		return GSResult.fail(GSError.CODE_STATE, "still in")
 	_next_ok[key] = io.now + io.ticks_for(cooldown)
 	var res := io.use(index, activator if activator != null else user)
-	DotLog.debug(CHANNEL, "use pressed", {"entity": index, "state": str(state), "ok": res.ok})
+	GSLog.debug(CHANNEL, "use pressed", {"entity": index, "state": str(state), "ok": res.ok})
 	if res.ok and effect_fn.is_valid():
 		effect_fn.call(&"locked" if state == &"locked" else (&"toggle" if e.mover.toggle else &"press"), e, at)
 	return res
 
 
 ## "Use", "Open" or the like for the prompt, by what the entity is.
-static func label_for(e: DotMapMoverNode, state: StringName) -> String:
+static func label_for(e: GSMapMoverNode, state: StringName) -> String:
 	if state == &"locked":
 		return "Locked"
 	if state == &"pressed":
@@ -171,14 +171,14 @@ func in_reach(info: Dictionary) -> bool:
 	return not info.is_empty() and float(info.get("distance", INF)) <= reach and info.get("state", &"") != &""
 
 
-func _entity_of(node: Node) -> DotMapMoverNode:
+func _entity_of(node: Node) -> GSMapMoverNode:
 	while node != null and node != _world:
 		if node.has_meta(&"model"):
 			var model := int(node.get_meta(&"model"))
 			if _by_model.is_empty():
-				for c: DotMapEntity in _world.io.entities:
-					if c is DotMapMoverNode and c.key("model").begins_with("*"):
+				for c: GSMapEntity in _world.io.entities:
+					if c is GSMapMoverNode and c.key("model").begins_with("*"):
 						_by_model[int(c.key("model").substr(1))] = c
-			return _by_model.get(model) as DotMapMoverNode
+			return _by_model.get(model) as GSMapMoverNode
 		node = node.get_parent()
 	return null

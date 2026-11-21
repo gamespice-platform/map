@@ -1,5 +1,5 @@
 @tool
-class_name DotMapSession
+class_name GSMapSession
 extends Node
 
 ## The node a game adds: which map is loaded, what plays next, and the switch between them ([code]await session.change_to(&"surf_beginner")[/code], after [code]load_catalogue[/code]).
@@ -9,24 +9,24 @@ extends Node
 const CHANNEL := "map.session"
 
 ## About to change. Emitted before anything is freed. Abandon runs here.
-signal changing(from: DotMapDef, to: DotMapDef)
+signal changing(from: GSMapDef, to: GSMapDef)
 
 ## The new map is in the tree. [param world] is its root node.
-signal changed(map: DotMapDef, world: Node)
+signal changed(map: GSMapDef, world: Node)
 
 ## A change failed. The session is still on the map named by [member current].
-signal change_failed(map: DotMapDef, reason: String)
+signal change_failed(map: GSMapDef, reason: String)
 
 ## The map is over — its time ran out, or enough players rocked the vote. The session does NOT change the map
 ## itself here. What happens when a map ends is a game's decision: run a vote, go to the next in the
 ## rotation, end the round first, or show a scoreboard for ten seconds.
-signal map_over(map: DotMapDef, reason: StringName)
+signal map_over(map: GSMapDef, reason: StringName)
 
 ## The map is nearly over. For a chat message or a HUD.
 signal time_warning(seconds_left: float)
 
 ## Content is being fetched. For a progress screen.
-signal fetching(map: DotMapDef)
+signal fetching(map: GSMapDef)
 
 @export_group("Content")
 
@@ -39,11 +39,11 @@ signal fetching(map: DotMapDef)
 @export_group("Wiring")
 
 ## Where the loaded map's root node is added.
-@export var world_ref: DotNodeRef = null
+@export var world_ref: GSNodeRef = null
 
 @export_group("Rotation")
 
-@export var rotation_mode: DotMapRotation.Mode = DotMapRotation.Mode.RANDOM
+@export var rotation_mode: GSMapRotation.Mode = GSMapRotation.Mode.RANDOM
 
 @export_range(0, 32, 1) var rotation_cooldown: int = 5
 
@@ -62,23 +62,23 @@ signal fetching(map: DotMapDef)
 ## hibernation froze it. See [method set_hibernating].
 @export var restart_on_wake: bool = true
 
-var catalogue: DotMapCatalogue = null
-var rotation: DotMapRotation = null
-var loader: DotMapLoader = null
+var catalogue: GSMapCatalogue = null
+var rotation: GSMapRotation = null
+var loader: GSMapLoader = null
 
 ## The map clock, rock-the-vote tally and extensions. Advanced by the host with [method advance], never by a
 ## wall clock — a server that stalls should not lose that time off its map, and a test must be able to run an
 ## hour of it in a millisecond.
-var time_limit := DotMapTimeLimit.new()
+var time_limit := GSMapTimeLimit.new()
 
 ## The map currently loaded, or null.
-var current: DotMapDef = null
+var current: GSMapDef = null
 
 ## The root node of the loaded map, or null.
 var world: Node = null
 
 ## The zone file's text for the current map, for a host that has GameSpice Timer. Text rather than a parsed
-## `DotTimerZoneSet`, because GameSpice Timer is optional and naming the class here would make every map load in a
+## `GSTimerZoneSet`, because GameSpice Timer is optional and naming the class here would make every map load in a
 ## game without a timer fail to parse. The host parses it.
 var zones_json: String = ""
 
@@ -95,12 +95,12 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
 
-	loader = DotMapLoader.new()
+	loader = GSMapLoader.new()
 
 	if catalogue == null:
-		catalogue = DotMapCatalogue.new()
+		catalogue = GSMapCatalogue.new()
 
-	rotation = DotMapRotation.of(catalogue)
+	rotation = GSMapRotation.of(catalogue)
 	rotation.mode = rotation_mode
 	rotation.cooldown = rotation_cooldown
 
@@ -111,15 +111,15 @@ func _ready() -> void:
 
 	if catalogue_path != "":
 		var loaded := load_catalogue(catalogue_path)
-		DotLog.result(CHANNEL, "loading the map catalogue", loaded)
+		GSLog.result(CHANNEL, "loading the map catalogue", loaded)
 
 	if initial_map != &"":
-		var started: DotResult = await change_to(initial_map)
-		DotLog.result(CHANNEL, "loading the initial map", started)
+		var started: GSResult = await change_to(initial_map)
+		GSLog.result(CHANNEL, "loading the initial map", started)
 
 
-func load_catalogue(path: String) -> DotResult:
-	var loaded := DotMapCatalogue.load_json(path)
+func load_catalogue(path: String) -> GSResult:
+	var loaded := GSMapCatalogue.load_json(path)
 
 	if not loaded.ok:
 		return loaded
@@ -130,53 +130,53 @@ func load_catalogue(path: String) -> DotResult:
 		rotation.catalogue = catalogue
 
 	for problem in catalogue.problems():
-		DotLog.warn(CHANNEL, "catalogue problem", {"problem": problem})
+		GSLog.warn(CHANNEL, "catalogue problem", {"problem": problem})
 
-	return DotResult.success(catalogue)
+	return GSResult.success(catalogue)
 
 
 ## Changes to a map by id.
-func change_to(id: StringName) -> DotResult:
+func change_to(id: StringName) -> GSResult:
 	if catalogue == null:
-		return DotResult.fail(
-			DotError.CODE_STATE, "No catalogue has been loaded."
+		return GSResult.fail(
+			GSError.CODE_STATE, "No catalogue has been loaded."
 		)
 
 	var map := catalogue.get_map(id)
 
 	if map == null:
-		return DotResult.fail(
-			DotError.CODE_IO, "No such map in the catalogue.", String(id)
+		return GSResult.fail(
+			GSError.CODE_IO, "No such map in the catalogue.", String(id)
 		)
 
 	return await change_to_map(map)
 
 
 ## Changes to the next map the rotation offers.
-func change_to_next(players: int = 0) -> DotResult:
+func change_to_next(players: int = 0) -> GSResult:
 	if rotation == null:
-		return DotResult.fail(DotError.CODE_STATE, "No rotation.")
+		return GSResult.fail(GSError.CODE_STATE, "No rotation.")
 
 	var next := rotation.choose(players)
 
 	if next == null:
-		return DotResult.fail(
-			DotError.CODE_STATE, "The rotation has nothing to offer."
+		return GSResult.fail(
+			GSError.CODE_STATE, "The rotation has nothing to offer."
 		)
 
 	return await change_to_map(next)
 
 
-func change_to_map(map: DotMapDef) -> DotResult:
+func change_to_map(map: GSMapDef) -> GSResult:
 	if map == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No map.")
+		return GSResult.fail(GSError.CODE_INVALID, "No map.")
 
 	if changing_now:
 		# Refused rather than queued. Two overlapping changes free the same node
 		# twice, and the second one's `await` resumes into a tree the first has
 		# already rebuilt — which is a crash whose stack trace points at neither.
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"A map change is already in progress.",
 			String(map.id)
 		)
@@ -192,7 +192,7 @@ func change_to_map(map: DotMapDef) -> DotResult:
 	if not loader.is_ready(map):
 		fetching.emit(map)
 
-	var loaded: DotResult = await loader.load_map(map)
+	var loaded: GSResult = await loader.load_map(map)
 
 	if not loaded.ok:
 		# Nothing has been freed yet, so the server is still on a working map. This
@@ -221,17 +221,17 @@ func change_to_map(map: DotMapDef) -> DotResult:
 
 	changing_now = false
 
-	DotLog.info(CHANNEL, "map loaded", {
+	GSLog.info(CHANNEL, "map loaded", {
 		"map": String(map.id), "version": map.version
 	})
 
 	changed.emit(map, world)
 
-	return DotResult.success(world)
+	return GSResult.success(world)
 
 
 ## Frees the old world, adds the new one in the same call, and restarts the rotation note and the clock.
-func _install(map: DotMapDef, scene: PackedScene, zones_value: Variant, parent: Node) -> void:
+func _install(map: GSMapDef, scene: PackedScene, zones_value: Variant, parent: Node) -> void:
 	if world != null and is_instance_valid(world):
 		# free() rather than queue_free(): the new world is added in this same call,
 		# and a deferred free would leave both in the tree for a frame — two maps'
@@ -250,14 +250,14 @@ func _install(map: DotMapDef, scene: PackedScene, zones_value: Variant, parent: 
 
 	# The clock restarts on every map, with the map's own length when it has one.
 	# A long map deserves a longer limit and that is a property of the map rather
-	# than of the server, which is why `expected_seconds` is on `DotMapDef`.
+	# than of the server, which is why `expected_seconds` is on `GSMapDef`.
 	time_limit.start(
 		float(map.expected_seconds) * 3.0 if map.expected_seconds > 0 else -1.0
 	)
 
 
 ## Advances the map clock. Call once per simulated tick. Separate from a timer inside this node because the
-## host owns the tick — the same reason [DotPropSpawner.advance] takes one. A node that ran its own [Timer]
+## host owns the tick — the same reason [GSPropSpawner.advance] takes one. A node that ran its own [Timer]
 ## would count wall-clock seconds, and a server that stalled would lose them off its map.
 func advance(delta: float) -> void:
 	if hibernating:
@@ -275,7 +275,7 @@ func set_hibernating(on: bool) -> void:
 	hibernating = on
 
 	if on:
-		DotLog.info(CHANNEL, "hibernating; the map's clock waits", {
+		GSLog.info(CHANNEL, "hibernating; the map's clock waits", {
 			"map": String(current.id) if current != null else "-",
 			"left": time_limit.formatted_remaining(),
 		})
@@ -285,7 +285,7 @@ func set_hibernating(on: bool) -> void:
 		# start() with no override keeps the map's own limit: change_to_map set it as the
 		# duration, so this is the same clock the map began with.
 		time_limit.start()
-		DotLog.info(CHANNEL, "awake; the map's clock starts again", {
+		GSLog.info(CHANNEL, "awake; the map's clock starts again", {
 			"map": String(current.id), "limit": time_limit.formatted_remaining(),
 		})
 
@@ -317,7 +317,7 @@ func extend_map(seconds: float = -1.0) -> bool:
 
 
 func _on_time_expired(reason: StringName) -> void:
-	DotLog.info(CHANNEL, "the map is over", {
+	GSLog.info(CHANNEL, "the map is over", {
 		"map": String(current.id) if current != null else "-",
 		"reason": String(reason),
 	})
@@ -338,15 +338,15 @@ func unload() -> void:
 	time_limit.stop()
 
 
-func _resolve_world_parent() -> DotResult:
+func _resolve_world_parent() -> GSResult:
 	if world_ref == null:
 		# The session itself. A sensible default rather than a refusal: a single-map
 		# game that never configured this still works, and the map ends up somewhere
 		# findable rather than nowhere.
-		return DotResult.success(self)
+		return GSResult.success(self)
 
 	if _world_node != null and is_instance_valid(_world_node):
-		return DotResult.success(_world_node)
+		return GSResult.success(_world_node)
 
 	var resolved := world_ref.resolve(self)
 
@@ -355,7 +355,7 @@ func _resolve_world_parent() -> DotResult:
 
 	_world_node = resolved.value
 
-	return DotResult.success(_world_node)
+	return GSResult.success(_world_node)
 
 
 func describe() -> Dictionary:

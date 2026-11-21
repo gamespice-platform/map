@@ -1,9 +1,9 @@
-class_name DotMapOneWayGlass
+class_name GSMapOneWayGlass
 extends RefCounted
 
 ## One-way glass for a jail cell: clear from outside, opaque from inside.
 ## A shader, not a wall or culling rule: glass within [param radius] of the camera's cell is drawn
-## solid, so outsiders see in and the prisoner sees a wall. Install it as [member DotMapBspMesh.glass_material_for].
+## solid, so outsiders see in and the prisoner sees a wall. Install it as [member GSMapBspMesh.glass_material_for].
 
 const SHADER_CODE := """
 shader_type spatial;
@@ -32,9 +32,9 @@ const KINDS: Array[StringName] = [&"glass", &"glass_frosted"]
 static var _shader: Shader
 
 
-## A [Callable] for [member DotMapBspMesh.glass_material_for]: a cell shader for clear glass, null for the rest.
+## A [Callable] for [member GSMapBspMesh.glass_material_for]: a cell shader for clear glass, null for the rest.
 static func hook(centre: Vector3, radius: float = 6.0) -> Callable:
-	return Callable(DotMapOneWayGlass, "_glass_for").bind(centre, radius)
+	return Callable(GSMapOneWayGlass, "_glass_for").bind(centre, radius)
 
 
 ## The hook's body: a plain static method, since a lambda here is freed after the script server at exit.
@@ -50,7 +50,7 @@ static func material(kind: StringName, tint: Array, centre: Vector3, radius: flo
 	if _shader == null:
 		_shader = Shader.new()
 		_shader.code = SHADER_CODE
-	var look: Dictionary = DotMapBspMesh.GLASS_LOOKS.get(kind, DotMapBspMesh.GLASS_LOOKS[&"glass"])
+	var look: Dictionary = GSMapBspMesh.GLASS_LOOKS.get(kind, GSMapBspMesh.GLASS_LOOKS[&"glass"])
 	var colour: Color = look["colour"]
 	if tint.size() >= 3:
 		colour = Color(colour.r * float(tint[0]), colour.g * float(tint[1]), colour.b * float(tint[2]), colour.a)

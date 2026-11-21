@@ -9,10 +9,10 @@ func _test_sync_a_local_map() -> void:
 
 	var seen: Array[String] = []
 	pair.client.changed.connect(
-		func(map: DotMapDef) -> void: seen.append(String(map.id))
+		func(map: GSMapDef) -> void: seen.append(String(map.id))
 	)
 	pair.client.content_ready.connect(
-		func(map: DotMapDef) -> void: seen.append("ready:" + String(map.id))
+		func(map: GSMapDef) -> void: seen.append("ready:" + String(map.id))
 	)
 
 	# The change is a coroutine that waits on the peer, and the peer only answers when
@@ -50,10 +50,10 @@ func _test_sync_a_local_map() -> void:
 	# a map change must never leave anybody in.
 	var order: Array[String] = []
 	pair.host_session.changed.connect(
-		func(map: DotMapDef, _w: Node) -> void: order.append("host:" + String(map.id))
+		func(map: GSMapDef, _w: Node) -> void: order.append("host:" + String(map.id))
 	)
 	pair.client.content_ready.connect(
-		func(map: DotMapDef) -> void: order.append("peer:" + String(map.id))
+		func(map: GSMapDef) -> void: order.append("peer:" + String(map.id))
 	)
 
 	var second := await _change_and_pump(pair, &"surf_1")
@@ -74,24 +74,24 @@ func _test_sync_a_local_map() -> void:
 func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	_section("what a host may not tell a client to load")
 
-	var client := DotMapSyncClient.new()
-	var session := DotMapSession.new()
+	var client := GSMapSyncClient.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
-	session.catalogue = DotMapCatalogue.new()
+	session.catalogue = GSMapCatalogue.new()
 	client.session = session
 	add_child(client)
 
 	var refused: Array[String] = []
 	client.fetch_failed.connect(
-		func(_map: DotMapDef, error: DotError) -> void:
+		func(_map: GSMapDef, error: GSError) -> void:
 			refused.append(error.message)
 	)
 
 	# A map this client does not have, that ships in a build rather than in a pack.
 	# Accepting it would mean loading a path of the host's choosing out of THIS build.
 	var local := _map(&"surf_evil")
-	client.handle(DotMapMessage.announce(local))
+	client.handle(GSMapMessage.announce(local))
 	_check(
 		refused.size() == 1,
 		"a host may not send a map that is not delivered content",
@@ -102,7 +102,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	var escaping := _map(&"surf_escape")
 	escaping.content_id = &"a_pack"
 	escaping.scene_path = "res://addons/dot_map/plugin.cfg"
-	client.handle(DotMapMessage.announce(escaping))
+	client.handle(GSMapMessage.announce(escaping))
 	_check(refused.size() == 2, "nor one whose scene is outside its own content")
 
 	# The traversal that a plain begins_with() lets through. GameSpice Cloud learned this
@@ -110,7 +110,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	var traversing := _map(&"surf_traverse")
 	traversing.content_id = &"a_pack"
 	traversing.scene_path = "res://dot_cloud/a_pack/1.0.0/../../../addons/x.tscn"
-	client.handle(DotMapMessage.announce(traversing))
+	client.handle(GSMapMessage.announce(traversing))
 	_check(
 		refused.size() == 3,
 		"nor one that climbs out of it with .."
@@ -120,7 +120,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	var delivered := _map(&"surf_delivered_ok")
 	delivered.content_id = &"a_pack"
 	delivered.scene_path = "res://dot_cloud/a_pack/1.0.0/map.tscn"
-	client.handle(DotMapMessage.announce(delivered))
+	client.handle(GSMapMessage.announce(delivered))
 	_check(
 		refused.size() == 3,
 		"a properly delivered map is accepted (%s)" % [refused]
@@ -139,7 +139,7 @@ func _test_sync_refuses_what_a_host_may_not_send() -> void:
 	var another := _map(&"surf_delivered_two")
 	another.content_id = &"a_pack"
 	another.scene_path = "res://dot_cloud/a_pack/1.0.0/two.tscn"
-	client.handle(DotMapMessage.announce(another))
+	client.handle(GSMapMessage.announce(another))
 	_check(
 		refused.size() == 4,
 		"a client that ships all its maps can refuse to be sent anywhere else"
@@ -206,7 +206,7 @@ func _test_sync_waits_and_times_out() -> void:
 
 
 ## A peer that arrives between two changes has to be told to LOAD, not only which map. [method
-## DotMapSyncHost.join_payload] is an announce, and a host sent `load` only at the end of a change — so a
+## GSMapSyncHost.join_payload] is an announce, and a host sent `load` only at the end of a change — so a
 ## joiner fetched the map, said ready, and waited for ever.
 func _test_sync_a_joiner_is_told_to_load() -> void:
 	_section("a peer that joins between changes")
@@ -243,8 +243,8 @@ func _test_sync_a_joiner_is_told_to_load() -> void:
 
 	# Answered once. A second ready for the same map — a peer re-reporting, or a straggler
 	# that was already sent the change's load — must not rebuild its world.
-	pair.host.handle(2, DotMapMessage.ready(&"surf_0", "1.0.0"))
-	pair.host.handle(1, DotMapMessage.ready(&"surf_0", "1.0.0"))
+	pair.host.handle(2, GSMapMessage.ready(&"surf_0", "1.0.0"))
+	pair.host.handle(1, GSMapMessage.ready(&"surf_0", "1.0.0"))
 	await _pump(pair)
 	_check(
 		pair.sent_to(2).count("map.load surf_0") == 1
@@ -321,38 +321,38 @@ func _test_sync_a_joiner_mid_change() -> void:
 func _test_sync_template_trust() -> void:
 	_section("a template scene reading delivered data")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
-	session.catalogue = DotMapCatalogue.new()
+	session.catalogue = GSMapCatalogue.new()
 
-	var client := DotMapSyncClient.new()
+	var client := GSMapSyncClient.new()
 	client.session = session
 	client.send_fn = func(_p: Dictionary) -> void: pass
 	add_child(client)
 
 	var refused: Array[String] = []
 	client.fetch_failed.connect(
-		func(_map: DotMapDef, error: DotError) -> void:
+		func(_map: GSMapDef, error: GSError) -> void:
 			refused.append("%s | %s" % [error.message, error.detail])
 	)
 
 	var template := "res://fixtures/test_world.tscn"
-	var templated := func(id: String) -> DotMapDef:
+	var templated := func(id: String) -> GSMapDef:
 		var map := _map(StringName(id))
 		map.content_id = &"data_pack"
 		map.scene_path = template
 		map.meta["manifest"] = "res://dot_cloud/data_pack/1.0.0/%s.json" % id
 		return map
 
-	client.handle(DotMapMessage.announce(templated.call("t_default")))
+	client.handle(GSMapMessage.announce(templated.call("t_default")))
 	_check(
 		refused.size() == 1 and refused[0].contains("scene is outside"),
 		"with no templates listed, a scene in the build is refused as before", str(refused)
 	)
 
 	client.trusted_template_scenes = PackedStringArray([template])
-	client.handle(DotMapMessage.announce(templated.call("t_ok")))
+	client.handle(GSMapMessage.announce(templated.call("t_ok")))
 	_check(refused.size() == 1, "a listed template with its data in the pack is accepted", str(refused))
 	_check(
 		client.announced != null and client.announced.id == &"t_ok"
@@ -362,10 +362,10 @@ func _test_sync_template_trust() -> void:
 
 	# The same delivered map, republished: its own `version` unchanged, its pack's
 	# `content_version` not. Compared nowhere, so the remembered (old) one was answered.
-	var republished: DotMapDef = templated.call("t_ok")
+	var republished: GSMapDef = templated.call("t_ok")
 	republished.content_version = "2.0.0"
 	republished.meta["manifest"] = "res://dot_cloud/data_pack/2.0.0/t_ok.json"
-	client.handle(DotMapMessage.announce(republished))
+	client.handle(GSMapMessage.announce(republished))
 	_check(
 		refused.size() == 1 and client.announced != null
 			and client.announced.effective_content_version() == "2.0.0",
@@ -381,47 +381,47 @@ func _test_sync_template_trust() -> void:
 	_done()
 
 
-func _test_template_refusals(client: DotMapSyncClient, refused: Array[String], templated: Callable) -> void:
-	var outside: DotMapDef = templated.call("t_outside")
+func _test_template_refusals(client: GSMapSyncClient, refused: Array[String], templated: Callable) -> void:
+	var outside: GSMapDef = templated.call("t_outside")
 	outside.meta["manifest"] = "res://addons/dot_map/plugin.cfg"
-	client.handle(DotMapMessage.announce(outside))
+	client.handle(GSMapMessage.announce(outside))
 	_check(refused.size() == 2 and refused[1].contains("data is outside"),
 		"its data may not be a file in this build", str(refused))
 
-	var climbing: DotMapDef = templated.call("t_climb")
+	var climbing: GSMapDef = templated.call("t_climb")
 	climbing.meta["manifest"] = "res://dot_cloud/data_pack/1.0.0/../../other_pack/1.0.0/x.json"
-	client.handle(DotMapMessage.announce(climbing))
+	client.handle(GSMapMessage.announce(climbing))
 	_check(refused.size() == 3, "nor another pack's, reached with ..", str(refused))
 
-	var bare: DotMapDef = templated.call("t_bare")
+	var bare: GSMapDef = templated.call("t_bare")
 	bare.meta.erase("manifest")
-	client.handle(DotMapMessage.announce(bare))
+	client.handle(GSMapMessage.announce(bare))
 	_check(refused.size() == 4 and refused[3].contains("no delivered data"),
 		"a template with no data named is not a delivered map", str(refused))
 
-	var stray: DotMapDef = templated.call("t_stray")
+	var stray: GSMapDef = templated.call("t_stray")
 	stray.meta["extra"] = {"list": ["fine", "user://profile.json"]}
-	client.handle(DotMapMessage.announce(stray))
+	client.handle(GSMapMessage.announce(stray))
 	_check(refused.size() == 5 and refused[4].contains("meta.extra.list[1]"),
 		"a path under a key nobody listed is held to the same rule, nested or not",
 		str(refused))
 
-	var local: DotMapDef = templated.call("t_local")
+	var local: GSMapDef = templated.call("t_local")
 	local.content_id = &""
-	client.handle(DotMapMessage.announce(local))
+	client.handle(GSMapMessage.announce(local))
 	_check(refused.size() == 6 and refused[5].contains("not delivered content"),
 		"a template still has to name the content it reads from", str(refused))
 
-	var escaping_version: DotMapDef = templated.call("t_version")
+	var escaping_version: GSMapDef = templated.call("t_version")
 	escaping_version.content_version = ".."
 	escaping_version.meta["manifest"] = "res://dot_cloud/other_pack/1.0.0/x.json"
-	client.handle(DotMapMessage.announce(escaping_version))
+	client.handle(GSMapMessage.announce(escaping_version))
 	_check(refused.size() == 7 and refused[6].contains("plain id and version"),
 		"and a version of .. cannot widen the mount to every pack", str(refused))
 
-	var unlisted: DotMapDef = templated.call("t_unlisted")
+	var unlisted: GSMapDef = templated.call("t_unlisted")
 	unlisted.scene_path = "res://examples/map_selftest.tscn"
-	client.handle(DotMapMessage.announce(unlisted))
+	client.handle(GSMapMessage.announce(unlisted))
 	_check(refused.size() == 8 and refused[7].contains("scene is outside"),
 		"a scene that is not listed is refused however good its data", str(refused))
 
@@ -432,24 +432,24 @@ func _test_template_refusals(client: DotMapSyncClient, refused: Array[String], t
 func _test_sync_refused_load_adopts_nothing() -> void:
 	_section("a load the client refuses")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
 	session.catalogue = _catalogue(3)
 
-	var client := DotMapSyncClient.new()
+	var client := GSMapSyncClient.new()
 	client.session = session
 	client.send_fn = func(_p: Dictionary) -> void: pass
 	add_child(client)
 
-	client.handle(DotMapMessage.load_now(&"surf_0", "2.0.0"))
+	client.handle(GSMapMessage.load_now(&"surf_0", "2.0.0"))
 	await get_tree().process_frame
 	_check(client.announced == null,
 		"a load for a version this client does not have adopts nothing (%s)"
 			% [String(client.announced.id) if client.announced != null else "-"])
 	_check(session.current == null, "and loads nothing")
 
-	client.handle(DotMapMessage.load_now(&"surf_0", "1.0.0"))
+	client.handle(GSMapMessage.load_now(&"surf_0", "1.0.0"))
 	for _i in range(5):
 		await get_tree().process_frame
 	_check(
@@ -470,22 +470,22 @@ func _test_sync_refused_load_adopts_nothing() -> void:
 func _test_sync_progress_is_throttled() -> void:
 	_section("progress is throttled, ready is not")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	add_child(session)
 	await get_tree().process_frame
 	session.catalogue = _catalogue(3)
 
 	var sent: Array[String] = []
-	var client := DotMapSyncClient.new()
+	var client := GSMapSyncClient.new()
 	client.session = session
 	client.send_fn = func(p: Dictionary) -> void:
-		sent.append("%s %.2f" % [DotMapMessage.kind_of(p), float(p.get("fraction", -1.0))])
+		sent.append("%s %.2f" % [GSMapMessage.kind_of(p), float(p.get("fraction", -1.0))])
 	add_child(client)
 
 	var local_signals: Array[float] = []
 	client.fetch_progress.connect(func(f: float) -> void: local_signals.append(f))
 
-	client.handle(DotMapMessage.announce(session.catalogue.get_map(&"surf_0")))
+	client.handle(GSMapMessage.announce(session.catalogue.get_map(&"surf_0")))
 	sent.clear()
 
 	for i in range(50):
@@ -498,7 +498,7 @@ func _test_sync_progress_is_throttled() -> void:
 	client.report_progress(1.0)
 	_check(sent.back() == "map.progress 1.00", "a report of 1.0 is never held back (%s)" % [sent.back()])
 
-	client.handle(DotMapMessage.announce(session.catalogue.get_map(&"surf_1")))
+	client.handle(GSMapMessage.announce(session.catalogue.get_map(&"surf_1")))
 	_check(sent.back().begins_with("map.ready"), "and neither is a ready (%s)" % [sent.back()])
 
 	await get_tree().create_timer(client.progress_interval_sec + 0.05).timeout

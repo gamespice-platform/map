@@ -1,4 +1,4 @@
-class_name DotMapMessage
+class_name GSMapMessage
 extends RefCounted
 
 ## The four messages a map change is made of, as plain [Dictionary]s because GameSpice Map depends on nothing but GameSpice Core and cannot know the game's transport.
@@ -21,7 +21,7 @@ const KIND_LOAD := &"map.load"
 const KIND_ABORT := &"map.abort"
 
 
-static func announce(map: DotMapDef) -> Dictionary:
+static func announce(map: GSMapDef) -> Dictionary:
 	return {
 		"kind": String(KIND_ANNOUNCE),
 		# The whole definition, not just the id. A client that does not have this map in its own catalogue — a map

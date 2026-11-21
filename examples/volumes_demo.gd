@@ -1,6 +1,6 @@
 extends "volumes_parts/tests_office.gd"
 
-## The volumes a converted map's brush entities become ([DotMapVolumes] on [DotMapIO]): hurt, push, teleport,
+## The volumes a converted map's brush entities become ([GSMapVolumes] on [GSMapIO]): hurt, push, teleport,
 ## gravity, trigger, ladder and water, the effects and sounds, the command allow-list, and Office's timed
 ## hurt reproduced from its own links.
 
@@ -9,7 +9,7 @@ const SECTIONS := 19
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -40,13 +40,13 @@ func _run() -> void:
 
 
 func _world(records: Array, vols: Array, rate: int = 60) -> Array:
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	io.rate = rate
 	io.record_history = true
 	var r := io.load_records(records)
 	_check(r.ok, "records load")
-	var ents := DotMapEntities.from_manifest({"volumes": vols})
-	return [io, DotMapVolumes.build(ents, io)]
+	var ents := GSMapEntities.from_manifest({"volumes": vols})
+	return [io, GSMapVolumes.build(ents, io)]
 
 
 func _test_hurt_cycle() -> void:
@@ -55,11 +55,11 @@ func _test_hurt_cycle() -> void:
 		_rec(0, "trigger_hurt", "lava", [["damage", "20"], ["damagetype", "8"]], [["OnHurt", "log", "FireUser1"]]),
 		_rec(1, "info_target", "log"),
 	], [_vol(0, "hurt", "trigger_hurt", Vector3(0, 0, 0), Vector3(4, 3, 4), {"targetname": "lava"})])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var hits: Array = []
 	io.damage_fn = func(body: Variant, amount: float, kind: String, attacker: Variant) -> void:
-		hits.append([io.now, body, amount, kind, (attacker as DotMapEntity).targetname])
+		hits.append([io.now, body, amount, kind, (attacker as GSMapEntity).targetname])
 	var pos := [Vector3(2, 0, 2)]
 	var provider := func(_t: int) -> Array: return [_body(1, pos[0])]
 	_run_ticks(io, vols, 5, provider)
@@ -106,8 +106,8 @@ func _test_hurt_model_and_kind() -> void:
 		_rec(1, "logic_relay", "r", [], [["OnTrigger", "c", "Add", "1"]]),
 		_rec(2, "math_counter", "c"),
 	], [_vol(0, "hurt", "trigger_hurt", Vector3.ZERO, Vector3(4, 3, 4))])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var amounts: Array = []
 	var kinds: Array = []
 	io.damage_fn = func(_b: Variant, amount: float, kind: String, _a: Variant) -> void:
@@ -117,10 +117,10 @@ func _test_hurt_model_and_kind() -> void:
 	_run_ticks(io, vols, 151, provider)
 	_check(amounts == [5.0, 10.0, 20.0, 40.0, 40.0, 40.0], "5 (10 a second, half a second) doubles to the cap of 40: %s" % [amounts])
 	_check(kinds[0] == "radiation", "262144 is radiation")
-	_check((io.find("c")[0] as DotMapCounter).value == 6.0, "OnHurtPlayer fired once per hit into the counter")
-	var missing := DotMapIO.new()
+	_check((io.find("c")[0] as GSMapCounter).value == 6.0, "OnHurtPlayer fired once per hit into the counter")
+	var missing := GSMapIO.new()
 	missing.load_records([_rec(0, "trigger_hurt", "h", [["damage", "5"]])])
-	var v2 := DotMapVolumes.build(DotMapEntities.from_manifest({"volumes": [_vol(0, "hurt", "trigger_hurt", Vector3.ZERO, Vector3(2, 2, 2))]}), missing)
+	var v2 := GSMapVolumes.build(GSMapEntities.from_manifest({"volumes": [_vol(0, "hurt", "trigger_hurt", Vector3.ZERO, Vector3(2, 2, 2))]}), missing)
 	v2.step([_body(1, Vector3(1, 0, 1))])
 	_check(int(missing.missing_callables.get("damage", 0)) == 1, "no damage_fn: a counted no-op, nothing crashes")
 	_done()
@@ -144,9 +144,9 @@ func _test_triggers() -> void:
 		_vol(2, "multiple", "trigger_multiple", Vector3(20, 0, 0), Vector3(22, 2, 2), {"wait": 0.0, "filter": "f"}),
 		_vol(11, "multiple", "trigger_multiple", Vector3(30, 0, 0), Vector3(32, 2, 2), {"wait": 0.0, "filter": "ft"}),
 	])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
-	var cv := func(n: String) -> float: return (io.find(n)[0] as DotMapCounter).value
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
+	var cv := func(n: String) -> float: return (io.find(n)[0] as GSMapCounter).value
 	var bodies := [[_body(1, Vector3(1, 0, 1))]]
 	var provider := func(_t: int) -> Array: return bodies[0]
 	_run_ticks(io, vols, 1, provider)
@@ -208,8 +208,8 @@ func _test_push_teleport_gravity() -> void:
 		_vol(2, "teleport", "trigger_teleport", Vector3(20, 0, 0), Vector3(22, 2, 2), {"target": "dest2"}),
 		_vol(3, "gravity", "trigger_gravity", Vector3(30, 0, 0), Vector3(32, 2, 2), {"gravity": 0.25}),
 	])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	io.destinations = {"dest": {"at": [100.0, 5.0, 100.0], "yaw": 90.0}, "dest2": {"at": [200.0, 0.0, 0.0], "yaw": 0.0}, "lm": {"at": [20.0, 0.0, 0.0], "yaw": 0.0}}
 	var moves: Array = []
 	var events: Array = []
@@ -218,7 +218,7 @@ func _test_push_teleport_gravity() -> void:
 	vols.step([_body(1, Vector3(1, 0, 1))])
 	vols.step([_body(1, Vector3(1, 0, 1))])
 	_check(moves.size() == 2 and moves[0][1] == Vector3(0, 10, 0), "a push hands the game its velocity each step the body is in it: %s" % [moves])
-	_check((io.find("c")[0] as DotMapCounter).value == 1.0, "OnStartTouch fired once")
+	_check((io.find("c")[0] as GSMapCounter).value == 1.0, "OnStartTouch fired once")
 	vols.step([_body(2, Vector3(1, 0, 1), "npc")])
 	_check(moves.size() == 2, "spawnflags 1: an npc is not pushed")
 	io.send("wind", "SetPushSpeed", "1000")
@@ -238,9 +238,9 @@ func _test_push_teleport_gravity() -> void:
 	moves.clear()
 	vols.step([_body(1, Vector3(21, 0, 1))])
 	_check((moves[0][1] as Transform3D).origin == Vector3(201, 0, 1), "a landmark keeps the body's offset from it: %s" % [(moves[0][1] as Transform3D).origin])
-	var empty := DotMapIO.new()
+	var empty := GSMapIO.new()
 	empty.load_records([_rec(0, "trigger_teleport", "x", [["target", "nowhere"]])])
-	var v2 := DotMapVolumes.build(DotMapEntities.from_manifest({"volumes": [_vol(0, "teleport", "trigger_teleport", Vector3.ZERO, Vector3(2, 2, 2), {"target": "nowhere"})]}), empty)
+	var v2 := GSMapVolumes.build(GSMapEntities.from_manifest({"volumes": [_vol(0, "teleport", "trigger_teleport", Vector3.ZERO, Vector3(2, 2, 2), {"target": "nowhere"})]}), empty)
 	v2.step([_body(1, Vector3(1, 0, 1))])
 	_check(empty.unresolved.has("teleport:nowhere"), "a destination nothing carries is counted, not a crash")
 	events.clear()
@@ -265,9 +265,9 @@ func _test_parented_volumes() -> void:
 		_vol(3, "hurt", "trigger_hurt", Vector3(4, 0, -1), Vector3(6, 2, 1)),
 		_vol(4, "hurt", "trigger_hurt", Vector3(20, 0, -1), Vector3(22, 2, 1)),
 	], 20)
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
-	io.bind_movers([DotMapMover.from_record(door), DotMapMover.from_record({"entity": 2, "model": 2, "kind": "spin",
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
+	io.bind_movers([GSMapMover.from_record(door), GSMapMover.from_record({"entity": 2, "model": 2, "kind": "spin",
 			"classname": "func_rotating", "axis": [0, 1, 0], "degrees_per_second": 90.0, "origin": [0, 0, 0]})])
 	var hits: Array = []    # a hit is damage x hurtrate (0.5 s): 10, 2.5 and 3.5
 	io.damage_fn = func(_b: Variant, amount: float, _k: String, _a: Variant) -> void: hits.append(amount)
@@ -286,7 +286,7 @@ func _test_parented_volumes() -> void:
 	_check((probe.call(Vector3(11, 0, 0)) as Array).has(10.0), "and the volume hurts where the door took it")
 	io.send("rot", "Start")
 	_run_ticks(io, vols, 20, func(_t: int) -> Array: return [])
-	var spinner := io.entity_of(2) as DotMapMoverNode
+	var spinner := io.entity_of(2) as GSMapMoverNode
 	var turned := spinner.pose_delta(io.now, io.rate) * Vector3(5, 0, 0)
 	_check(turned.distance_to(Vector3(5, 0, 0)) > 3.0 and (probe.call(turned) as Array).has(2.5)
 			and not (probe.call(Vector3(5, 0, 0)) as Array).has(2.5), "a blade on a spinner turns with it: %s" % [turned])
@@ -310,8 +310,8 @@ func _test_teleport_engine() -> void:
 		_vol(3, "teleport", "trigger_teleport", Vector3(30, 0, 0), Vector3(32, 2, 2), {"target": "far"}),
 		_vol(4, "teleport", "trigger_teleport", Vector3(40, 0, 0), Vector3(42, 2, 2), {"target": "far", "spawnflags": 33}),
 	])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	io.destinations = {"Orange": {"at": [10.0, 0.0, 0.0], "yaw": 45.0}, "spot2": {"at": [50.0, 0.0, 0.0], "yaw": 180.0},
 			"lm": {"at": [20.0, 0.0, 0.0], "yaw": 0.0}, "far": {"at": [300.0, 0.0, 0.0], "yaw": 30.0}}
 	var moves: Array = []
@@ -346,38 +346,38 @@ func _test_teleport_engine() -> void:
 
 func _test_boxes() -> void:
 	_section("ladders and water are boxes for the controller's modes")
-	var ents := DotMapEntities.from_manifest({"volumes": [
+	var ents := GSMapEntities.from_manifest({"volumes": [
 		_vol(-1, "ladder", "worldspawn", Vector3(0, 0, 0), Vector3(0.1, 3, 1)),
 		_vol(5, "ladder", "func_ladder", Vector3(5, 0, 0), Vector3(5.1, 4, 1), {"targetname": "lad"}),
 		_vol(-1, "water", "worldspawn", Vector3(10, -2, 0), Vector3(14, 0, 4), {"slime": false}),
 		_vol(-1, "hurt", "trigger_hurt", Vector3.ZERO, Vector3.ONE),
 	]})
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	io.load_records([_rec(5, "func_ladder", "lad")])
-	var vols := DotMapVolumes.build(ents, io)
+	var vols := GSMapVolumes.build(ents, io)
 	var lad := vols.ladder_boxes()
 	var wat := vols.water_boxes()
 	_check(lad.size() == 2 and wat.size() == 1, "two ladder boxes, one water box")
 	_check(lad[0].is_equal_approx(AABB(Vector3(0, 0, 0), Vector3(0.1, 3, 1))), "a ladder box is the brush: %s" % [lad[0]])
 	_check(wat[0].is_equal_approx(AABB(Vector3(10, -2, 0), Vector3(4, 2, 4))), "a water box likewise")
-	var two := DotMapVolume.from_record({"kind": "water", "brushes": [
+	var two := GSMapVolume.from_record({"kind": "water", "brushes": [
 		_vol(-1, "water", "x", Vector3.ZERO, Vector3.ONE)["brushes"][0], _vol(-1, "water", "x", Vector3(5, 0, 0), Vector3(6, 1, 1))["brushes"][0]]})
 	_check(two.brush_boxes().size() == 2 and two.bounds().size.x == 6.0, "two brushes are two boxes, not their union")
-	var slab := DotMapVolume.from_record(_vol(-1, "push", "trigger_push", Vector3(0, 0.0, 0), Vector3(4, 0.02, 4)))
+	var slab := GSMapVolume.from_record(_vol(-1, "push", "trigger_push", Vector3(0, 0.0, 0), Vector3(4, 0.02, 4)))
 	_check(slab.touches_column(Vector3(2, 0.02, 2), 1.8) and not slab.touches_column(Vector3(2, 0.2, 2), 1.8),
 		"a 2 cm slab is touched by a body standing on it, not by one a step above")
 	_check(slab.touches_column(Vector3(2, -1.0, 2), 1.8) and not slab.touches_column(Vector3(5, 0.0, 2), 1.8),
 		"a body whose column crosses it is in it, one beside it is not")
-	var sheet := DotMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
+	var sheet := GSMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
 	var caught := false
 	var x := 4.0
 	while x < 6.2:
 		caught = caught or sheet.touches_column(Vector3(x, 0, 2), 1.8)
 		x += 0.2
 	_check(caught, "a 2 cm teleport sheet is caught by a body stepping 0.2 m a tick across it")
-	DotMapVolume.min_thickness = 0.0
-	var raw := DotMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
-	DotMapVolume.min_thickness = 0.25
+	GSMapVolume.min_thickness = 0.0
+	var raw := GSMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
+	GSMapVolume.min_thickness = 0.25
 	_check(not raw.touches_column(Vector3(4.9, 0, 2), 1.8) and not raw.touches_column(Vector3(5.1, 0, 2), 1.8),
 		"with min_thickness 0 the sheet is the brush as written (and is stepped over)")
 	# An angled sheet (a 2 cm brush turned 45 degrees): its AABB is as wide as it is long, so only its own thinnest
@@ -385,12 +385,12 @@ func _test_boxes() -> void:
 	var h := sqrt(0.5)
 	var n1 := Vector3(h, 0, h)
 	var n2 := Vector3(-h, 0, h)
-	var angled := DotMapVolume.from_record({"kind": "teleport", "brushes": [[
+	var angled := GSMapVolume.from_record({"kind": "teleport", "brushes": [[
 			[n1.x, 0, n1.z, 0.01], [-n1.x, 0, -n1.z, 0.01], [n2.x, 0, n2.z, 2.0], [-n2.x, 0, -n2.z, 2.0],
 			[0, 1, 0, 1.0], [0, -1, 0, 1.0]]]})
 	_check(angled.contains(n1 * 0.1) and not angled.contains(n1 * 0.2), "an angled sheet is thickened to 25 cm along its own normal")
 	_check(not angled.contains(n2 * 2.05) and not angled.contains(Vector3(0, 1.05, 0)), "armed: its edges and height do not bleed")
-	var flush := DotMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
+	var flush := GSMapVolume.from_record(_vol(-1, "teleport", "trigger_teleport", Vector3(5, 0, 0), Vector3(5.019, 2, 4)))
 	_check(flush.contains(Vector3(5.1, 1.0, 2.0)) and not flush.contains(Vector3(5.01, 2.1, 2.0)) and not flush.contains(Vector3(5.01, 1.0, 4.1)),
 		"a flush sheet grows across its thin side only, not up or along")
 	io.send("lad", "Disable")
@@ -413,7 +413,7 @@ func _climb(box: AABB) -> bool:
 
 func _test_effects_sounds() -> void:
 	_section("env effects and ambient sounds: inputs, stand-ins, area damage")
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	io.load_records([
 		_rec(0, "env_steam", "steam", [["StartDisabled", "1"], ["origin", "100 200 300"]]),
 		_rec(1, "env_explosion", "boom", [["iMagnitude", "100"], ["origin", "0 0 0"]]),
@@ -426,7 +426,7 @@ func _test_effects_sounds() -> void:
 	])
 	var fx: Array = []
 	var ev: Array = []
-	io.effect_fn = func(kind: String, e: DotMapEntity, on: bool) -> void: fx.append([kind, e.targetname, on])
+	io.effect_fn = func(kind: String, e: GSMapEntity, on: bool) -> void: fx.append([kind, e.targetname, on])
 	io.event_fn = func(kind: String, data: Dictionary) -> void: ev.append([kind, data])
 	_check(io.attach_sounds([{"entity": 4, "stand_in": "machine", "looped": true}, {"entity": 5, "stand_in": ""}]) == 1, "one ambient sound has a free stand-in, the voice has none")
 	io.start()
@@ -440,7 +440,7 @@ func _test_effects_sounds() -> void:
 	io.send("shake", "StartShake")
 	_check(ev[0][0] == "shake", "StartShake is an event")
 	var bodies := [_body(1, Vector3(1, 0, 0)), _body(2, Vector3(50, 0, 0))]
-	var vols := DotMapVolumes.build(DotMapEntities.from_manifest({}), io)
+	var vols := GSMapVolumes.build(GSMapEntities.from_manifest({}), io)
 	var hit: Array = []
 	io.damage_fn = func(body: Variant, amount: float, kind: String, _a: Variant) -> void: hit.append([body, amount, kind])
 	io.send("boom", "Explode")
@@ -450,7 +450,7 @@ func _test_effects_sounds() -> void:
 	io.send("dud", "Explode")
 	vols.step(bodies)
 	_check(hit.is_empty() and ev.any(func(e: Array) -> bool: return e[0] == "explosion"), "no-damage flag: the effect, no hurt")
-	var at: Vector3 = (io.find("steam")[0] as DotMapEntity).origin(io)
+	var at: Vector3 = (io.find("steam")[0] as GSMapEntity).origin(io)
 	_check(at.is_equal_approx(Vector3(2.54, 7.62, -5.08)), "origin is source (100, 200, 300) in Godot axes and metres: %s" % [at])
 	fx.clear()
 	io.send("hum", "PlaySound")
@@ -459,7 +459,7 @@ func _test_effects_sounds() -> void:
 	_check(fx == [["sound", "hum", true], ["sound", "hum", false], ["sound", "hum", true]], "play, stop, toggle go to the effect callable: %s" % [fx])
 	io.send("hum", "Volume", "10")
 	io.send("voice", "PlaySound")
-	var hum := io.find("hum")[0] as DotMapSound
+	var hum := io.find("hum")[0] as GSMapSound
 	_check(fx.size() == 3 and hum.volume == 1.0 and hum.stand_in == "machine", "volume input; a sound with no stand-in stays silent")
 	io.send("fire", "StartFire")
 	hit.clear()
@@ -478,34 +478,34 @@ func _test_effects_sounds() -> void:
 
 func _test_commands() -> void:
 	_section("map commands: never run, split, judged against the allow-list")
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	io.load_records([_rec(0, "point_servercommand", "cmd")])
 	io.command_allow = PackedStringArray(["sv_gravity", "mp_*", "exec", "sv_password"])
 	var ev: Array = []
 	io.event_fn = func(kind: String, data: Dictionary) -> void: ev.append([kind, data["name"]])
-	var cmd := io.find("cmd")[0] as DotMapEntity
+	var cmd := io.find("cmd")[0] as GSMapEntity
 	io.record_command(cmd, "sv_gravity 400; say hi there; quit")
 	_check(io.commands.size() == 3 and ev == [["cvar", "sv_gravity"], ["say", "say"]], "a line is split on ; and each part judged: %s" % [ev])
-	var v := DotMapCommand.judge("exec evil.cfg", io.command_allow)
+	var v := GSMapCommand.judge("exec evil.cfg", io.command_allow)
 	_check(not v["allowed"] and v["reason"] == "never allowed", "exec stays denied even when the allow-list names it")
-	_check(not DotMapCommand.judge("sv_password hunter2", io.command_allow)["allowed"], "so does a password")
-	_check(not DotMapCommand.judge("mp_roundtime $(rm)", io.command_allow)["allowed"], "a value with shell-looking characters is denied")
-	_check(not DotMapCommand.judge("mp_roundtime \"3\"", io.command_allow)["allowed"], "quotes too")
-	_check(DotMapCommand.judge("MP_roundtime 3", io.command_allow)["allowed"], "a plain value on a pattern is allowed, case ignored")
-	_check(not DotMapCommand.judge("mp_" + "x".repeat(300), io.command_allow)["allowed"], "an overlong line is denied")
-	_check(not DotMapCommand.judge("net_graph 1", io.command_allow)["allowed"], "anything unlisted is denied")
-	_check(not DotMapCommand.judge("say " + "a".repeat(210), io.command_allow)["allowed"], "a chat line has a length limit")
+	_check(not GSMapCommand.judge("sv_password hunter2", io.command_allow)["allowed"], "so does a password")
+	_check(not GSMapCommand.judge("mp_roundtime $(rm)", io.command_allow)["allowed"], "a value with shell-looking characters is denied")
+	_check(not GSMapCommand.judge("mp_roundtime \"3\"", io.command_allow)["allowed"], "quotes too")
+	_check(GSMapCommand.judge("MP_roundtime 3", io.command_allow)["allowed"], "a plain value on a pattern is allowed, case ignored")
+	_check(not GSMapCommand.judge("mp_" + "x".repeat(300), io.command_allow)["allowed"], "an overlong line is denied")
+	_check(not GSMapCommand.judge("net_graph 1", io.command_allow)["allowed"], "anything unlisted is denied")
+	_check(not GSMapCommand.judge("say " + "a".repeat(210), io.command_allow)["allowed"], "a chat line has a length limit")
 	_check(io.coverage()["commands_denied"] == 1, "denied commands are counted")
 	var never_ok := true
 	for n in ["changemap", "gamechange", "game", "sv_map", "restart", "shutdown", "sv_cheats", "writeconfig", "quit", "exec", "rcon", "rcon_password"]:
-		never_ok = never_ok and not DotMapCommand.judge(n + " 1", PackedStringArray([n])).get("allowed", true)
+		never_ok = never_ok and not GSMapCommand.judge(n + " 1", PackedStringArray([n])).get("allowed", true)
 	_check(never_ok, "the never list holds even when the allow-list names the command")
-	_check(not DotMapCommand.judge("say !kick all", io.command_allow)["allowed"] and not DotMapCommand.judge("say /rcon x", io.command_allow)["allowed"], "chat starting with ! or / is refused")
-	_check(DotMapCommand.judge("say hello", io.command_allow)["allowed"], "ordinary chat is still allowed")
+	_check(not GSMapCommand.judge("say !kick all", io.command_allow)["allowed"] and not GSMapCommand.judge("say /rcon x", io.command_allow)["allowed"], "chat starting with ! or / is refused")
+	_check(GSMapCommand.judge("say hello", io.command_allow)["allowed"], "ordinary chat is still allowed")
 	io.load_records([_rec(0, "point_clientcommand", "ccmd")])
 	ev.clear()
 	io.commands.clear()
-	var ccmd := io.find("ccmd")[0] as DotMapEntity
+	var ccmd := io.find("ccmd")[0] as GSMapEntity
 	ccmd.receive(io, "command", "say hi; sv_gravity 400", null, null) if ccmd.has_method("receive") else io.record_client_command(ccmd, "say hi; sv_gravity 400")
 	_check(ev.is_empty() and io.commands.size() == 2 and io.commands[0]["kind"] == "clientcommand" and not io.commands[0]["allowed"], "point_clientcommand is its own kind, never allowed, never sent to the event callable")
 	_done()
@@ -516,11 +516,11 @@ func _test_hurt_once_and_force() -> void:
 	var w := _world([_rec(0, "trigger_hurt", "once", [["damage", "200"], ["damageonce", "1"], ["damageforce", "100 0 0"]]),
 			_rec(1, "trigger_hurt", "rep", [["damage", "200"], ["damageforce", "100 0 0"], ["nodmgforce", "1"]])],
 			[_vol(0, "hurt", "trigger_hurt", Vector3(0, 0, 0), Vector3(4, 3, 4)), _vol(1, "hurt", "trigger_hurt", Vector3(10, 0, 0), Vector3(14, 3, 4))])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var hits: Array = []
 	var forces: Array = []
-	io.damage_fn = func(_b: Variant, amount: float, _k: String, a: Variant) -> void: hits.append([(a as DotMapEntity).targetname, amount])
+	io.damage_fn = func(_b: Variant, amount: float, _k: String, a: Variant) -> void: hits.append([(a as GSMapEntity).targetname, amount])
 	io.event_fn = func(kind: String, data: Dictionary) -> void:
 		if kind == "damage_force":
 			forces.append(data["force"])
@@ -553,8 +553,8 @@ func _test_soundscapes() -> void:
 			_rec(1, "env_soundscape", "sc_b", [["origin", "800 0 0"], ["radius", "400"], ["soundscape", "Street"]]),
 			_rec(2, "env_soundscape_proxy", "sc_p", [["origin", "1600 0 0"], ["radius", "400"], ["mainsoundscapename", "sc_a"]]),
 			_rec(3, "info_target", "spot", [["origin", "0 100 0"]])], [])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var ev: Array = []
 	io.event_fn = func(kind: String, data: Dictionary) -> void:
 		if kind == "soundscape":
@@ -591,8 +591,8 @@ func _test_trigger_soundscape() -> void:
 			_rec(0, "env_soundscape_triggerable", "sc_t", [["origin", "5000 0 0"], ["radius", "100"], ["soundscape", "Cave"]]),
 			_rec(1, "trigger_soundscape", "ts", [["soundscape", "sc_t"]])],
 			[_vol(1, "soundscape", "trigger_soundscape", Vector3(0, 0, 0), Vector3(4, 3, 4), {"targetname": "ts"})])
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var ev: Array = []
 	io.event_fn = func(kind: String, data: Dictionary) -> void:
 		if kind == "soundscape":
@@ -622,10 +622,10 @@ func _test_movers_push_and_block() -> void:
 			"direction": [1, 0, 0], "distance": 2.0, "travel_time": 2.0, "wait": 3.0, "origin": [0, 0, 0],
 			"mins": [-2.2, 0.0, -1.0], "maxs": [-1.2, 3.0, 1.0], "solid": true}
 	var w := _world([_rec(0, "func_door", "slab", [["dmg", "10"]])], [], 20)
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
-	io.bind_movers([DotMapMover.from_record(rec)])
-	var slab := io.entity_of(0) as DotMapMoverNode
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
+	io.bind_movers([GSMapMover.from_record(rec)])
+	var slab := io.entity_of(0) as GSMapMoverNode
 	var moves: Array = []
 	var hits: Array = []
 	io.move_fn = func(_b: Variant, v: Variant) -> void: moves.append(v)
@@ -645,8 +645,8 @@ func _test_movers_push_and_block() -> void:
 	var motions := io.history.filter(func(h: Dictionary) -> bool: return h["key"] == "motion")
 	_check(motions.size() >= 2, "the reversal is a new motion record for clients")
 	var w2 := _world([_rec(0, "func_door", "slab", [["dmg", "10"]])], [], 20)
-	var io2: DotMapIO = w2[0]
-	io2.bind_movers([DotMapMover.from_record(rec)])
+	var io2: GSMapIO = w2[0]
+	io2.bind_movers([GSMapMover.from_record(rec)])
 	var pos := [Vector3(0, 0, 0)]
 	var hits2: Array = []
 	io2.move_fn = func(_b: Variant, v: Variant) -> void: pos[0] = (pos[0] as Vector3) + (v as Vector3) / 20.0
@@ -655,7 +655,7 @@ func _test_movers_push_and_block() -> void:
 	io2.send("slab", "Open")
 	var provider2 := func(_t: int) -> Array: return [_body(1, pos[0])]
 	_run_ticks(io2, w2[1], 40, provider2)
-	_check(hits2.is_empty() and (io2.entity_of(0) as DotMapMoverNode)._to == 1.0, "a body the game moves along is never blocked: no damage, no reversal")
+	_check(hits2.is_empty() and (io2.entity_of(0) as GSMapMoverNode)._to == 1.0, "a body the game moves along is never blocked: no damage, no reversal")
 	_check((pos[0] as Vector3).x > 0.4, "and it is carried ahead of the door: %s" % [pos[0]])
 	for i in [io, io2]:
 		i.move_fn = Callable()
@@ -671,8 +671,8 @@ func _test_riders() -> void:
 	var results: Array = []
 	for mode in ["ride", "no ride", "no push"]:
 		var w := _world([_rec(0, "func_door", "plat")], [], 20)
-		var io: DotMapIO = w[0]
-		io.bind_movers([DotMapMover.from_record(rec)])
+		var io: GSMapIO = w[0]
+		io.bind_movers([GSMapMover.from_record(rec)])
 		io.mover_ride = 0.0 if mode == "no ride" else 0.15
 		io.mover_push = mode != "no push"
 		var pos := [Vector3(0.5, 0.02, 0)]
@@ -700,8 +700,8 @@ func _test_riders() -> void:
 	rec_down["mins"] = [-1.0, -0.5, -1.0]
 	rec_down["maxs"] = [1.0, 0.0, 1.0]
 	var w2 := _world([_rec(0, "func_door", "plat")], [], 20)
-	var io2: DotMapIO = w2[0]
-	io2.bind_movers([DotMapMover.from_record(rec_down)])
+	var io2: GSMapIO = w2[0]
+	io2.bind_movers([GSMapMover.from_record(rec_down)])
 	var pos2 := [Vector3(0, 0.0, 0)]
 	io2.carry_fn = func(_b: Variant, v: Variant, _m: Variant) -> void: pos2[0] = (pos2[0] as Vector3) + (v as Vector3) / 20.0
 	io2.start()
@@ -710,8 +710,8 @@ func _test_riders() -> void:
 	_check(pos2[0].y < -0.8 and pos2[0].y > -1.2, "a platform going down takes its rider with it instead of leaving it hovering: %s" % [pos2[0]])
 	var away := [Vector3(5.0, 0.02, 0)]
 	var w3 := _world([_rec(0, "func_door", "plat")], [], 20)
-	var io3: DotMapIO = w3[0]
-	io3.bind_movers([DotMapMover.from_record(rec)])
+	var io3: GSMapIO = w3[0]
+	io3.bind_movers([GSMapMover.from_record(rec)])
 	var n3 := [0]
 	io3.carry_fn = func(_b: Variant, _v: Variant, _m: Variant) -> void: n3[0] += 1
 	io3.start()
@@ -729,8 +729,8 @@ func _test_riders() -> void:
 
 func _test_prompt_reach() -> void:
 	_section("the use prompt shows exactly when the server's reach test would let the press through")
-	var rules := DotMapUse.new()
-	var prompt := DotMapUsePrompt.new()
+	var rules := GSMapUse.new()
+	var prompt := GSMapUsePrompt.new()
 	var info := {"index": 1, "state": &"ready", "distance": 3.0, "in_range": false, "label": "Use"}
 	prompt.show_aim(info, rules)
 	_check(not prompt.visible and not rules.in_reach(info), "3 m with the default reach: hidden")

@@ -1,5 +1,5 @@
-class_name DotMapRelay
-extends DotMapEntity
+class_name GSMapRelay
+extends GSMapEntity
 
 ## logic_relay: Trigger fires OnTrigger (once only with spawnflag 1); CancelPending drops the
 ## delayed outputs it queued, which a timed sequence uses to restart.

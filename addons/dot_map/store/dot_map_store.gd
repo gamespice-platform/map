@@ -1,4 +1,4 @@
-class_name DotMapStore
+class_name GSMapStore
 extends RefCounted
 ## Finds the shared PBR and model stores of a converted map, shipped as a GameSpice Cloud slice (`licence.store_pack`) plus the shared slices it names.
 
@@ -25,7 +25,7 @@ static func pack_of(licence: Dictionary) -> Dictionary:
 	return {}
 
 
-## Where the slice is mounted on [param cloud] (a DotCloudClient), or "" when it is not mounted or the map names none.
+## Where the slice is mounted on [param cloud] (a GSCloudClient), or "" when it is not mounted or the map names none.
 static func mount_dir(licence: Dictionary, cloud: Object) -> String:
 	var p := pack_of(licence)
 	if p.is_empty() or cloud == null:
@@ -92,52 +92,52 @@ static func reset() -> void:
 ## Downloads and mounts the slice when it is not, once per client (GameSpice Cloud skips what it holds; an empty [param manifest_url] lets it resolve one). Ok with "" when
 ## the map ships none. A pack acquired with `--depends` has it already, so this is for a map loaded from a folder.
 ## With no [param cloud], a [param folder] (the pack's own) whose `licence.pbr_store` holds the art counts as installed: a checkout with the raw stores staged beside it.
-static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = "", folder: String = "") -> DotResult:
+static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = "", folder: String = "") -> GSResult:
 	var p := pack_of(licence)
 	if p.is_empty():
-		return DotResult.success("")
+		return GSResult.success("")
 	if cloud == null:
 		if _folder_has_art(licence, folder):
 			_unfetched.erase(str(p["id"]))
-			return DotResult.success("")
+			return GSResult.success("")
 		_unfetched[str(p["id"])] = {"ids": slice_ids(licence), "why": "no dot-cloud client"}
 		_show(licence)
-		return DotResult.success("")
+		return GSResult.success("")
 	var dir := mount_dir(licence, cloud)
 	if not dir.is_empty():
 		_unfetched.erase(str(p["id"]))
-		return DotResult.success(dir)
+		return GSResult.success(dir)
 	if announce_download:
-		var planned: DotResult = await plan(licence, cloud, manifest_url)
+		var planned: GSResult = await plan(licence, cloud, manifest_url)
 		if planned.ok and int(planned.value["bytes"]) > 0:
 			_announce(planned.value)
-	var res: DotResult = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
+	var res: GSResult = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
 	if not res.ok:
 		_unfetched[str(p["id"])] = {"ids": missing(licence, cloud), "why": res.error.message}
 		_show(licence)
 		return res.wrap("store slice %s@%s" % [p["id"], p["version"]])
 	_unfetched.erase(str(p["id"]))
-	return DotResult.success(mount_dir(licence, cloud))
+	return GSResult.success(mount_dir(licence, cloud))
 
 
-## What fetching [param licence]'s slices would cost, without downloading: `{bytes, slices, ids}` summed over the root and every dependency not mounted or cached ([method DotCloudClient.plan_for]). Fails when a manifest cannot be had.
-static func plan(licence: Dictionary, cloud: Object, manifest_url: String = "") -> DotResult:
+## What fetching [param licence]'s slices would cost, without downloading: `{bytes, slices, ids}` summed over the root and every dependency not mounted or cached ([method GSCloudClient.plan_for]). Fails when a manifest cannot be had.
+static func plan(licence: Dictionary, cloud: Object, manifest_url: String = "") -> GSResult:
 	var p := pack_of(licence)
 	var total := {"bytes": 0, "slices": 0, "ids": PackedStringArray()}
 	if p.is_empty() or cloud == null or not cloud.has_method("resolve_manifest") or not cloud.has_method("plan_for") or not cloud.has_method("is_mounted"):
-		return DotResult.success(total)
+		return GSResult.success(total)
 	var walked := await _plan_slice(cloud, str(p["id"]), str(p["version"]), manifest_url, {}, total, 0)
 	if not walked.ok:
 		return walked
-	return DotResult.success(total)
+	return GSResult.success(total)
 
 
-static func _plan_slice(cloud: Object, id: String, version: String, url: String, seen: Dictionary, total: Dictionary, depth: int) -> DotResult:
+static func _plan_slice(cloud: Object, id: String, version: String, url: String, seen: Dictionary, total: Dictionary, depth: int) -> GSResult:
 	var key := "%s@%s" % [id, version]
 	if seen.has(key) or depth > 5 or bool(cloud.call("is_mounted", StringName(id), version)):
-		return DotResult.success(true)
+		return GSResult.success(true)
 	seen[key] = true
-	var got: DotResult = await cloud.call("resolve_manifest", StringName(id), version, url)
+	var got: GSResult = await cloud.call("resolve_manifest", StringName(id), version, url)
 	if not got.ok:
 		return got.wrap("manifest of %s" % key)
 	var manifest: Object = got.value
@@ -150,26 +150,26 @@ static func _plan_slice(cloud: Object, id: String, version: String, url: String,
 		var below := await _plan_slice(cloud, str(dep["id"]), str(dep["version"]), "", seen, total, depth + 1)
 		if not below.ok:
 			return below
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## Says what is about to be downloaded: on the load gate (its text and [constant META_DOWNLOAD_BYTES]) and in the log.
 static func _announce(cost: Dictionary) -> void:
-	DotLog.info(CHANNEL, "map art to download", {"bytes": DotPaths.format_bytes(int(cost["bytes"])), "slices": cost["slices"]})
-	var gate := DotRegistry.get_service(DotLoadGate.SERVICE) as DotLoadGate
+	GSLog.info(CHANNEL, "map art to download", {"bytes": GSPaths.format_bytes(int(cost["bytes"])), "slices": cost["slices"]})
+	var gate := GSRegistry.get_service(GSLoadGate.SERVICE) as GSLoadGate
 	if gate != null and not gate.is_open():
 		gate.set_meta(META_DOWNLOAD_BYTES, int(cost["bytes"]))
-		gate.set_progress(gate.progress(), "Downloading map art: %s" % DotPaths.format_bytes(int(cost["bytes"])))
+		gate.set_progress(gate.progress(), "Downloading map art: %s" % GSPaths.format_bytes(int(cost["bytes"])))
 
 
-## Puts [method notice] on the load screen of the game in progress, if it has a [DotLoadGate].
+## Puts [method notice] on the load screen of the game in progress, if it has a [GSLoadGate].
 static func _show(licence: Dictionary) -> void:
-	var gate := DotRegistry.get_service(DotLoadGate.SERVICE) as DotLoadGate
+	var gate := GSRegistry.get_service(GSLoadGate.SERVICE) as GSLoadGate
 	if gate != null and not gate.is_open():
 		gate.set_progress(gate.progress(), notice(licence))
 
 
-## Points [param surfaces] (DotMapSurfaces) and [param world] (DotMapBspMesh) at a mounted slice. Returns whether it was.
+## Points [param surfaces] (GSMapSurfaces) and [param world] (GSMapBspMesh) at a mounted slice. Returns whether it was.
 static func apply(licence: Dictionary, cloud: Object, surfaces: Object, world: Object) -> bool:
 	var dirs := mount_dirs(licence, cloud) if cloud != null else PackedStringArray()
 	if dirs.is_empty():
@@ -200,7 +200,7 @@ static func _report(licence: Dictionary, world: Object) -> void:
 	_warned[str(p["id"])] = true
 	var got: Dictionary = _unfetched.get(str(p["id"]), {"ids": slice_ids(licence), "why": "never fetched"})
 	_unfetched[str(p["id"])] = got
-	DotLog.warn(CHANNEL, "a map's art slices are not installed; it is drawn with low-detail stand-ins (each face's own colour) and without library models. To get them: %s" % HOW_TO_GET,
+	GSLog.warn(CHANNEL, "a map's art slices are not installed; it is drawn with low-detail stand-ins (each face's own colour) and without library models. To get them: %s" % HOW_TO_GET,
 			{"slices": ", ".join(got["ids"]), "why": got["why"]})
 
 

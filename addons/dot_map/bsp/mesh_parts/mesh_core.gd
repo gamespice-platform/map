@@ -1,6 +1,6 @@
 extends "mesh_glass.gd"
 
-## The reading, caching, lightmap and mesh-building half of [DotMapBspMesh]; split out only to keep each file small.
+## The reading, caching, lightmap and mesh-building half of [GSMapBspMesh]; split out only to keep each file small.
 
 const CHANNEL := "dot_map.bsp_mesh"
 
@@ -25,7 +25,7 @@ var glass_material_for: Callable = Callable()
 var prop_view_per_metre: float = 60.0
 var prop_view_min: float = 30.0
 ## Workers for the pure-CPU build stages ([code]map_load_threads[/code]): 0 inline, -1 automatic, never on the web. The output is identical.
-var load_threads: int = DotMapParallelBuild.default_workers
+var load_threads: int = GSMapParallelBuild.default_workers
 ## Converter cells (16 m) per drawn chunk along each axis: a chunk costs a draw per material plus a shadow proxy, so merging n x n x n cells draws the same triangles with far fewer draws.
 ## 1 keeps the converter's cells; 0 picks the smallest n leaving a model at most [member chunk_target] chunks, so a small map keeps its fine cells (and PVS culling).
 var chunk_merge: int = 0
@@ -39,7 +39,7 @@ var _movers: Dictionary = {}
 var _pages: Dictionary = {}
 var _ambient: PackedFloat32Array = PackedFloat32Array()
 var _floor_mean: Dictionary = {}
-var _entities: DotMapEntities = null
+var _entities: GSMapEntities = null
 ## Built shapes by model (and kinds), shared by every body made from this mesh: a shape is a read-only resource.
 var _hull_cache: Dictionary = {}
 var _concave_cache: Dictionary = {}
@@ -69,29 +69,29 @@ static func clear_slim_cache() -> void:
 
 ## Reads [code]<prefix>.json[/code] and [code]<prefix>.bin[/code]; the result is shared with every
 ## other caller of the same prefix while [member cache_meshes] is on, so treat it as read-only.
-static func load_prefix(prefix: String) -> DotResult:
+static func load_prefix(prefix: String) -> GSResult:
 	var json_path := prefix + ".json"
 	if not FileAccess.file_exists(json_path):
-		return DotResult.fail(DotError.CODE_IO, "no mesh manifest", json_path)
+		return GSResult.fail(GSError.CODE_IO, "no mesh manifest", json_path)
 	var stamp := _stamp(prefix, json_path)
 	var hit: Dictionary = _cache.get(prefix, {})
 	if cache_meshes and hit.get("stamp") == stamp:
-		return DotResult.success(hit["mesh"])
+		return GSResult.success(hit["mesh"])
 	return _remember(prefix, stamp, _read_prefix(prefix, json_path, _read_raw(prefix, json_path)))
 
 
 ## [method load_prefix] with the file reads, the JSON parse, the hash and the decompress on a worker thread, this one
 ## awaiting frames until they are done: on a large pack they are 125 ms (docs/load-threads.md), one frozen frame of a
-## client's map load. Inline where [method DotParallel.available] is false (the web). A coroutine: `await` it.
-static func load_prefix_async(prefix: String) -> DotResult:
+## client's map load. Inline where [method GSParallel.available] is false (the web). A coroutine: `await` it.
+static func load_prefix_async(prefix: String) -> GSResult:
 	var json_path := prefix + ".json"
 	var tree := Engine.get_main_loop() as SceneTree
-	if tree == null or not DotParallel.available() or not FileAccess.file_exists(json_path):
+	if tree == null or not GSParallel.available() or not FileAccess.file_exists(json_path):
 		return load_prefix(prefix)
 	var stamp := _stamp(prefix, json_path)
 	var hit: Dictionary = _cache.get(prefix, {})
 	if cache_meshes and hit.get("stamp") == stamp:
-		return DotResult.success(hit["mesh"])
+		return GSResult.success(hit["mesh"])
 	var raw := {}
 	var task := WorkerThreadPool.add_task(func() -> void: raw.merge(_read_raw(prefix, json_path)), false, "dot-map read")
 	while not WorkerThreadPool.is_task_completed(task):
@@ -104,7 +104,7 @@ static func _stamp(prefix: String, json_path: String) -> String:
 	return str(FileAccess.get_modified_time(json_path)) + ":" + str(FileAccess.get_modified_time(prefix + ".bin"))
 
 
-static func _remember(prefix: String, stamp: String, res: DotResult) -> DotResult:
+static func _remember(prefix: String, stamp: String, res: GSResult) -> GSResult:
 	if res.ok and cache_meshes:
 		if _cache.size() >= cache_limit and not _cache.has(prefix):
 			_cache.erase(_cache.keys()[0])
@@ -129,14 +129,14 @@ static func _read_raw(prefix: String, json_path: String) -> Dictionary:
 	return out
 
 
-static func _read_prefix(prefix: String, json_path: String, raw: Dictionary) -> DotResult:
+static func _read_prefix(prefix: String, json_path: String, raw: Dictionary) -> GSResult:
 	if not raw.get("doc") is Dictionary:
-		return DotResult.fail(DotError.CODE_PARSE, "mesh manifest is not a JSON object", json_path)
+		return GSResult.fail(GSError.CODE_PARSE, "mesh manifest is not a JSON object", json_path)
 	if not raw.has("stored"):
-		return DotResult.fail(DotError.CODE_IO, "no mesh data", str(raw.get("bin_path", "")))
+		return GSResult.fail(GSError.CODE_IO, "no mesh data", str(raw.get("bin_path", "")))
 	var res := from_data(raw["doc"], raw["stored"], raw)
 	if res.ok:
-		res.value.source_path = prefix  # a DotMapBspMesh
+		res.value.source_path = prefix  # a GSMapBspMesh
 	return res if res.ok else res.wrap("loading " + prefix)
 
 
@@ -160,24 +160,24 @@ static func _unpack(doc: Dictionary, stored: PackedByteArray) -> Dictionary:
 
 ## Builds from a parsed manifest and the stored .bin bytes (as delivered: gzip'd or not). [param unpacked] is
 ## [method _unpack]'s result when a worker already made it.
-static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictionary = {}) -> DotResult:
+static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictionary = {}) -> GSResult:
 	if str(doc.get("format", "")) != FORMAT:
-		return DotResult.fail(DotError.CODE_INVALID, "not a %s manifest" % FORMAT, str(doc.get("format", "")))
+		return GSResult.fail(GSError.CODE_INVALID, "not a %s manifest" % FORMAT, str(doc.get("format", "")))
 	if int(doc.get("version", 0)) > VERSION:
-		return DotResult.fail(DotError.CODE_VERSION, "mesh manifest is newer than this reader",
+		return GSResult.fail(GSError.CODE_VERSION, "mesh manifest is newer than this reader",
 				"%s > %d" % [doc.get("version"), VERSION])
 	if not unpacked.has("blob"):
 		unpacked = _unpack(doc, stored)
 	var info: Dictionary = doc.get("bin", {})
 	var want := str(info.get("sha256", ""))
 	if not want.is_empty() and str(unpacked.get("sha", "")) != want:
-		return DotResult.fail(DotError.CODE_INTEGRITY, "mesh data does not match its manifest",
+		return GSResult.fail(GSError.CODE_INTEGRITY, "mesh data does not match its manifest",
 				"%s != %s" % [unpacked.get("sha", ""), want])
 	var blob: PackedByteArray = unpacked["blob"]
 	if blob.size() != int(info.get("bytes", blob.size())):
-		return DotResult.fail(DotError.CODE_PARSE, "mesh data is the wrong size",
+		return GSResult.fail(GSError.CODE_PARSE, "mesh data is the wrong size",
 				"%d != %s" % [blob.size(), info.get("bytes")])
-	# DotMapBspMesh, loaded: this file is one of its bases, so naming it would keep both parsers alive.
+	# GSMapBspMesh, loaded: this file is one of its bases, so naming it would keep both parsers alive.
 	var m: RefCounted = (load("uid://bgtb6hc6o6j52") as GDScript).new()
 	m.manifest = doc
 	m.surfaces = doc.get("surfaces", [])
@@ -186,7 +186,7 @@ static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictio
 	for page: Dictionary in doc.get("lightmap", {}).get("pages", []):
 		var bytes := 4 * int(page.get("width", 0)) * int(page.get("height", 0))
 		if not m._fits(page, bytes, "offset"):
-			return DotResult.fail(DotError.CODE_PARSE, "a lightmap page points outside the mesh data")
+			return GSResult.fail(GSError.CODE_PARSE, "a lightmap page points outside the mesh data")
 	for rec: Dictionary in doc.get("movers", []):
 		var mi: Variant = rec.get("model")
 		if mi is float or mi is int:        # a mover with no brushes of its own has a null model
@@ -197,13 +197,13 @@ static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictio
 				or not m._fits(rec, 2 * 4 * int(rec.get("vertex_count", 0)), "uv_offset") \
 				or (rec.has("uv2_offset") and not m._fits(rec, 2 * 4 * int(rec.get("vertex_count", 0)), "uv2_offset")) \
 				or not m._fits(rec, 4 * int(rec.get("index_count", 0)), "index_offset"):
-			return DotResult.fail(DotError.CODE_PARSE, "a surface points outside the mesh data", str(rec.get("material")))
+			return GSResult.fail(GSError.CODE_PARSE, "a surface points outside the mesh data", str(rec.get("material")))
 	for rec: Dictionary in m.hulls:
 		if not m._fits(rec, 12 * int(rec.get("point_count", 0)), "point_offset"):
-			return DotResult.fail(DotError.CODE_PARSE, "a hull points outside the mesh data", str(rec.get("brush")))
-	DotLog.debug(CHANNEL, "mesh read", {"name": doc.get("name"), "surfaces": m.surfaces.size(),
+			return GSResult.fail(GSError.CODE_PARSE, "a hull points outside the mesh data", str(rec.get("brush")))
+	GSLog.debug(CHANNEL, "mesh read", {"name": doc.get("name"), "surfaces": m.surfaces.size(),
 			"hulls": m.hulls.size(), "bytes": blob.size()})
-	return DotResult.success(m)
+	return GSResult.success(m)
 
 
 func _fits(rec: Dictionary, length: int, key: String) -> bool:
@@ -224,9 +224,9 @@ func models() -> PackedInt32Array:
 
 
 ## The entities of this map (movers, volumes, links, data), built on first use.
-func entities() -> DotMapEntities:
+func entities() -> GSMapEntities:
 	if _entities == null:
-		_entities = DotMapEntities.from_manifest(manifest)
+		_entities = GSMapEntities.from_manifest(manifest)
 	return _entities
 
 
@@ -338,7 +338,7 @@ func light_floor() -> Color:
 			if _ambient.is_empty():
 				_ambient = _blob.slice(at, at + 84 * n).to_float32_array()
 			if not _floor_mean.has(n):    # every material of the map asks, and the scan is 1 ms
-				_floor_mean[n] = DotMapParallelBuild.sky_mean(_ambient, n)
+				_floor_mean[n] = GSMapParallelBuild.sky_mean(_ambient, n)
 			c = _floor_mean[n]
 	var sun: Dictionary = environment_data().get("sun", {})
 	var a: Variant = sun.get("ambient_hdr", sun.get("ambient"))
@@ -356,8 +356,8 @@ const MAX_TINT_RATIO := 2.5
 
 ## Pulls [param c] toward its own grey until its channels are within [constant MAX_TINT_RATIO] (and [member lightmap_max_chroma_ratio] when set); the author's warm or cool cast stays, a saturated one does not.
 static func _limit_tint(c: Vector3) -> Color:
-	c = DotMapSurfaces.limit_chroma(c, MAX_TINT_RATIO)
-	c = DotMapSurfaces.limit_chroma(c, lightmap_max_chroma_ratio)
+	c = GSMapSurfaces.limit_chroma(c, MAX_TINT_RATIO)
+	c = GSMapSurfaces.limit_chroma(c, lightmap_max_chroma_ratio)
 	return Color(c.x, c.y, c.z)
 
 
@@ -375,7 +375,7 @@ static func set_lightmap_max_chroma_ratio(value: float) -> void:
 ## The default [member visibility_floor].
 const MIN_FLOOR := 0.3
 
-## Mean luminance a lit surface (and an actor's ambient, [DotMapLitWorld]) never falls below, tinted by the author's ambient, so a map the author lit darkly stays playable. 0 turns the floor off; a game wires its cvar to this before the world's materials are built.
+## Mean luminance a lit surface (and an actor's ambient, [GSMapLitWorld]) never falls below, tinted by the author's ambient, so a map the author lit darkly stays playable. 0 turns the floor off; a game wires its cvar to this before the world's materials are built.
 static var visibility_floor: float = MIN_FLOOR
 
 
@@ -399,18 +399,18 @@ func build_meshes(model: int, material_for: Callable = Callable()) -> Array[Dict
 	var planned := _mesh_plan(model, material_for)
 	var out: Array[Dictionary] = []
 	var state := {"mesh": null, "key": ""}
-	var step := DotMapParallelBuild.batch_size(load_threads)
+	var step := GSMapParallelBuild.batch_size(load_threads)
 	for from in range(0, planned["plan"].size(), step):
 		_mesh_batch(planned, from, step, out, state)
 	return out
 
 
-## [method build_meshes] that awaits [method DotFrameSlice.pause] between batches, so a cover keeps drawing.
-func build_meshes_async(model: int, material_for: Callable, slice: DotFrameSlice) -> Array[Dictionary]:
+## [method build_meshes] that awaits [method GSFrameSlice.pause] between batches, so a cover keeps drawing.
+func build_meshes_async(model: int, material_for: Callable, slice: GSFrameSlice) -> Array[Dictionary]:
 	var planned: Dictionary = await _mesh_plan_async(model, material_for, slice)
 	var out: Array[Dictionary] = []
 	var state := {"mesh": null, "key": ""}
-	var step := DotMapParallelBuild.batch_size(load_threads)
+	var step := GSMapParallelBuild.batch_size(load_threads)
 	for from in range(0, planned["plan"].size(), step):
 		if slice.due():
 			await slice.pause()
@@ -437,8 +437,8 @@ func _mesh_plan(model: int, material_for: Callable) -> Dictionary:
 	return {"plan": plan, "groups": groups}
 
 
-## [method _mesh_plan] that awaits [method DotFrameSlice.pause] between records: a record's first material reads and uploads its textures.
-func _mesh_plan_async(model: int, material_for: Callable, slice: DotFrameSlice) -> Dictionary:
+## [method _mesh_plan] that awaits [method GSFrameSlice.pause] between records: a record's first material reads and uploads its textures.
+func _mesh_plan_async(model: int, material_for: Callable, slice: GSFrameSlice) -> Dictionary:
 	var groups := _chunk_groups(model)
 	var plan: Array = []
 	for key: String in groups:
@@ -559,7 +559,7 @@ func _mesh_batch(planned: Dictionary, from: int, step: int, out: Array[Dictionar
 ## The surface arrays of plan entries [param from] to [param from] + [param step], merged on the workers: {chunk, arrays}.
 func _mesh_merge(planned: Dictionary, from: int, step: int) -> Dictionary:
 	var chunk := (planned["plan"] as Array).slice(from, from + step)
-	return {"chunk": chunk, "arrays": DotMapParallelBuild.merged(self, chunk.map(func(p: Array) -> Array: return p[1]["recs"]), load_threads)}
+	return {"chunk": chunk, "arrays": GSMapParallelBuild.merged(self, chunk.map(func(p: Array) -> Array: return p[1]["recs"]), load_threads)}
 
 
 ## Adds one plan entry [param item] ([group key, entry]) with its merged [param arrays] to the open mesh in [param state].
@@ -665,7 +665,7 @@ func hull_shapes(model: int, kinds: PackedStringArray = PackedStringArray()) -> 
 func _build_hull_shapes(model: int, kinds: PackedStringArray) -> Array[Dictionary]:
 	var recs: Array = hulls.filter(func(r: Dictionary) -> bool:
 		return int(r["model"]) == model and (kinds.is_empty() or str(r["kind"]) in kinds))
-	var points := DotMapParallelBuild.hull_points(self, recs, model_origin(model), load_threads)
+	var points := GSMapParallelBuild.hull_points(self, recs, model_origin(model), load_threads)
 	var out: Array[Dictionary] = []
 	for i in recs.size():
 		var shape := ConvexPolygonShape3D.new()
@@ -726,7 +726,7 @@ func concave_shapes(model: int) -> Array[ConcavePolygonShape3D]:
 
 func _build_concave_shapes(model: int) -> Array[ConcavePolygonShape3D]:
 	var recs: Array = surfaces.filter(func(r: Dictionary) -> bool: return int(r["model"]) == model and r.get("collide", false))
-	var faces := DotMapParallelBuild.concave_faces(self, recs, model_origin(model), load_threads)
+	var faces := GSMapParallelBuild.concave_faces(self, recs, model_origin(model), load_threads)
 	var out: Array[ConcavePolygonShape3D] = []
 	for f: PackedVector3Array in faces:
 		out.append(ConcavePolygonShape3D.new())

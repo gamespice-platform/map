@@ -1,6 +1,6 @@
 # Visibility: drawing only what the camera can see
 
-A converted map is drawn as 16 m chunks (a 6 m height band each) of merged faces plus stand-in props. Without culling every chunk inside the frustum is drawn, including the shop behind three walls. `DotMapVisibility` (`addons/dot_map/bsp/dot_map_visibility.gd`) uses the map's own precomputed visibility data to draw only the chunks the camera's position could see, and adds occluders made from the map's large solid brushes for whatever that data cannot cover.
+A converted map is drawn as 16 m chunks (a 6 m height band each) of merged faces plus stand-in props. Without culling every chunk inside the frustum is drawn, including the shop behind three walls. `GSMapVisibility` (`addons/dot_map/bsp/dot_map_visibility.gd`) uses the map's own precomputed visibility data to draw only the chunks the camera's position could see, and adds occluders made from the map's large solid brushes for whatever that data cannot cover.
 
 ## What the converter keeps
 
@@ -16,21 +16,21 @@ A converted map is drawn as 16 m chunks (a 6 m height band each) of merged faces
 | `portals`, `portal_entities` | area portals as `[key, area, area]`, and the entities that open and close them (`key`, `target` door, `start_open`, `window`) |
 | `occluder_vertices`, `occluder_indices` | triangles of every large opaque world brush |
 
-Each surface record gains `clusters`: every cluster any of its triangles touches, from one box query per triangle through the plane tree (1 unit of slack). The 3D sky has none and is always drawn. `DotMapBspMesh.build_meshes` unions a chunk's records into its `clusters` (null if any record has none), and `build_node` puts it on the MeshInstance3D as the `vis_clusters` meta.
+Each surface record gains `clusters`: every cluster any of its triangles touches, from one box query per triangle through the plane tree (1 unit of slack). The 3D sky has none and is always drawn. `GSMapBspMesh.build_meshes` unions a chunk's records into its `clusters` (null if any record has none), and `build_node` puts it on the MeshInstance3D as the `vis_clusters` meta.
 
 An occluder brush is solid, not window, grate or translucent, has no translucent, sky or trigger side, no glass, foliage, water, fence, grate or chain-link material, at least one visible side, and is large (middle extent at least 1.5 m, middle times largest at least 6 m²). Each is shrunk by 4 cm (at most a quarter of its thinnest side) so it never hides the face it is part of.
 
 ## The runtime
 
 ```gdscript
-var vis := DotMapVisibility.new()
-vis.mode = DotMapVisibility.parse_mode(cfg_text)  # off | pvs | occluders | both
+var vis := GSMapVisibility.new()
+vis.mode = GSMapVisibility.parse_mode(cfg_text)  # off | pvs | occluders | both
 add_child(vis)
-var res := vis.setup(world, world_node)           # a DotMapBspMesh and its build_node() tree
+var res := vis.setup(world, world_node)           # a GSMapBspMesh and its build_node() tree
 vis.set_door_open("door_store", false)            # the portals that door controls close
 ```
 
-- The camera (`camera_ref`, a `DotNodeRef`, or the viewport's) is put in the world's local space. Only after it moves `move_step` (0.25 m) are the clusters within `margin` (1 m) looked up, and only when that set changes are chunks shown or hidden; a frame where nothing changed costs one distance check.
+- The camera (`camera_ref`, a `GSNodeRef`, or the viewport's) is put in the world's local space. Only after it moves `move_step` (0.25 m) are the clusters within `margin` (1 m) looked up, and only when that set changes are chunks shown or hidden; a frame where nothing changed costs one distance check.
 - A chunk is shown when one of its clusters is in the union of those clusters' PVS rows and in an area reachable from the camera's through open portals. Props (each child of a `Props` node) are placed in clusters by their bounds when `setup` runs.
 - Inside solid or outside the map (no cluster) everything is drawn: a noclip camera never sees a hole.
 - Occluders are one `OccluderInstance3D`, and the viewport's `use_occlusion_culling` is turned on while the mode includes them and put back on `_exit_tree`. They hide props, characters and chunks in the same cluster set but behind a wall.
@@ -90,7 +90,7 @@ Pixel comparison against off at 24 random positions (1660 Ti, 640x360): a hidden
 
 ## Heavy library models
 
-A glTF read at run time has no LOD levels, and the polyhaven scans in the model library run to 1.6 million triangles a tree. `DotMapBspMesh.add_mesh_lods` (called for every library model, `model_lod_min_tris` 20000, `model_max_tris` 150000, `set_model_lod`) cuts a mesh over the cap to the first meshoptimizer level that fits and gives it levels again, so the engine's `Viewport.mesh_lod_threshold` picks by screen size. On a street map of such trees it took 33 million primitives a frame to 3.4 million. A game wires the two numbers to cvars (zombie zone: `prop_lod_min_tris`, `prop_max_tris`, `mesh_lod_threshold`).
+A glTF read at run time has no LOD levels, and the polyhaven scans in the model library run to 1.6 million triangles a tree. `GSMapBspMesh.add_mesh_lods` (called for every library model, `model_lod_min_tris` 20000, `model_max_tris` 150000, `set_model_lod`) cuts a mesh over the cap to the first meshoptimizer level that fits and gives it levels again, so the engine's `Viewport.mesh_lod_threshold` picks by screen size. On a street map of such trees it took 33 million primitives a frame to 3.4 million. A game wires the two numbers to cvars (zombie zone: `prop_lod_min_tris`, `prop_max_tris`, `mesh_lod_threshold`).
 
 ## Re-importing
 

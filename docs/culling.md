@@ -10,8 +10,8 @@ For a level you built in the editor, not a converted BSP map (those use [visibil
 | Hide what is far | `GeometryInstance3D.visibility_range_end` and fade; HLOD by pairing two ranges | Nothing; use it |
 | Skip a node off-screen | `VisibleOnScreenNotifier3D` (frustum only, ignores walls) | Nothing |
 | Rooms and portals | Removed. Godot 4.0 to 4.3 had `RoomManager`, `Room` and `Portal`; none exists in 4.7 (`ClassDB.class_exists("RoomManager")` is false) | No room graph either: occluders do the job for static walls, and a room node would only duplicate them |
-| Bake occluders | `OccluderInstance3D` has its own bake, which merges all meshes into one simplified mesh: slow and fuzzy on a level full of props | `DotOccluderBaker`: only large flat faces, as quads, reproducible, headless |
-| A door that opens | An occluder cannot change shape; you would toggle one by hand | `DotAreaPortal`: a doorway box that occludes while closed |
+| Bake occluders | `OccluderInstance3D` has its own bake, which merges all meshes into one simplified mesh: slow and fuzzy on a level full of props | `GSOccluderBaker`: only large flat faces, as quads, reproducible, headless |
+| A door that opens | An occluder cannot change shape; you would toggle one by hand | `GSAreaPortal`: a doorway box that occludes while closed |
 
 An honest summary: Godot does the culling. These two classes feed it the occluders a level author would otherwise place by hand, and keep a door's occluder in step with the door.
 
@@ -26,25 +26,25 @@ godot --headless --path . -s tools/bake_occluders.gd -- res://levels/arena.tscn 
 
 It prints `N meshes, N large faces, N quads` and writes one `OccluderInstance3D` named `BakedOccluders` into the scene. Baking again replaces it.
 
-What becomes a quad: a group of one mesh's triangles on one plane that is at least 6 m² (`min_area`), at least 1.5 m on its short side (`min_side`) and at least 85% filled (`min_fill`). A wall with a doorway cut into one mesh fails the fill test and is skipped, because a quad over the hole would hide the next room; build it as several boxes instead, or put a `DotAreaPortal` in the hole. Every quad is pulled in 4 cm from its edges so it never hides the face it lies on. At most 256 are kept, the largest first.
+What becomes a quad: a group of one mesh's triangles on one plane that is at least 6 m² (`min_area`), at least 1.5 m on its short side (`min_side`) and at least 85% filled (`min_fill`). A wall with a doorway cut into one mesh fails the fill test and is skipped, because a quad over the hole would hide the next room; build it as several boxes instead, or put a `GSAreaPortal` in the hole. Every quad is pulled in 4 cm from its edges so it never hides the face it lies on. At most 256 are kept, the largest first.
 
 Never baked: hidden nodes, translucent meshes (`transparency`, or a material with alpha), shadow-only meshes, and anything in the group `dot_no_occluder`. Set the group on glass, foliage planes and anything that moves or can be destroyed.
 
-Then turn on **Rendering, Occlusion Culling, Use Occlusion Culling** in Project Settings. In code, `DotOccluderBaker.new().bake(level_root)` returns a `DotResult` whose value is the node; set `min_area`, `min_side`, `min_fill`, `inset` and `max_quads` on the baker first.
+Then turn on **Rendering, Occlusion Culling, Use Occlusion Culling** in Project Settings. In code, `GSOccluderBaker.new().bake(level_root)` returns a `GSResult` whose value is the node; set `min_area`, `min_side`, `min_fill`, `inset` and `max_quads` on the baker first.
 
-## 2. Doors: DotAreaPortal
+## 2. Doors: GSAreaPortal
 
-Add a `DotAreaPortal` in the doorway (Create Node, search "portal"), set `size` to the opening (the orange box is the editor gizmo; it turns green when open), and drive it from the door:
+Add a `GSAreaPortal` in the doorway (Create Node, search "portal"), set `size` to the opening (the orange box is the editor gizmo; it turns green when open), and drive it from the door:
 
 ```gdscript
-@onready var portal: DotAreaPortal = $Doorway
+@onready var portal: GSAreaPortal = $Doorway
 func _on_door_opened(opened: bool) -> void:
     portal.set_open(opened)   # or set portal.open; both emit toggled(open)
 ```
 
 Closed, it blocks the view, so the room behind a shut door costs nothing. It starts closed; tick `open` for a doorway with no door. `is_blocking()` says what it is doing now. Do not make `size` larger than the opening.
 
-On a converted BSP map, `DotMapVisibility.bind_area_portals(level_root)` makes every portal that has a `key` (the map's area portal) or a `door` (the door entity's target name) drive the map's own portals too.
+On a converted BSP map, `GSMapVisibility.bind_area_portals(level_root)` makes every portal that has a `key` (the map's area portal) or a `door` (the door entity's target name) drive the map's own portals too.
 
 ## 3. Check it
 
@@ -72,4 +72,4 @@ The frame does not change: [before](img/culling_before.png) and [after](img/cull
 
 ## Fewer draw calls for a box map
 
-A map of hundreds of `StaticBody3D` boxes with one `BoxMesh` each draws one mesh per box, and the web renderer is draw-call bound. `DotMapBoxBatch.build(level, cell, skip, force)` folds the boxes of one material in one `cell`-metre square (default 64) into one `ArrayMesh`, hides the originals and leaves every body and shape as it was. Only a direct child body with one `BoxMesh` mesh and collision shapes, and an opaque `BaseMaterial3D`, is folded; a cell with one box of a material is left alone, unless the optional fifth argument `coarse` (metres, default 0 = off; Playlot passes `CELL * 4` = 256) is above `cell`: the boxes that were alone in their cell then fold with the other lone boxes of the same material in that coarser cell (`pgc_town` 621 -> 598 draws). `skip(body, mesh) -> bool` vetoes any box (breakables, doors, boxes the game restyles). It does nothing on a headless server unless `force`. `undo(level)` shows the originals again. Measured on Playlot's `pgc_town`: 1272 draws became 608 and 85.6 fps became 117.9 (staging02). `examples/box_batch_demo.tscn` is the draw budget.
+A map of hundreds of `StaticBody3D` boxes with one `BoxMesh` each draws one mesh per box, and the web renderer is draw-call bound. `GSMapBoxBatch.build(level, cell, skip, force)` folds the boxes of one material in one `cell`-metre square (default 64) into one `ArrayMesh`, hides the originals and leaves every body and shape as it was. Only a direct child body with one `BoxMesh` mesh and collision shapes, and an opaque `BaseMaterial3D`, is folded; a cell with one box of a material is left alone, unless the optional fifth argument `coarse` (metres, default 0 = off; Playlot passes `CELL * 4` = 256) is above `cell`: the boxes that were alone in their cell then fold with the other lone boxes of the same material in that coarser cell (`pgc_town` 621 -> 598 draws). `skip(body, mesh) -> bool` vetoes any box (breakables, doors, boxes the game restyles). It does nothing on a headless server unless `force`. `undo(level)` shows the originals again. Measured on Playlot's `pgc_town`: 1272 draws became 608 and 85.6 fps became 117.9 (staging02). `examples/box_batch_demo.tscn` is the draw budget.

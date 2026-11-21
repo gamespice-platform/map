@@ -1,4 +1,4 @@
-class_name DotMapVpk
+class_name GSMapVpk
 extends RefCounted
 
 ## One Valve VPK archive set (v1 or v2: a `<base>_dir.vpk` and its `<base>_NNN.vpk` parts) on the player's own disk.
@@ -7,10 +7,10 @@ extends RefCounted
 ## repository or a pack that leaves the machine: Valve's files are not ours to ship, only this reader is.
 ## `gs-map-convert`'s `dotbsp/vpk.py` is the same reader for the converter (offline); this one runs in the game.
 ## [codeblock]
-## var vpk := DotMapVpk.new()
+## var vpk := GSMapVpk.new()
 ## if vpk.open("C:/.../tf/tf2_textures_dir.vpk", PackedStringArray(["vmt", "vtf"])):
 ##     var bytes := vpk.read("materials/brick/brickwall003.vtf")  # empty, [member error] set, when absent or broken
-##     var img := DotMapVtf.image(bytes, 512)
+##     var img := GSMapVtf.image(bytes, 512)
 ## [/codeblock]
 
 const SIG := 0x55AA1234
@@ -30,7 +30,7 @@ var error := ""
 ## Check each file against its CRC-32 in [method read] (default). A caller that trusts the disk may turn it off.
 var verify_crc := true
 
-## The native CRC-32 (GameSpice Sim's `DotSimCrc`) once looked up: null before, false when absent.
+## The native CRC-32 (GameSpice Sim's `GSSimCrc`) once looked up: null before, false when absent.
 static var _native: Variant = null
 static var _tables: Array[PackedInt64Array] = []
 
@@ -142,13 +142,13 @@ func read(path: String) -> PackedByteArray:
 ## step if a game fills many hundreds of textures (nightly item dot-map-vpk-vtf-reader).
 static func crc32(data: PackedByteArray) -> int:
 	if _native == null:
-		_native = ClassDB.instantiate(&"DotSimCrc") if ClassDB.class_exists(&"DotSimCrc") else false
+		_native = ClassDB.instantiate(&"GSSimCrc") if ClassDB.class_exists(&"GSSimCrc") else false
 	if _native is Object:
 		return int((_native as Object).call(&"crc32", data))
 	return crc32_script(data)
 
 
-## The script CRC-32: the specification of the native one (dot-sim's `DotSimCrc`) and its fallback.
+## The script CRC-32: the specification of the native one (dot-sim's `GSSimCrc`) and its fallback.
 static func crc32_script(data: PackedByteArray) -> int:
 	if _tables.is_empty():
 		_build_tables()

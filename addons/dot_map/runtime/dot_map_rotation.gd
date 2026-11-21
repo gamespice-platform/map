@@ -1,4 +1,4 @@
-class_name DotMapRotation
+class_name GSMapRotation
 extends RefCounted
 
 ## What plays next, and what may not play again yet. The cooldown is the whole design. A rotation without one
@@ -17,10 +17,10 @@ enum Mode {
 	MANUAL,
 }
 
-var catalogue: DotMapCatalogue = null
+var catalogue: GSMapCatalogue = null
 
 ## Ids in rotation order. Empty means "every enabled map in the catalogue", sorted by id (see [member
-## sort_unordered]). Separate from the catalogue for the reason in [DotMapCatalogue]: a server knows about
+## sort_unordered]). Separate from the catalogue for the reason in [GSMapCatalogue]: a server knows about
 ## two hundred maps and rotates twelve.
 var order: Array[StringName] = []
 
@@ -50,25 +50,25 @@ var _forced: StringName = &""
 var _cursor: int = 0
 
 
-static func of(p_catalogue: DotMapCatalogue) -> DotMapRotation:
-	var rotation := DotMapRotation.new()
+static func of(p_catalogue: GSMapCatalogue) -> GSMapRotation:
+	var rotation := GSMapRotation.new()
 	rotation.catalogue = p_catalogue
 	return rotation
 
 
 ## The maps eligible right now, in rotation order.
-func pool(players: int = 0) -> Array[DotMapDef]:
+func pool(players: int = 0) -> Array[GSMapDef]:
 	if catalogue == null:
 		return []
 
-	var out: Array[DotMapDef] = []
+	var out: Array[GSMapDef] = []
 
 	if order.is_empty():
 		for map in catalogue.maps:
 			if map.available_for(players):
 				out.append(map)
 		if sort_unordered:
-			out.sort_custom(func(a: DotMapDef, b: DotMapDef) -> bool: return String(a.id) < String(b.id))
+			out.sort_custom(func(a: GSMapDef, b: GSMapDef) -> bool: return String(a.id) < String(b.id))
 		return out
 
 	for id in order:
@@ -99,7 +99,7 @@ func on_cooldown(id: StringName, pool_size: int = 0) -> bool:
 ## The next map, or null when the rotation cannot offer one. Does not record it as played — [method
 ## note_played] does that, when the map has actually been loaded. Two calls in a row give the same answer,
 ## which is what lets a HUD show "next map" without changing it.
-func choose(players: int = 0) -> DotMapDef:
+func choose(players: int = 0) -> GSMapDef:
 	if _forced != &"" and catalogue != null:
 		var forced := catalogue.get_map(_forced)
 		if forced != null and forced.in_rotation:
@@ -108,12 +108,12 @@ func choose(players: int = 0) -> DotMapDef:
 	var candidates := pool(players)
 
 	if candidates.is_empty():
-		DotLog.warn(CHANNEL, "the rotation has nothing to offer", {
+		GSLog.warn(CHANNEL, "the rotation has nothing to offer", {
 			"players": players, "catalogue": catalogue.size() if catalogue else 0
 		})
 		return null
 
-	var eligible: Array[DotMapDef] = []
+	var eligible: Array[GSMapDef] = []
 
 	for map in candidates:
 		if not on_cooldown(map.id, candidates.size()):

@@ -78,7 +78,7 @@ func _test_catalogue() -> void:
 		"a delivered map is added by its pack key, under the id a player types")
 	_check(not catalogue.add_delivered("gamemann/surf_mesa", "map.tscn").ok
 			and not catalogue.add_delivered("surf_mesa@1.0.0", "map.tscn").ok
-			and DotMapDef.from_content_key("gamemann/@1.0.0") == null,
+			and GSMapDef.from_content_key("gamemann/@1.0.0") == null,
 		"and a key with no version, no owner or no name is refused")
 	_check(not catalogue.add_delivered("gamemann/surf_tidewater@1.0.0", "").ok,
 		"and a delivered map still needs a scene to load")
@@ -94,14 +94,14 @@ func _test_catalogue_round_trip() -> void:
 	catalogue.get_map(&"surf_3").zones_path = "res://zones/surf_3.json"
 	catalogue.meta["maintainer"] = "somebody"
 
-	var parsed := DotMapCatalogue.from_json(catalogue.to_json())
+	var parsed := GSMapCatalogue.from_json(catalogue.to_json())
 
 	_check(parsed.ok, "a catalogue round-trips")
 
 	if not parsed.ok:
 		return
 
-	var back: DotMapCatalogue = parsed.value
+	var back: GSMapCatalogue = parsed.value
 
 	_check(back.size() == 5, "with every map")
 	_check(back.get_map(&"surf_1").content_id == &"pack_a", "and the content id")
@@ -112,7 +112,7 @@ func _test_catalogue_round_trip() -> void:
 	)
 	_check(str(back.meta.get("maintainer", "")) == "somebody", "and the metadata")
 
-	var newer := DotMapCatalogue.from_dictionary({"format": 999, "maps": []})
+	var newer := GSMapCatalogue.from_dictionary({"format": 999, "maps": []})
 	_check(not newer.ok, "and a newer format is refused")
 	_done()
 
@@ -122,7 +122,7 @@ func _test_catalogue_tolerates_a_bad_entry() -> void:
 
 	# The property that matters on a community server: a hundred and ninety-nine
 	# good maps and one typo should boot on the hundred and ninety-nine.
-	var parsed := DotMapCatalogue.from_dictionary({
+	var parsed := GSMapCatalogue.from_dictionary({
 		"format": 1,
 		"maps": [
 			{"id": "good_one", "scene": "res://a.tscn"},
@@ -135,7 +135,7 @@ func _test_catalogue_tolerates_a_bad_entry() -> void:
 	_check(parsed.ok, "a catalogue with two bad entries still loads")
 
 	if parsed.ok:
-		var catalogue: DotMapCatalogue = parsed.value
+		var catalogue: GSMapCatalogue = parsed.value
 		_check(catalogue.size() == 2, "with the good entries", "%d" % catalogue.size())
 		_check(catalogue.has(&"good_two"), "including the one after the bad ones")
 	_done()
@@ -144,7 +144,7 @@ func _test_catalogue_tolerates_a_bad_entry() -> void:
 func _test_search() -> void:
 	_section("searching")
 
-	var catalogue := DotMapCatalogue.new()
+	var catalogue := GSMapCatalogue.new()
 	catalogue.add(_map(&"surf_tidewater"))
 	catalogue.add(_map(&"surf_tidewater2"))
 	catalogue.add(_map(&"bhop_arcane"))
@@ -170,8 +170,8 @@ func _test_rotation_sequential() -> void:
 	_section("sequential rotation")
 
 	var catalogue := _catalogue(4)
-	var rotation := DotMapRotation.of(catalogue)
-	rotation.mode = DotMapRotation.Mode.SEQUENTIAL
+	var rotation := GSMapRotation.of(catalogue)
+	rotation.mode = GSMapRotation.Mode.SEQUENTIAL
 	rotation.cooldown = 0
 
 	var seen := PackedStringArray()
@@ -201,7 +201,7 @@ func _test_rotation_cooldown() -> void:
 	_section("the cooldown")
 
 	var catalogue := _catalogue(10)
-	var rotation := DotMapRotation.of(catalogue)
+	var rotation := GSMapRotation.of(catalogue)
 	rotation.cooldown = 3
 
 	rotation.note_played(&"surf_0")
@@ -224,14 +224,14 @@ func _test_rotation_cooldown() -> void:
 
 	# The clamp: a cooldown longer than the pool must not exclude everything, or the
 	# server sits on its current map for ever with nothing in the log to say why.
-	var tiny := DotMapRotation.of(_catalogue(2))
+	var tiny := GSMapRotation.of(_catalogue(2))
 	tiny.cooldown = 8
 	tiny.note_played(&"surf_0")
 	tiny.note_played(&"surf_1")
 
 	_check(tiny.choose() != null, "a cooldown longer than the pool still chooses")
 
-	var single := DotMapRotation.of(_catalogue(1))
+	var single := GSMapRotation.of(_catalogue(1))
 	single.cooldown = 5
 	single.note_played(&"surf_0")
 
@@ -257,7 +257,7 @@ func _test_rotation_determinism() -> void:
 	var second := PackedStringArray()
 
 	for run in range(2):
-		var rotation := DotMapRotation.of(_catalogue(8))
+		var rotation := GSMapRotation.of(_catalogue(8))
 		rotation.seed_value = 12345
 
 		for _i in range(10):
@@ -267,7 +267,7 @@ func _test_rotation_determinism() -> void:
 
 	_check(first == second, "the same seed gives the same sequence", str(first))
 
-	var different := DotMapRotation.of(_catalogue(8))
+	var different := GSMapRotation.of(_catalogue(8))
 	different.seed_value = 999
 	var other := PackedStringArray()
 
@@ -283,7 +283,7 @@ func _test_rotation_determinism() -> void:
 func _test_rotation_player_counts() -> void:
 	_section("player-count limits")
 
-	var catalogue := DotMapCatalogue.new()
+	var catalogue := GSMapCatalogue.new()
 
 	var big := _map(&"surf_big")
 	big.min_players = 10
@@ -296,7 +296,7 @@ func _test_rotation_player_counts() -> void:
 	var any := _map(&"surf_any")
 	catalogue.add(any)
 
-	var rotation := DotMapRotation.of(catalogue)
+	var rotation := GSMapRotation.of(catalogue)
 
 	var quiet := rotation.pool(2)
 	_check(quiet.size() == 2, "a quiet server is offered two maps", "%d" % quiet.size())
@@ -323,7 +323,7 @@ func _test_vote() -> void:
 	_section("map votes")
 
 	var catalogue := _catalogue(10)
-	var vote := DotMapVote.new()
+	var vote := GSMapVote.new()
 	vote.max_options = 5
 	vote.reserved_for_nominations = 2
 
@@ -335,7 +335,7 @@ func _test_vote() -> void:
 	vote.nominate(&"surf_8")
 	vote.nominate(&"surf_9")
 
-	var extra := DotMapRotation.of(catalogue).pool()
+	var extra := GSMapRotation.of(catalogue).pool()
 	var opened := vote.begin(catalogue, extra)
 
 	_check(opened.ok, "the ballot opens")
@@ -375,7 +375,7 @@ func _test_vote_ties() -> void:
 	_section("vote tie-breaks")
 
 	var catalogue := _catalogue(6)
-	var vote := DotMapVote.new()
+	var vote := GSMapVote.new()
 	vote.allow_extend = true
 
 	vote.nominate(&"surf_1")
@@ -394,22 +394,22 @@ func _test_vote_ties() -> void:
 		String(winner.id) if winner else "-"
 	)
 
-	var extend := DotMapVote.new()
+	var extend := GSMapVote.new()
 	extend.nominate(&"surf_1")
 	extend.begin(catalogue, [])
 	extend.cast_vote(&"a", &"surf_1")
-	extend.cast_vote(&"b", DotMapVote.EXTEND)
+	extend.cast_vote(&"b", GSMapVote.EXTEND)
 
 	_check(
 		extend.finish() != null,
 		"and a tie with extend goes to the new map, not the status quo"
 	)
 
-	var extended := DotMapVote.new()
+	var extended := GSMapVote.new()
 	extended.nominate(&"surf_1")
 	extended.begin(catalogue, [])
-	extended.cast_vote(&"a", DotMapVote.EXTEND)
-	extended.cast_vote(&"b", DotMapVote.EXTEND)
+	extended.cast_vote(&"a", GSMapVote.EXTEND)
+	extended.cast_vote(&"b", GSMapVote.EXTEND)
 	extended.cast_vote(&"c", &"surf_1")
 
 	_check(extended.finish() == null, "while an outright extend wins")
@@ -419,7 +419,7 @@ func _test_vote_ties() -> void:
 func _test_time_limit() -> void:
 	_section("the map time limit")
 
-	var limit := DotMapTimeLimit.of(600.0)
+	var limit := GSMapTimeLimit.of(600.0)
 	limit.warn_at = 60.0
 
 	var warnings := PackedFloat32Array()
@@ -470,7 +470,7 @@ func _test_time_limit() -> void:
 	_check(not limit.extend(), "and refused past the bound")
 
 	# Zero is a real configuration and is not "a very long limit".
-	var unlimited := DotMapTimeLimit.of(0.0)
+	var unlimited := GSMapTimeLimit.of(0.0)
 	unlimited.start()
 	_check(not unlimited.running, "a duration of zero disables the limit")
 
@@ -484,7 +484,7 @@ func _test_time_limit() -> void:
 func _test_rock_the_vote() -> void:
 	_section("rock the vote")
 
-	var limit := DotMapTimeLimit.of(3600.0)
+	var limit := GSMapTimeLimit.of(3600.0)
 	limit.rtv_fraction = 0.6
 	limit.rtv_min_players = 2
 	limit.start()
@@ -492,7 +492,7 @@ func _test_rock_the_vote() -> void:
 	var passed := [false]
 	limit.expired.connect(
 		func(reason: StringName) -> void:
-			if reason == DotMapTimeLimit.REASON_RTV:
+			if reason == GSMapTimeLimit.REASON_RTV:
 				passed[0] = true
 	)
 
@@ -516,7 +516,7 @@ func _test_rock_the_vote() -> void:
 	# A departing player's vote goes with them. Without it, a server whose players
 	# trickle away keeps their votes while the threshold falls with the player
 	# count — so a map ends on the votes of people who are not there.
-	var leaving := DotMapTimeLimit.of(3600.0)
+	var leaving := GSMapTimeLimit.of(3600.0)
 	leaving.rtv_fraction = 0.6
 	leaving.start()
 
@@ -529,7 +529,7 @@ func _test_rock_the_vote() -> void:
 
 	# Below the minimum it does nothing at all, so one person on a quiet server does
 	# not change the map at will unless the operator configured that.
-	var quiet := DotMapTimeLimit.of(3600.0)
+	var quiet := GSMapTimeLimit.of(3600.0)
 	quiet.rtv_min_players = 2
 	quiet.start()
 

@@ -6,7 +6,7 @@ extends SceneTree
 func _init() -> void:
 	var path := ""
 	var out := ""
-	var baker := DotOccluderBaker.new()
+	var baker := GSOccluderBaker.new()
 	var dry := false
 	for a in OS.get_cmdline_args():
 		if a == "--dry":

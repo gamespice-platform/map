@@ -1,9 +1,9 @@
-class_name DotMapTimeLimit
+class_name GSMapTimeLimit
 extends RefCounted
 
 ## When the map should end and how players get a say: a time limit, rock the vote ([code]rock_the_vote(player_id, player_count)[/code]) and extending; each covers a case the others do not.
 ## Counted in simulated seconds advanced by the host ([code]start(1800.0)[/code], then [code]advance(delta)[/code] per tick), not a wall clock, so a stalled server loses no map time and a test runs an hour in a millisecond.
-## The same choice as [DotPropSpawner].
+## The same choice as [GSPropSpawner].
 
 const CHANNEL := "map.timelimit"
 
@@ -65,8 +65,8 @@ var _warned: bool = false
 var _expired: bool = false
 
 
-static func of(p_duration: float) -> DotMapTimeLimit:
-	var limit := DotMapTimeLimit.new()
+static func of(p_duration: float) -> GSMapTimeLimit:
+	var limit := GSMapTimeLimit.new()
 	limit.duration = p_duration
 	return limit
 
@@ -112,7 +112,7 @@ func _fire(reason: StringName) -> void:
 	_expired = true
 	running = false
 
-	DotLog.info(CHANNEL, "the map is over", {"reason": String(reason)})
+	GSLog.info(CHANNEL, "the map is over", {"reason": String(reason)})
 
 	expired.emit(reason)
 
@@ -142,7 +142,7 @@ func extend(seconds: float = -1.0) -> bool:
 	# ends again the moment one more person joins and agrees.
 	_rtv.clear()
 
-	DotLog.info(CHANNEL, "the map was extended", {
+	GSLog.info(CHANNEL, "the map was extended", {
 		"by": by, "used": extends_used, "remaining": remaining
 	})
 
@@ -171,7 +171,7 @@ func rock_the_vote(player_id: StringName, player_count: int) -> bool:
 		return false
 
 	if player_count < rtv_min_players:
-		DotLog.debug(CHANNEL, "rtv ignored; too few players", {
+		GSLog.debug(CHANNEL, "rtv ignored; too few players", {
 			"players": player_count, "minimum": rtv_min_players
 		})
 		return false
@@ -225,4 +225,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotMapTimeLimit(%s left)" % formatted_remaining()
+	return "GSMapTimeLimit(%s left)" % formatted_remaining()

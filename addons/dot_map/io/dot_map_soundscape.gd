@@ -1,5 +1,5 @@
-class_name DotMapSoundscape
-extends DotMapEntity
+class_name GSMapSoundscape
+extends GSMapEntity
 
 ## env_soundscape and its proxy/triggerable variants: a named ambience that a player within [member radius]
 ## hears.
@@ -9,7 +9,7 @@ var radius := 128.0
 var scape := ""
 ## True for env_soundscape_triggerable, which a player must be told to hear (inputs only).
 var triggerable := false
-## Body ids a [DotMapTriggerSoundscape] has put inside, which hear a triggerable scape wherever they stand.
+## Body ids a [GSMapTriggerSoundscape] has put inside, which hear a triggerable scape wherever they stand.
 var listeners: Dictionary = {}
 var _heard := false
 
@@ -23,25 +23,25 @@ func _configure() -> void:
 ## The soundscape name the game should play: a proxy uses the one it points at.
 func resolved_name(io: RefCounted) -> String:
 	if classname.to_lower() == "env_soundscape_proxy":
-		for e: DotMapEntity in io.find(key("mainsoundscapename")):
-			if e is DotMapSoundscape:
-				return (e as DotMapSoundscape).scape
+		for e: GSMapEntity in io.find(key("mainsoundscapename")):
+			if e is GSMapSoundscape:
+				return (e as GSMapSoundscape).scape
 	return scape
 
 
 ## Named positions (metres) the soundscape's sounds are placed at.
 func positions(io: RefCounted) -> Array[Vector3]:
 	var out: Array[Vector3] = []
-	var src: DotMapEntity = self
+	var src: GSMapEntity = self
 	if classname.to_lower() == "env_soundscape_proxy":
-		for e: DotMapEntity in io.find(key("mainsoundscapename")):
+		for e: GSMapEntity in io.find(key("mainsoundscapename")):
 			src = e
 			break
 	for i in 8:
 		var nm := src.key("position%d" % i)
 		if nm.is_empty():
 			continue
-		for e: DotMapEntity in io.find(nm):
+		for e: GSMapEntity in io.find(nm):
 			out.append(e.origin(io))
 			break
 	return out

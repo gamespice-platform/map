@@ -1,6 +1,6 @@
 extends Node3D
 
-## Culling without BSP: [DotOccluderBaker] and [DotAreaPortal] on a hand-made level of eight rooms in a row.
+## Culling without BSP: [GSOccluderBaker] and [GSAreaPortal] on a hand-made level of eight rooms in a row.
 
 const CHECKS := 28
 const ROOMS := 8
@@ -12,11 +12,11 @@ var _failures := PackedStringArray()
 var _entered := 0
 var _completed := 0
 var _level: Node3D
-var _portals: Array[DotAreaPortal] = []
+var _portals: Array[GSAreaPortal] = []
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -79,7 +79,7 @@ func _build_level() -> Node3D:
 		var dz := z - ROOM.z / 2
 		_box(level, Vector3((-5.0 + c - 1.0) / 2, ROOM.y / 2, dz), Vector3(c + 4.0, ROOM.y, 0.4), "DividerA%d" % r)
 		_box(level, Vector3((c + 1.0 + 5.0) / 2, ROOM.y / 2, dz), Vector3(4.0 - c, ROOM.y, 0.4), "DividerB%d" % r)
-		var portal := DotAreaPortal.new()
+		var portal := GSAreaPortal.new()
 		portal.size = Vector3(2, 3, 0.2)
 		portal.position = Vector3(c, 1.5, dz)
 		portal.name = "Portal%d" % r
@@ -119,19 +119,19 @@ func _add_decoys(level: Node3D) -> void:
 	var mat := StandardMaterial3D.new()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.material_override = mat
-	_box(level, Vector3(40, 2, 0), Vector3(10, 4, 0.5), "OptedOutSlab").add_to_group(DotOccluderBaker.SKIP_GROUP)
+	_box(level, Vector3(40, 2, 0), Vector3(10, 4, 0.5), "OptedOutSlab").add_to_group(GSOccluderBaker.SKIP_GROUP)
 	_box(level, Vector3(50, 2, 0), Vector3(10, 4, 0.5), "HiddenSlab").visible = false
 
 
 func _test_baker() -> void:
 	_entered += 1
 	print("  baker: walls, floors and ceilings become quads; doorways, glass and opt-outs do not")
-	var baker := DotOccluderBaker.new()
+	var baker := GSOccluderBaker.new()
 	var res := baker.bake(_level)
 	_check(res.ok, "bake succeeds on the level")
 	_check(baker.stats["quads"] == 80, "80 quads: 10 per room (%s)" % [baker.stats])
 	_check(baker.stats["meshes"] == ROOMS * 36 + 1, "glass, opted-out and hidden meshes are not even read (%s)" % [baker.stats])
-	var node := _level.get_node_or_null(DotOccluderBaker.NODE_NAME) as OccluderInstance3D
+	var node := _level.get_node_or_null(GSOccluderBaker.NODE_NAME) as OccluderInstance3D
 	_check(node != null and node.occluder is ArrayOccluder3D, "one OccluderInstance3D with an ArrayOccluder3D")
 	var occ := node.occluder as ArrayOccluder3D
 	_check(occ.vertices.size() == 80 * 4 and occ.indices.size() == 80 * 6, "four vertices and six indices per quad")
@@ -145,22 +145,22 @@ func _test_baker() -> void:
 			floor_quad = true
 	_check(outside == 0, "no quad leaves the rooms")
 	_check(floor_quad, "the floor's top face reaches within 4 cm of the walls (inset)")
-	var again := DotOccluderBaker.new().bake(_level)
+	var again := GSOccluderBaker.new().bake(_level)
 	var count := 0
 	for ch in _level.get_children():
-		if ch.name.begins_with(DotOccluderBaker.NODE_NAME):
+		if ch.name.begins_with(GSOccluderBaker.NODE_NAME):
 			count += 1
 	_check(again.ok and count == 1, "baking again replaces the node (%d)" % count)
-	var strict := DotOccluderBaker.new()
+	var strict := GSOccluderBaker.new()
 	strict.min_area = 1000.0
 	var none := strict.bake(_level)
-	_check(not none.ok and none.code() == DotError.CODE_INVALID, "nothing large enough fails with CODE_INVALID, not an empty node")
-	_check(_level.get_node_or_null(DotOccluderBaker.NODE_NAME) == null, "a failed bake leaves no node behind")
-	var capped := DotOccluderBaker.new()
+	_check(not none.ok and none.code() == GSError.CODE_INVALID, "nothing large enough fails with CODE_INVALID, not an empty node")
+	_check(_level.get_node_or_null(GSOccluderBaker.NODE_NAME) == null, "a failed bake leaves no node behind")
+	var capped := GSOccluderBaker.new()
 	capped.max_quads = 10
 	capped.bake(_level)
 	_check(capped.stats["quads"] == 10, "max_quads keeps the largest 10")
-	_check(DotOccluderBaker.new().bake(_level).ok, "restored the full bake")
+	_check(GSOccluderBaker.new().bake(_level).ok, "restored the full bake")
 	_completed += 1
 
 
@@ -180,15 +180,15 @@ func _test_portal() -> void:
 	p.size = Vector3(-1, 0, 0)
 	_check(p.size.x > 0.0 and p.size.y > 0.0, "a non-positive size is clamped")
 	p.size = Vector3(2, 3, 0.2)
-	_check(p.is_in_group(DotAreaPortal.GROUP), "portals are found by group")
+	_check(p.is_in_group(GSAreaPortal.GROUP), "portals are found by group")
 	_completed += 1
 
 
 ## A map with one area portal, key 5, door "door": cluster 0 sees cluster 1 only while it is open.
 func _test_binding() -> void:
 	_entered += 1
-	print("  binding: DotMapVisibility follows the portals under a node")
-	var m := DotMapBspMesh.new()
+	print("  binding: GSMapVisibility follows the portals under a node")
+	var m := GSMapBspMesh.new()
 	var blob := PackedByteArray()
 	var vis := {"clusters": 3, "head": 0, "portals": [[5, 1, 2]],
 			"portal_entities": [{"key": 5, "target": "door", "start_open": false, "window": false}]}
@@ -208,17 +208,17 @@ func _test_binding() -> void:
 	var far := Node3D.new()
 	far.set_meta(&"vis_clusters", PackedInt32Array([1]))
 	drawn.add_child(far)
-	var dv := DotMapVisibility.new()
+	var dv := GSMapVisibility.new()
 	dv.run_headless = true
 	dv.margin = 0.5
 	add_child(dv)
 	_check(dv.setup(m, drawn).ok, "setup on the two-room map")
 	var bound := Node3D.new()
 	add_child(bound)
-	var door := DotAreaPortal.new()
+	var door := GSAreaPortal.new()
 	door.door = "door"
 	bound.add_child(door)
-	var unkeyed := DotAreaPortal.new()
+	var unkeyed := GSAreaPortal.new()
 	bound.add_child(unkeyed)
 	_check(dv.bind_area_portals(bound) == 1, "only the portal with a key or door is bound")
 	dv.update_from(Vector3(5, 0, 0))
@@ -247,9 +247,9 @@ func _test_roundtrip() -> void:
 	var path := "user://culling_demo_level.tscn"
 	_check(ResourceSaver.save(scene, path) == OK, "and saves")
 	var copy := (load(path) as PackedScene).instantiate()
-	var node := copy.get_node_or_null(DotOccluderBaker.NODE_NAME) as OccluderInstance3D
+	var node := copy.get_node_or_null(GSOccluderBaker.NODE_NAME) as OccluderInstance3D
 	_check(node != null and (node.occluder as ArrayOccluder3D).vertices.size() == 320, "the loaded copy has all 320 vertices")
-	_check(copy.find_children("*", "DotAreaPortal", true, false).size() == ROOMS, "and every portal")
+	_check(copy.find_children("*", "GSAreaPortal", true, false).size() == ROOMS, "and every portal")
 	copy.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_completed += 1
@@ -268,7 +268,7 @@ func _shoot(dir: String) -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, 20, 0)
 	add_child(sun)
-	var occ := _level.get_node(DotOccluderBaker.NODE_NAME) as OccluderInstance3D
+	var occ := _level.get_node(GSOccluderBaker.NODE_NAME) as OccluderInstance3D
 	var baked := occ.occluder
 	for portal in _portals:
 		portal.set_open(true)

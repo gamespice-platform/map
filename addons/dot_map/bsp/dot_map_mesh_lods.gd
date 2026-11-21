@@ -1,4 +1,4 @@
-class_name DotMapMeshLods
+class_name GSMapMeshLods
 extends RefCounted
 
 ## Run-time LOD generation for a glTF model read without the editor import.

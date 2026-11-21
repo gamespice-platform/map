@@ -40,18 +40,18 @@ func _check(ok: bool, what: String, detail: String = "") -> void:
 
 
 ## A map that points at a scene which really exists, so a load can be tried.
-func _map(id: StringName, tier: int = 1) -> DotMapDef:
-	var map := DotMapDef.new()
+func _map(id: StringName, tier: int = 1) -> GSMapDef:
+	var map := GSMapDef.new()
 	map.id = id
 	map.display_name = String(id).capitalize()
 	map.scene_path = "res://fixtures/test_world.tscn"
 	map.tier = tier
-	map.kind = DotMapDef.KIND_SURF
+	map.kind = GSMapDef.KIND_SURF
 	return map
 
 
-func _catalogue(count: int) -> DotMapCatalogue:
-	var catalogue := DotMapCatalogue.new()
+func _catalogue(count: int) -> GSMapCatalogue:
+	var catalogue := GSMapCatalogue.new()
 
 	for i in range(count):
 		catalogue.add(_map(StringName("surf_%d" % i), (i % 10) + 1))

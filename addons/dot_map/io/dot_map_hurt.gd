@@ -1,8 +1,8 @@
-class_name DotMapHurt
-extends DotMapEntity
+class_name GSMapHurt
+extends GSMapEntity
 
 ## trigger_hurt: while a body is inside an enabled volume, every [code]hurtrate[/code] seconds (0.5) it takes
-## [code]damage[/code] a second times that, through [member DotMapIO.damage_fn]. The first hit lands on
+## [code]damage[/code] a second times that, through [member GSMapIO.damage_fn]. The first hit lands on
 ## entry.
 
 ## Damage type bit (source engine values) to the kind passed to the game.

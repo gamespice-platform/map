@@ -1,6 +1,6 @@
 extends "mesh_env.gd"
 
-## The prop part of [DotMapBspMesh]; the environment and sound are [code]mesh_env.gd[/code].
+## The prop part of [GSMapBspMesh]; the environment and sound are [code]mesh_env.gd[/code].
 
 ## What a prop's model is found as in [constant DEFAULT_PROP_DIRS].
 const PROP_EXTS: PackedStringArray = [".glb", ".tscn"]
@@ -30,8 +30,8 @@ func build_props(scene_for: Callable = Callable(), collide_fn: Callable = Callab
 	return _props_end(build)
 
 
-## [method build_props] that awaits [method DotFrameSlice.pause] between props, so a cover keeps drawing.
-func build_props_async(slice: DotFrameSlice, scene_for: Callable = Callable(), collide_fn: Callable = Callable()) -> Node3D:
+## [method build_props] that awaits [method GSFrameSlice.pause] between props, so a cover keeps drawing.
+func build_props_async(slice: GSFrameSlice, scene_for: Callable = Callable(), collide_fn: Callable = Callable()) -> Node3D:
 	var build := _props_begin(scene_for, collide_fn)
 	await _read_models_async(build, slice)
 	for rec: Dictionary in manifest.get("props", []):
@@ -44,7 +44,7 @@ func build_props_async(slice: DotFrameSlice, scene_for: Callable = Callable(), c
 ## The imported models the props will place, read on loader threads while frames go on and put where [method _place_prop] looks
 ## first. Read in the props loop, a model's first load() and its textures' upload were one frame (98 ms and +38 MB of textures
 ## for cp-orange-x3's four models on staging02). Without [param build]'s scene_for only: a caller's own lookup is its own.
-func _read_models_async(build: Dictionary, slice: DotFrameSlice) -> void:
+func _read_models_async(build: Dictionary, slice: GSFrameSlice) -> void:
 	if (build["scene_for"] as Callable).is_valid():
 		return
 	var cache: Dictionary = build["cache"]
@@ -152,7 +152,7 @@ func _prop_one(build: Dictionary, rec: Dictionary) -> void:
 
 func _props_end(build: Dictionary) -> Node3D:
 	var cache: Dictionary = build["cache"]
-	DotLog.info(CHANNEL, "props built", {"models": cache.get(OWNED_KEY, []).size(), "model_ms": cache.get("__ms", 0), "static_mb": OS.get_static_memory_usage() / 1048576})
+	GSLog.info(CHANNEL, "props built", {"models": cache.get(OWNED_KEY, []).size(), "model_ms": cache.get("__ms", 0), "static_mb": OS.get_static_memory_usage() / 1048576})
 	_free_templates(cache)
 	_decompose_cache.clear()
 	clear_slim_cache()
@@ -245,8 +245,8 @@ func _warn_missing_models() -> void:
 	if missing_models == 0 or _models_warned.has(source_path):
 		return
 	_models_warned[source_path] = true
-	DotLog.warn(CHANNEL, "a map's library models are not installed; %d drawn as low-detail boxes, %d left out. To get them: %s" % [missing_proxied, missing_models - missing_proxied, DotMapStore.HOW_TO_GET],
-			{"map": source_path.get_file(), "store_pack": str(DotMapStore.pack_of(licence()).get("id", "none"))})
+	GSLog.warn(CHANNEL, "a map's library models are not installed; %d drawn as low-detail boxes, %d left out. To get them: %s" % [missing_proxied, missing_models - missing_proxied, GSMapStore.HOW_TO_GET],
+			{"map": source_path.get_file(), "store_pack": str(GSMapStore.pack_of(licence()).get("id", "none"))})
 
 
 ## Key in a prop cache for the library templates [method _place_prop] made, which only the caller's end can free.
@@ -360,9 +360,9 @@ func _library_model(id: String, parsed: GLTFState = null) -> Node3D:
 			# source file is still there, so read it directly rather than drawing a box.
 			model = _read_gltf_file(path, parsed)
 			if model == null:
-				DotLog.error(CHANNEL, "a library model is listed and imported but neither load() nor GLTFDocument can read it; drawn as a box", {"model": path})
+				GSLog.error(CHANNEL, "a library model is listed and imported but neither load() nor GLTFDocument can read it; drawn as a box", {"model": path})
 			else:
-				DotLog.warn(CHANNEL, "a library model's import is stale (load() returned null); read from the source file instead", {"model": path})
+				GSLog.warn(CHANNEL, "a library model's import is stale (load() returned null); read from the source file instead", {"model": path})
 	elif FileAccess.file_exists(path):
 		model = _read_gltf_file(path, parsed)
 	if model == null:
@@ -457,7 +457,7 @@ static func _link_target(path: String) -> String:
 func _note_defect(path: String, defect: String) -> void:
 	if not defective_models.has(path):
 		defective_models.append(path)
-		DotLog.warn(CHANNEL, "a library model is damaged and drawn as a box instead: " + defect, {"model": path})
+		GSLog.warn(CHANNEL, "a library model is damaged and drawn as a box instead: " + defect, {"model": path})
 
 
 ## Imported library scenes already loaded by [method _preload_library_models], by path.
@@ -467,7 +467,7 @@ var _imported_scenes := {}
 ## Loads the library models in [param ids] missing from [param cache] ahead of the build: imported scenes threaded, plain glTF
 ## files parsed on workers ([member load_threads], never the web), then built here, so the ~85 ms parse of each is not serial.
 func _preload_library_models(ids: Array, scene_for: Callable, cache: Dictionary) -> void:
-	if DotParallel.resolve_workers(load_threads) <= 1 or not DotParallel.available():
+	if GSParallel.resolve_workers(load_threads) <= 1 or not GSParallel.available():
 		return
 	var todo: Array = []
 	var imported := {}
@@ -486,10 +486,10 @@ func _preload_library_models(ids: Array, scene_for: Callable, cache: Dictionary)
 	var started := Time.get_ticks_msec()
 	for path: String in imported:  # request order, so the result does not depend on which worker finished first
 		_imported_scenes[path] = ResourceLoader.load_threaded_get(path)
-	var step := DotMapParallelBuild.batch_size(load_threads)
+	var step := GSMapParallelBuild.batch_size(load_threads)
 	for from in range(0, todo.size(), step):
 		var n := mini(step, todo.size() - from)
-		var states := DotParallel.run(func(i: int) -> Variant:
+		var states := GSParallel.run(func(i: int) -> Variant:
 			var st := GLTFState.new()
 			return st if GLTFDocument.new().append_from_file(todo[from + i][1], st) == OK else null, n, &"map.gltf", load_threads)
 		for i in n:
@@ -520,7 +520,7 @@ static var model_texture_max: int = 2048
 
 ## Applies the operator's layers over [member model_texture_max]; [method build_props] calls it, so a game's own assignment is the weakest layer.
 static func apply_config() -> void:
-	var res := DotAddonConfig.load_dir("dot-map", {"model_texture_max": model_texture_max})
+	var res := GSAddonConfig.load_dir("dot-map", {"model_texture_max": model_texture_max})
 	if res.ok:
 		model_texture_max = int((res.value as Dictionary).get("model_texture_max", model_texture_max))
 
@@ -542,10 +542,10 @@ static func slot_halves(slot: int, masks: bool, normals: bool) -> bool:
 static func half_model_texture(tex: ImageTexture, max_size: int) -> ImageTexture:
 	var img := tex.get_image()
 	if img.is_compressed():
-		return DotMapImagePrep.without_top_mip(tex) as ImageTexture
+		return GSMapImagePrep.without_top_mip(tex) as ImageTexture
 	if mini(img.get_width(), img.get_height()) >= 8:
 		img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_LANCZOS)
-	DotMapImagePrep.prepare_image(img, "model.png", max_size)
+	GSMapImagePrep.prepare_image(img, "model.png", max_size)
 	return ImageTexture.create_from_image(img)
 
 
@@ -567,7 +567,7 @@ static func _slimmed_shared(tex: ImageTexture, img: Image, half: bool, max_size:
 		out = tex
 	else:
 		var copy := img.duplicate() as Image
-		DotMapImagePrep.prepare_image(copy, "model.png", max_size)  # a part-less name: every channel stays
+		GSMapImagePrep.prepare_image(copy, "model.png", max_size)  # a part-less name: every channel stays
 		out = ImageTexture.create_from_image(copy)
 	_slim_mutex.lock()
 	if _slim_shared.has(key):
@@ -611,6 +611,6 @@ static func slim_model_textures(root: Node, max_size: int) -> int:
 	return changed
 
 
-## LOD levels for every large unskinned mesh under [param root]; see [method DotMapMeshLods.add].
+## LOD levels for every large unskinned mesh under [param root]; see [method GSMapMeshLods.add].
 static func add_mesh_lods(root: Node, min_tris: int, max_tris: int = 0) -> int:
-	return DotMapMeshLods.add(root, min_tris, max_tris)
+	return GSMapMeshLods.add(root, min_tris, max_tris)

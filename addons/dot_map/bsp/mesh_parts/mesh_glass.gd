@@ -1,6 +1,6 @@
 extends RefCounted
 
-## The see-through looks of a converted map (glass, cutouts, glow) and the two-sided copy of a material; the base of [DotMapBspMesh]'s script chain, split out only to keep each file small.
+## The see-through looks of a converted map (glass, cutouts, glow) and the two-sided copy of a material; the base of [GSMapBspMesh]'s script chain, split out only to keep each file small.
 
 ## The look of each glass kind: colour with alpha, roughness.
 const GLASS_LOOKS := {
@@ -176,7 +176,7 @@ static var decal_depth_bias: float = 0.002
 const DECAL_SHADER := """shader_type spatial;
 render_mode blend_mix, depth_draw_never, skip_vertex_transform%s;
 
-// A decal over a face (dot-map DotMapBspMesh.decal_material): a texture's alpha over what is drawn, pulled
+// A decal over a face (dot-map GSMapBspMesh.decal_material): a texture's alpha over what is drawn, pulled
 // toward the camera by depth_bias metres per metre so it never fights the face. Lit by the map's bake when
 // it has one (UV2 into the page, as lightmapped.gdshader), else by the scene.
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;

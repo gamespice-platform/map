@@ -9,17 +9,17 @@ const _ICON := "res://addons/dot_map/icon_placeholder.svg"
 
 const _TYPES := [
 	[
-		"DotMapSession",
+		"GSMapSession",
 		"Node",
 		"res://addons/dot_map/runtime/dot_map_session.gd",
 	],
 	[
-		"DotMapSyncHost",
+		"GSMapSyncHost",
 		"Node",
 		"res://addons/dot_map/net/dot_map_sync_host.gd",
 	],
 	[
-		"DotMapSyncClient",
+		"GSMapSyncClient",
 		"Node",
 		"res://addons/dot_map/net/dot_map_sync_client.gd",
 	],
@@ -41,7 +41,7 @@ func _bake_occluders() -> void:
 	if root == null:
 		push_error("dot-map: open a 3D scene first")
 		return
-	var baker := DotOccluderBaker.new()
+	var baker := GSOccluderBaker.new()
 	var res := baker.bake(root)
 	if res.ok:
 		print("dot-map: %d occluder quads from %d meshes; save the scene" % [baker.stats["quads"], baker.stats["meshes"]])  # check-logging: allow print

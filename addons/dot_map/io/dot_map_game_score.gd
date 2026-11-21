@@ -1,5 +1,5 @@
-class_name DotMapGameScore
-extends DotMapEntity
+class_name GSMapGameScore
+extends GSMapEntity
 
 ## game_score: ApplyScore awards [code]points[/code] to the activator (spawnflag 2: to the activator's team), the team inputs
 ## to a team. The game owns scores, so this only says who gets what through the [code]score[/code] event.

@@ -1,6 +1,6 @@
 extends Node3D
 
-## [DotMapVisibility]: a hand-made three-cluster map, then real converted maps ray-cast for holes.
+## [GSMapVisibility]: a hand-made three-cluster map, then real converted maps ray-cast for holes.
 
 const SYNTH_CHECKS := 16
 const SUN_CHECKS := 3
@@ -21,7 +21,7 @@ var _expected_checks := SYNTH_CHECKS + SUN_CHECKS + LIGHT_CHECKS + OFF_TREE_CHEC
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -79,13 +79,13 @@ func _test_sun_reach() -> void:
 	for i in 200:
 		receivers.append(AABB(Vector3(rng.randf_range(-300, 300), rng.randf_range(-50, 50), rng.randf_range(-300, 300)),
 				Vector3(rng.randf_range(0.5, 40), rng.randf_range(0.5, 10), rng.randf_range(0.5, 40))))
-	var grid := DotMapVisibility.ReceiverGrid.new(receivers)
+	var grid := GSMapVisibility.ReceiverGrid.new(receivers)
 	var dir := Vector3(0.4, -0.8, 0.2).normalized()
 	var lost := 0
 	var misses := 0
 	for i in 2000:
 		var b := AABB(Vector3(rng.randf_range(-400, 400), rng.randf_range(-100, 100), rng.randf_range(-400, 400)), Vector3(4, 4, 4))
-		var swept := b.merge(AABB(b.position + dir * DotMapVisibility.SUN_SWEEP, b.size))
+		var swept := b.merge(AABB(b.position + dir * GSMapVisibility.SUN_SWEEP, b.size))
 		var exact := false
 		for r in receivers:
 			exact = exact or swept.intersects(r)
@@ -98,8 +98,8 @@ func _test_sun_reach() -> void:
 	for x in 40:
 		for z in 40:
 			floor_tiles.append(AABB(Vector3(x * 10, -1, z * 10), Vector3(10, 1, 10)))
-	var vis := DotMapVisibility.new()
-	var lights: Array[Dictionary] = [{"at": Vector3.ZERO, "reach": INF, "dir": Vector3.RIGHT, "grid": DotMapVisibility.ReceiverGrid.new(floor_tiles)}]
+	var vis := GSMapVisibility.new()
+	var lights: Array[Dictionary] = [{"at": Vector3.ZERO, "reach": INF, "dir": Vector3.RIGHT, "grid": GSMapVisibility.ReceiverGrid.new(floor_tiles)}]
 	var t := Time.get_ticks_usec()
 	var reached := 0
 	for i in 3000:
@@ -115,7 +115,7 @@ func _test_light_cache() -> void:
 	print("  light cache: found once, then kept by the tree signals")
 	var holder := Node3D.new()
 	add_child(holder)
-	var vis := DotMapVisibility.new()
+	var vis := GSMapVisibility.new()
 	vis.root = holder
 	add_child(vis)
 	var sun := OmniLight3D.new()
@@ -142,7 +142,7 @@ func _test_off_tree() -> void:
 	_entered += 1
 	print("  set up off the tree, then added")
 	var drawn := Node3D.new()
-	var vis := DotMapVisibility.new()
+	var vis := GSMapVisibility.new()
 	vis.run_headless = true
 	drawn.add_child(vis)
 	var catcher := ErrorCatcher.new()
@@ -160,8 +160,8 @@ func _test_off_tree() -> void:
 
 ## Space split at x = 0, 10 and 20: cluster 1 west of 0, cluster 0 to 10, solid to 20, cluster 2 past it.
 ## Clusters 0 and 1 see each other through a portal (key 5, door "door"); cluster 2 sees itself only.
-func _synthetic_mesh(with_vis: bool) -> DotMapBspMesh:
-	var m := DotMapBspMesh.new()
+func _synthetic_mesh(with_vis: bool) -> GSMapBspMesh:
+	var m := GSMapBspMesh.new()
 	if not with_vis:
 		return m
 	var blob := PackedByteArray()
@@ -193,7 +193,7 @@ func _test_synthetic() -> void:
 		n.set_meta(&"vis_clusters", PackedInt32Array(c))
 		drawn.add_child(n)
 		parts.append(n)
-	var vis := DotMapVisibility.new()
+	var vis := GSMapVisibility.new()
 	vis.run_headless = true
 	vis.margin = 0.5
 	add_child(vis)
@@ -218,13 +218,13 @@ func _test_synthetic() -> void:
 	vis.set_door_open("door", true)
 	vis.update_from(Vector3(5, 0, 0))
 	_check(shown.call() == [true, true, false, true], "opening it shows it again (%s)" % [shown.call()])
-	vis.set_mode(DotMapVisibility.Mode.OFF)
+	vis.set_mode(GSMapVisibility.Mode.OFF)
 	_check(shown.call() == [true, true, true, true], "mode off draws everything")
 	vis.update_from(Vector3(25, 0, 0))
 	_check(shown.call() == [true, true, true, true], "mode off ignores the camera")
-	_check(DotMapVisibility.parse_mode(" PVS ") == DotMapVisibility.Mode.PVS and DotMapVisibility.parse_mode("x") == DotMapVisibility.Mode.BOTH,
+	_check(GSMapVisibility.parse_mode(" PVS ") == GSMapVisibility.Mode.PVS and GSMapVisibility.parse_mode("x") == GSMapVisibility.Mode.BOTH,
 			"modes parse, an unknown one is both")
-	var none := DotMapVisibility.new()
+	var none := GSMapVisibility.new()
 	add_child(none)
 	_check(not none.setup(_synthetic_mesh(false), drawn).ok, "a map with no visibility data fails setup")
 	_check(vis.describe().has("clusters") and vis.describe_lines().size() == 1, "describe")
@@ -259,19 +259,19 @@ func _surface_arrays(verts: PackedVector3Array) -> Array:
 func _test_map(prefix: String, points: int, rays: int) -> void:
 	_entered += 1
 	print("  %s" % prefix)
-	var read := DotMapBspMesh.load_prefix(prefix)
+	var read := GSMapBspMesh.load_prefix(prefix)
 	_check(read.ok, "%s loads" % prefix)
 	if not read.ok:
 		_failed += MAP_CHECKS - 1
 		_failures.append("%s: not tested" % prefix)
 		_completed += 1
 		return
-	var world: DotMapBspMesh = read.value
+	var world: GSMapBspMesh = read.value
 	var node := world.build_node()
 	var props := world.build_props()
 	node.add_child(props)
 	add_child(node)
-	var vis := DotMapVisibility.new()
+	var vis := GSMapVisibility.new()
 	vis.run_headless = true
 	add_child(vis)
 	vis.setup(world, node)
@@ -336,7 +336,7 @@ func _test_map(prefix: String, points: int, rays: int) -> void:
 
 
 ## A static body of triangles per visibility item, so rays hit what the culler hides; returns {bodies, box}.
-func _collide_items(vis: DotMapVisibility) -> Dictionary:
+func _collide_items(vis: GSMapVisibility) -> Dictionary:
 	var bodies := {}
 	var space_box := AABB()
 	for item in vis._items:
@@ -362,7 +362,7 @@ func _collide_items(vis: DotMapVisibility) -> Dictionary:
 
 
 ## Prints the sampling summary and the first holes, then asserts there are none and that the PVS hides something.
-func _report_map(prefix: String, vis: DotMapVisibility, points: int, rays: int, done: int, shown_sum: float, gaps: int, holes: PackedStringArray) -> void:
+func _report_map(prefix: String, vis: GSMapVisibility, points: int, rays: int, done: int, shown_sum: float, gaps: int, holes: PackedStringArray) -> void:
 	print("    %d points, %d rays each, %.0f%% of %d chunks and props drawn on average, %d occluder triangles, %d rays through an undrawn solid" % [
 			done, rays, 100.0 * shown_sum / maxf(1.0, done), vis._items.size(), vis.describe()["occluder_triangles"], gaps])
 	for h in holes.slice(0, 10):
@@ -373,7 +373,7 @@ func _report_map(prefix: String, vis: DotMapVisibility, points: int, rays: int, 
 
 ## Whether the segment passes through a solid leaf: the drawn world has a gap there (a face the
 ## converter does not draw), which the map's own renderer would not see through either.
-static func _crosses_solid(vis: DotMapVisibility, a: Vector3, b: Vector3) -> bool:
+static func _crosses_solid(vis: GSMapVisibility, a: Vector3, b: Vector3) -> bool:
 	var n := int(a.distance_to(b) / 0.05)
 	for k in range(1, n):
 		var leaf := vis.leaf_at(a.lerp(b, float(k) / n))

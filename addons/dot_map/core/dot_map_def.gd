@@ -1,5 +1,5 @@
 @tool
-class_name DotMapDef
+class_name GSMapDef
 extends Resource
 
 ## One map, as an entry in a catalogue rather than as a build: an id, a version, a scene path and, optionally, a GameSpice Cloud pack the scene lives inside.
@@ -38,7 +38,7 @@ const KIND_SANDBOX := &"sandbox"
 
 @export_group("Difficulty")
 
-## 1..10, feeding the ranking points. See [code]DotTimerStyle.points_for[/code]. Kept on the map rather than
+## 1..10, feeding the ranking points. See [code]GSTimerStyle.points_for[/code]. Kept on the map rather than
 ## derived from times, because a new map has no times and the first player on it should still earn what it is
 ## worth. A game that wants to re-tier from measured completion rates overwrites this.
 @export_range(1, 10, 1) var tier: int = 1
@@ -69,7 +69,7 @@ const KIND_SANDBOX := &"sandbox"
 @export var manifest_url: String = ""
 
 ## Optional content groups to fetch with the pack. Empty fetches only what is required. Matches
-## [DotCloudFile.groups]: a map that ships high-resolution textures or a commentary track as an optional
+## [GSCloudFile.groups]: a map that ships high-resolution textures or a commentary track as an optional
 ## group names it here, and a client that does not want them fetches less.
 @export var content_groups: PackedStringArray = PackedStringArray()
 
@@ -86,12 +86,12 @@ const KIND_SANDBOX := &"sandbox"
 var in_rotation: bool = true
 
 ## The settings the active rotation's entry gives this map (`{waves: "easy", profile: "night"}`),
-## opaque to GameSpice Map. Runtime state set by [DotMapRotationFile.apply], never saved; empty for a bare entry.
+## opaque to GameSpice Map. Runtime state set by [GSMapRotationFile.apply], never saved; empty for a bare entry.
 var play: Dictionary = {}
 
 ## The profile the active rotation gives this map (`mode:`/`cfg:` on its entry, rotation or section), resolved:
 ## `{value, mode, cfg_path, values}` where `mode` is a game mode id or "" and `values` the cvars to apply for this map.
-## Runtime state set by [DotMapRotationFile.apply]; empty when none. Games with no modes ignore it.
+## Runtime state set by [GSMapRotationFile.apply]; empty when none. Games with no modes ignore it.
 var profile: Dictionary = {}
 
 
@@ -123,15 +123,15 @@ func play_candidates(key: String, override: Variant = "", fallback: Variant = ""
 ## player can tell their own subscription from the game's maps. [method label] is that mark.
 var pack_title: String = ""
 
-## The [DotContentEntry] key this map was built from, or "" for any other map. A catalogue
+## The [GSContentEntry] key this map was built from, or "" for any other map. A catalogue
 ## that follows a content index uses it to tell its own rows from the operator's.
 var entry_key: String = ""
 
 
 ## A map out of a delivered pack key, `<owner>/<map id>@<version>` -- what a game descriptor's `maps:` list
-## holds once the server has installed the game (GameSpice Server's DotGameDescriptor.maps,
-## DotGameManager.current_maps). Null for a key that is not that.
-static func from_content_key(key: String, scene: String = "") -> DotMapDef:
+## holds once the server has installed the game (GameSpice Server's GSGameDescriptor.maps,
+## GSGameManager.current_maps). Null for a key that is not that.
+static func from_content_key(key: String, scene: String = "") -> GSMapDef:
 	var at := key.rfind("@")
 	if at <= 0 or at == key.length() - 1:
 		return null
@@ -143,7 +143,7 @@ static func from_content_key(key: String, scene: String = "") -> DotMapDef:
 	if cut <= 0 or cut == content.length() - 1:
 		return null
 
-	var map := DotMapDef.new()
+	var map := GSMapDef.new()
 	map.id = StringName(content.substr(cut + 1))
 	map.content_id = StringName(content)
 	map.content_version = content_version_part
@@ -196,39 +196,39 @@ func available_for_players(players: int) -> bool:
 	return true
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if id == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "A map needs an id.")
+		return GSResult.fail(GSError.CODE_INVALID, "A map needs an id.")
 
 	if String(id).strip_edges() != String(id) or String(id).contains(" "):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A map id may not contain spaces or leading whitespace.",
 			String(id)
 		)
 
 	if scene_path == "":
-		return DotResult.fail(
-			DotError.CODE_INVALID, "A map needs a scene path.", String(id)
+		return GSResult.fail(
+			GSError.CODE_INVALID, "A map needs a scene path.", String(id)
 		)
 
 	# `parse` always returns an object and reports the outcome on `valid`, so
 	# checking for null here passes for every string ever written.
-	if not DotSemVer.parse(version).valid:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+	if not GSSemVer.parse(version).valid:
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A map's version must be semantic.",
 			"%s: %s" % [String(id), version]
 		)
 
 	if min_players > 0 and max_players > 0 and min_players > max_players:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"min_players is above max_players, so the map can never be offered.",
 			String(id)
 		)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func to_dictionary() -> Dictionary:
@@ -276,8 +276,8 @@ func to_dictionary() -> Dictionary:
 	return out
 
 
-static func from_dictionary(data: Dictionary) -> DotMapDef:
-	var map := DotMapDef.new()
+static func from_dictionary(data: Dictionary) -> GSMapDef:
+	var map := GSMapDef.new()
 
 	map.id = StringName(str(data.get("id", "")))
 	map.version = str(data.get("version", "1.0.0"))
@@ -322,4 +322,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotMapDef(%s %s)" % [String(id), version]
+	return "GSMapDef(%s %s)" % [String(id), version]

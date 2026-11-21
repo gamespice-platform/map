@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Draw calls, primitives, frame time and pixel diffs of DotMapVisibility modes on a real converted map (examples/vis_proof.gd).
+# Draw calls, primitives, frame time and pixel diffs of GSMapVisibility modes on a real converted map (examples/vis_proof.gd).
 #
 #   ../gpu.sh shot --stage <world dir> --pull <out dir> dot-map tools/shot_vis_proof.sh --world=<prefix> --out=<out dir> [--spots=6 --diffs=24]
 #

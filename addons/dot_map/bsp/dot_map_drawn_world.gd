@@ -1,4 +1,4 @@
-class_name DotMapDrawnWorld
+class_name GSMapDrawnWorld
 extends RefCounted
 ## A converted world pack drawn over a game's own collision: the pack's meshes, lightmap, probes and culling, and nothing that collides, moves or plays.
 ##
@@ -7,33 +7,33 @@ extends RefCounted
 const CHANNEL := "dot_map.drawn"
 
 ## The pack drawn; null until [method attach].
-var world: DotMapBspMesh = null
+var world: GSMapBspMesh = null
 ## The drawn node ("World"), its transform the pack's frame in the game's.
 var root: Node3D = null
 ## Drives the ambient from the bake; null when the world is not drawn lightmapped.
-var lit: DotMapLitWorld = null
+var lit: GSMapLitWorld = null
 ## The culling node; null headless or for a pack without visibility data.
-var visibility: DotMapVisibility = null
-## [method DotMapCredits.line] of the pack: its author and the art whose licence asks for a name.
+var visibility: GSMapVisibility = null
+## [method GSMapCredits.line] of the pack: its author and the art whose licence asks for a name.
 var credits: String = ""
 
 
-## Reads the pack at [param prefix] and fetches the art slice its licence names ([DotMapStore]); the value is the [DotMapBspMesh]. A slice that cannot be had is only a warning: generic art is drawn.
-static func read(prefix: String, cloud: Object = null) -> DotResult:
-	var got := DotMapBspMesh.load_prefix(prefix)
+## Reads the pack at [param prefix] and fetches the art slice its licence names ([GSMapStore]); the value is the [GSMapBspMesh]. A slice that cannot be had is only a warning: generic art is drawn.
+static func read(prefix: String, cloud: Object = null) -> GSResult:
+	var got := GSMapBspMesh.load_prefix(prefix)
 	if not got.ok:
 		return got
-	var world: DotMapBspMesh = got.value
-	var stored: DotResult = await DotMapStore.ensure(world.licence(), cloud, "", world.source_path.get_base_dir())
+	var world: GSMapBspMesh = got.value
+	var stored: GSResult = await GSMapStore.ensure(world.licence(), cloud, "", world.source_path.get_base_dir())
 	if not stored.ok:
-		DotLog.debug(CHANNEL, "a world's art slice could not be fetched; DotMapStore.apply warns once", {"at": prefix, "why": stored.error.message})
-	return DotResult.success(world)
+		GSLog.debug(CHANNEL, "a world's art slice could not be fetched; GSMapStore.apply warns once", {"at": prefix, "why": stored.error.message})
+	return GSResult.success(world)
 
 
 ## Draws [param world] under [param parent]. [code]options.original_textures[/code] (default false) draws the map's own
-## textures ([member DotMapSurfaces.use_original_textures]); pass [method DotMapLocalMaps.is_original] of a local entry, never true for a published map.
-## [code]options.props[/code] draws the pack's props; [code]options.batch_props[/code] (default false: no measured gain on Fork yet) draws the static ones in batches ([DotMapPropBatch]: [code]batch_cell[/code], [code]batch_max_tris[/code], [code]instance_cell[/code]).
-static func attach(parent: Node3D, world: DotMapBspMesh, options: Dictionary = {}) -> DotMapDrawnWorld:
+## textures ([member GSMapSurfaces.use_original_textures]); pass [method GSMapLocalMaps.is_original] of a local entry, never true for a published map.
+## [code]options.props[/code] draws the pack's props; [code]options.batch_props[/code] (default false: no measured gain on Fork yet) draws the static ones in batches ([GSMapPropBatch]: [code]batch_cell[/code], [code]batch_max_tris[/code], [code]instance_cell[/code]).
+static func attach(parent: Node3D, world: GSMapBspMesh, options: Dictionary = {}) -> GSMapDrawnWorld:
 	var surfaces := _surfaces_for(world, options)
 	var node := world.build_node(surfaces.world_material_for(world, world.source_path.get_base_dir()))
 	return _finish(parent, world, options, surfaces, node)
@@ -41,8 +41,8 @@ static func attach(parent: Node3D, world: DotMapBspMesh, options: Dictionary = {
 
 ## [method attach] that pauses on [param slice] throughout: the texture decode, each surface's material, the mesh batches and each finishing step (probes, props, lighting, culling) yield a frame once the budget is spent, so a loading cover keeps animating and no one frame holds the build.
 ## Null when [param parent] was freed during the build (the map was swapped away); the built meshes are freed with it.
-## [code]options["mark"][/code], a [code]func(label: String)[/code], is told as each step ends ("drawn: materials", "drawn: meshes", "drawn: hang" ...) and of any one material dearer than [constant DotMapSurfaces.SLOW_MATERIAL_USEC], so a game's frame trace can name the step a long frame was spent in.
-static func attach_async(parent: Node3D, world: DotMapBspMesh, options: Dictionary, slice: DotFrameSlice) -> DotMapDrawnWorld:
+## [code]options["mark"][/code], a [code]func(label: String)[/code], is told as each step ends ("drawn: materials", "drawn: meshes", "drawn: hang" ...) and of any one material dearer than [constant GSMapSurfaces.SLOW_MATERIAL_USEC], so a game's frame trace can name the step a long frame was spent in.
+static func attach_async(parent: Node3D, world: GSMapBspMesh, options: Dictionary, slice: GSFrameSlice) -> GSMapDrawnWorld:
 	var mark: Callable = options.get("mark", Callable())
 	var surfaces := _surfaces_for(world, options)
 	surfaces.on_step = mark
@@ -51,18 +51,18 @@ static func attach_async(parent: Node3D, world: DotMapBspMesh, options: Dictiona
 	var node: Node3D = await world.build_node_async(material_for, true, false, slice)
 	_tell(mark, "drawn: meshes")
 	if not is_instance_valid(parent):
-		DotLog.debug(CHANNEL, "the world's parent went away during the build; dropped", {"name": str(world.manifest.get("name", ""))})
+		GSLog.debug(CHANNEL, "the world's parent went away during the build; dropped", {"name": str(world.manifest.get("name", ""))})
 		if node != null:
 			node.free()
 		return null
-	var drawn := DotMapDrawnWorld.new()
+	var drawn := GSMapDrawnWorld.new()
 	var names := ["hang", "probes", "props", "lit", "culling"]
 	var at := 0
 	for step: Callable in _finish_steps(parent, world, options, surfaces, node, drawn, slice):
 		if slice.due():
 			await slice.pause()
 		if not is_instance_valid(parent):
-			DotLog.debug(CHANNEL, "the world's parent went away while it was finished; dropped", {"name": str(world.manifest.get("name", ""))})
+			GSLog.debug(CHANNEL, "the world's parent went away while it was finished; dropped", {"name": str(world.manifest.get("name", ""))})
 			if is_instance_valid(node) and node.get_parent() == null:
 				node.free()
 			return null
@@ -80,20 +80,20 @@ static func _tell(mark: Callable, label: String) -> void:
 		mark.call(label)
 
 
-static func _surfaces_for(world: DotMapBspMesh, options: Dictionary) -> DotMapSurfaces:
-	var surfaces := DotMapSurfaces.new(str(options.get("surfaces_root", DotMapSurfaces.DEFAULT_ROOT)))
+static func _surfaces_for(world: GSMapBspMesh, options: Dictionary) -> GSMapSurfaces:
+	var surfaces := GSMapSurfaces.new(str(options.get("surfaces_root", GSMapSurfaces.DEFAULT_ROOT)))
 	surfaces.use_lightmap = bool(options.get("lightmap", true))
 	surfaces.use_original_textures = bool(options.get("original_textures", false))
-	DotMapStore.apply(world.licence(), options.get("cloud"), surfaces, world)
+	GSMapStore.apply(world.licence(), options.get("cloud"), surfaces, world)
 	if bool(options.get("one_way_glass", true)) and not world.glass_material_for.is_valid():
-		var cell := DotMapOneWayGlass.cell_of(world.manifest)
+		var cell := GSMapOneWayGlass.cell_of(world.manifest)
 		if not cell.is_empty():
-			world.glass_material_for = DotMapOneWayGlass.hook(cell["centre"], cell["radius"])
+			world.glass_material_for = GSMapOneWayGlass.hook(cell["centre"], cell["radius"])
 	return surfaces
 
 
-static func _finish(parent: Node3D, world: DotMapBspMesh, options: Dictionary, surfaces: DotMapSurfaces, node: Node3D) -> DotMapDrawnWorld:
-	var drawn := DotMapDrawnWorld.new()
+static func _finish(parent: Node3D, world: GSMapBspMesh, options: Dictionary, surfaces: GSMapSurfaces, node: Node3D) -> GSMapDrawnWorld:
+	var drawn := GSMapDrawnWorld.new()
 	for step: Callable in _finish_steps(parent, world, options, surfaces, node, drawn):
 		step.call()
 	_log_drawn(drawn)
@@ -102,7 +102,7 @@ static func _finish(parent: Node3D, world: DotMapBspMesh, options: Dictionary, s
 
 ## What follows the mesh build, one callable per step so [method attach_async] can yield between them: prune to the world and hang it under [param parent], the probes, the props, the lighting, the culling.
 ## With a [param slice] the props step also yields between props, so it must be awaited.
-static func _finish_steps(parent: Node3D, world: DotMapBspMesh, options: Dictionary, surfaces: DotMapSurfaces, node: Node3D, drawn: DotMapDrawnWorld, slice: DotFrameSlice = null) -> Array[Callable]:
+static func _finish_steps(parent: Node3D, world: GSMapBspMesh, options: Dictionary, surfaces: GSMapSurfaces, node: Node3D, drawn: GSMapDrawnWorld, slice: GSFrameSlice = null) -> Array[Callable]:
 	return [
 		func() -> void: _hang(parent, world, options, node, drawn),
 		func() -> void: _add_probes(world, options, node),
@@ -112,13 +112,13 @@ static func _finish_steps(parent: Node3D, world: DotMapBspMesh, options: Diction
 	]
 
 
-static func _hang(parent: Node3D, world: DotMapBspMesh, options: Dictionary, node: Node3D, drawn: DotMapDrawnWorld) -> void:
+static func _hang(parent: Node3D, world: GSMapBspMesh, options: Dictionary, node: Node3D, drawn: GSMapDrawnWorld) -> void:
 	drawn.world = world
-	drawn.credits = DotMapCredits.line(world.manifest)
+	drawn.credits = GSMapCredits.line(world.manifest)
 	node.name = "World"
 	if bool(options.get("only_world", true)):
 		var glass := {}
-		# Drawn glass is solid only through a DotMapGlass pane; a caller that builds none must not draw it.
+		# Drawn glass is solid only through a GSMapGlass pane; a caller that builds none must not draw it.
 		for rec: Dictionary in (world.breakables() if bool(options.get("keep_glass", false)) else []):
 			if rec.get("model") != null:
 				glass[int(rec["model"])] = true
@@ -126,7 +126,7 @@ static func _hang(parent: Node3D, world: DotMapBspMesh, options: Dictionary, nod
 			if String(child.name) == "world":
 				continue
 			if child.has_meta(&"model") and glass.has(int(child.get_meta(&"model"))):
-				child.add_to_group(DotMapGlass.VISUAL_GROUP)
+				child.add_to_group(GSMapGlass.VISUAL_GROUP)
 				continue
 			node.remove_child(child)
 			child.free()
@@ -135,7 +135,7 @@ static func _hang(parent: Node3D, world: DotMapBspMesh, options: Dictionary, nod
 	drawn.root = node
 
 
-static func _add_probes(world: DotMapBspMesh, options: Dictionary, node: Node3D) -> void:
+static func _add_probes(world: GSMapBspMesh, options: Dictionary, node: Node3D) -> void:
 	var probes := int(options.get("probes", 8))
 	if probes <= 0:
 		return
@@ -149,7 +149,7 @@ static func _add_probes(world: DotMapBspMesh, options: Dictionary, node: Node3D)
 	env_node.free()
 
 
-static func _add_props(world: DotMapBspMesh, options: Dictionary, node: Node3D, slice: DotFrameSlice = null) -> void:
+static func _add_props(world: GSMapBspMesh, options: Dictionary, node: Node3D, slice: GSFrameSlice = null) -> void:
 	if not bool(options.get("props", false)):
 		return
 	var props: Node3D
@@ -163,9 +163,9 @@ static func _add_props(world: DotMapBspMesh, options: Dictionary, node: Node3D, 
 	if props.get_child_count() == 0:
 		props.free()
 		return
-	# Static props drawn in batches: small ones baked per cell, copies of larger ones instanced (DotMapPropBatch).
+	# Static props drawn in batches: small ones baked per cell, copies of larger ones instanced (GSMapPropBatch).
 	if bool(options.get("batch_props", false)):
-		var batcher := DotMapPropBatch.new()
+		var batcher := GSMapPropBatch.new()
 		batcher.cell = float(options.get("batch_cell", batcher.cell))
 		batcher.max_tris = int(options.get("batch_max_tris", batcher.max_tris))
 		batcher.instance_cell = float(options.get("instance_cell", batcher.instance_cell))
@@ -173,28 +173,28 @@ static func _add_props(world: DotMapBspMesh, options: Dictionary, node: Node3D, 
 	node.add_child(props)
 
 
-static func _add_lit(parent: Node3D, world: DotMapBspMesh, options: Dictionary, surfaces: DotMapSurfaces, node: Node3D, drawn: DotMapDrawnWorld) -> void:
+static func _add_lit(parent: Node3D, world: GSMapBspMesh, options: Dictionary, surfaces: GSMapSurfaces, node: Node3D, drawn: GSMapDrawnWorld) -> void:
 	var env: Environment = options.get("environment")
 	if env != null:
-		drawn.lit = DotMapLitWorld.attach(parent, world, env, options.get("lamps", []), surfaces.use_lightmap, node)
+		drawn.lit = GSMapLitWorld.attach(parent, world, env, options.get("lamps", []), surfaces.use_lightmap, node)
 
 
-static func _add_culling(parent: Node3D, world: DotMapBspMesh, options: Dictionary, node: Node3D, drawn: DotMapDrawnWorld) -> void:
+static func _add_culling(parent: Node3D, world: GSMapBspMesh, options: Dictionary, node: Node3D, drawn: GSMapDrawnWorld) -> void:
 	if not bool(options.get("cull", true)) or DisplayServer.get_name() == "headless":
 		return
-	var vis := DotMapVisibility.new()
+	var vis := GSMapVisibility.new()
 	vis.name = "Visibility"
 	parent.add_child(vis)
 	var res := vis.setup(world, node)
 	if res.ok:
 		drawn.visibility = vis
 	else:
-		DotLog.debug(CHANNEL, "the world is drawn without culling", {"why": res.error.message})
+		GSLog.debug(CHANNEL, "the world is drawn without culling", {"why": res.error.message})
 		vis.queue_free()
 
 
-static func _log_drawn(drawn: DotMapDrawnWorld) -> void:
-	DotLog.debug(CHANNEL, "world drawn", {"name": str(drawn.world.manifest.get("name", "")), "lit": drawn.lit != null, "culled": drawn.visibility != null})
+static func _log_drawn(drawn: GSMapDrawnWorld) -> void:
+	GSLog.debug(CHANNEL, "world drawn", {"name": str(drawn.world.manifest.get("name", "")), "lit": drawn.lit != null, "culled": drawn.visibility != null})
 
 
 ## Takes the drawn world out again: the node, the ambient driver and the culling.

@@ -1,8 +1,8 @@
-class_name DotMapSound
-extends DotMapEntity
+class_name GSMapSound
+extends GSMapEntity
 
 ## ambient_generic: PlaySound, StopSound, ToggleSound, Volume, Pitch and the fades, played through [member
-## DotMapIO.effect_fn] as [code]("sound", entity, on)[/code].
+## GSMapIO.effect_fn] as [code]("sound", entity, on)[/code].
 
 ## Id of the free stand-in, or empty.
 var stand_in := ""

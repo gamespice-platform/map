@@ -1,5 +1,5 @@
 extends Node
-## Proves DotMapCredits and DotMapStore on a hand-written manifest and a stand-in cloud client.
+## Proves GSMapCredits and GSMapStore on a hand-written manifest and a stand-in cloud client.
 ## godot --headless --path . res://examples/store_demo.tscn
 
 const CHECKS := 65
@@ -36,10 +36,10 @@ class FakeCloud:
 	func dependency_prefix(id: StringName, version: String) -> String:
 		return mounted.get("%s@%s" % [id, version], "")
 
-	func ensure(id: StringName, version: String, _groups: PackedStringArray, _url: String) -> DotResult:
+	func ensure(id: StringName, version: String, _groups: PackedStringArray, _url: String) -> GSResult:
 		ensured += 1
 		mounted["%s@%s" % [id, version]] = "res://dot_cloud/%s/%s/" % [id, version]
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 
 ## A cloud that knows manifests: the root names two slices (one cached, one 3 MB) under it, and a shared one it shares with a mounted map.
@@ -52,13 +52,13 @@ class PlanCloud:
 	func is_mounted(id: StringName, version: String) -> bool:
 		return mounted.has("%s@%s" % [id, version])
 
-	func resolve_manifest(id: StringName, version: String, _url: String = "") -> DotResult:
+	func resolve_manifest(id: StringName, version: String, _url: String = "") -> GSResult:
 		resolved.append("%s@%s" % [id, version])
 		var m := PlanManifest.new()
 		m.key = "%s@%s" % [id, version]
 		for d: String in DEPS[m.key]:
 			m.dependencies.append({"id": d.get_slice("@", 0), "version": d.get_slice("@", 1)})
-		return DotResult.success(m)
+		return GSResult.success(m)
 
 	func plan_for(m: Object, _groups: PackedStringArray = PackedStringArray()) -> Dictionary:
 		return {"missing_bytes": MISSING[m.key]}
@@ -77,12 +77,12 @@ class OfflineCloud:
 	func dependency_prefix(_id: StringName, _version: String) -> String:
 		return ""
 
-	func ensure(id: StringName, _version: String, _groups: PackedStringArray, _url: String) -> DotResult:
-		return DotResult.fail(DotError.CODE_IO, "Could not get %s's manifest." % id)
+	func ensure(id: StringName, _version: String, _groups: PackedStringArray, _url: String) -> GSResult:
+		return GSResult.fail(GSError.CODE_IO, "Could not get %s's manifest." % id)
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -110,17 +110,17 @@ func _run() -> void:
 
 func _credits() -> void:
 	_entered += 1
-	var all := DotMapCredits.works(MANIFEST)
+	var all := GSMapCredits.works(MANIFEST)
 	_check("generated textures are skipped, same url merges", all.size() == 4)
 	var chair := all.filter(func(w: Dictionary) -> bool: return w["url"] == "u/c")
 	_check("merged uses add up", chair.size() == 1 and chair[0]["uses"] == 5)
-	var need := DotMapCredits.works(MANIFEST, true)
+	var need := GSMapCredits.works(MANIFEST, true)
 	_check("attribution filter keeps CC-BY only", need.size() == 2)
 	_check("CC0 never needs a credit", not need.any(func(w: Dictionary) -> bool: return w["licence"] == "CC0-1.0"))
-	var line := DotMapCredits.line(MANIFEST)
+	var line := GSMapCredits.line(MANIFEST)
 	_check("line names the map author", line.begins_with("Map by Mapper"))
 	_check("line names the art authors", line.contains("Jane") and line.contains("Poly") and not line.contains("ambientCG"))
-	_check("empty manifest gives an empty line", DotMapCredits.line({}) == "")
+	_check("empty manifest gives an empty line", GSMapCredits.line({}) == "")
 	_completed += 1
 
 
@@ -128,14 +128,14 @@ func _store() -> void:
 	_entered += 1
 	var lic: Dictionary = MANIFEST["licence"]
 	var cloud := FakeCloud.new()
-	_check("pack_of reads the slice", DotMapStore.pack_of(lic)["version"] == "h1234abcd")
-	_check("no slice, no pack", DotMapStore.pack_of({}).is_empty())
-	_check("not mounted gives no dir", DotMapStore.mount_dir(lic, cloud) == "")
-	var res: DotResult = await DotMapStore.ensure(lic, cloud, "")
+	_check("pack_of reads the slice", GSMapStore.pack_of(lic)["version"] == "h1234abcd")
+	_check("no slice, no pack", GSMapStore.pack_of({}).is_empty())
+	_check("not mounted gives no dir", GSMapStore.mount_dir(lic, cloud) == "")
+	var res: GSResult = await GSMapStore.ensure(lic, cloud, "")
 	_check("ensure with no manifest url lets the client resolve it", res.ok and cloud.ensured == 1)
-	res = await DotMapStore.ensure(lic, cloud, "https://x/manifest.json")
+	res = await GSMapStore.ensure(lic, cloud, "https://x/manifest.json")
 	_check("ensure mounts it", res.ok and cloud.ensured == 1 and str(res.value).begins_with("res://dot_cloud/gamemann/store-x"))
-	await DotMapStore.ensure(lic, cloud, "https://x/manifest.json")
+	await GSMapStore.ensure(lic, cloud, "https://x/manifest.json")
 	_check("a second ensure downloads nothing", cloud.ensured == 1)
 	_completed += 1
 
@@ -144,15 +144,15 @@ func _plan() -> void:
 	_entered += 1
 	var lic := {"store_pack": {"id": "r", "version": "1"}}
 	var cloud := PlanCloud.new()
-	var res: DotResult = await DotMapStore.plan(lic, cloud)
+	var res: GSResult = await GSMapStore.plan(lic, cloud)
 	_check("plan adds the root and every dependency", res.ok and int(res.value["bytes"]) == 8 << 20)
 	_check("a slice two others share is counted once", cloud.resolved.count("s@1") == 1 and res.value["slices"] == 3)
 	cloud.mounted["s@1"] = "res://x/"
-	res = await DotMapStore.plan(lic, cloud)
+	res = await GSMapStore.plan(lic, cloud)
 	_check("a mounted slice costs nothing", int(res.value["bytes"]) == 3 << 20)
-	res = await DotMapStore.plan({}, cloud)
+	res = await GSMapStore.plan({}, cloud)
 	_check("a map with no slices costs nothing", res.ok and int(res.value["bytes"]) == 0)
-	res = await DotMapStore.plan(lic, FakeCloud.new())
+	res = await GSMapStore.plan(lic, FakeCloud.new())
 	_check("a client that cannot plan is not an error", res.ok and int(res.value["bytes"]) == 0)
 	_completed += 1
 
@@ -161,21 +161,21 @@ func _surfaces() -> void:
 	_entered += 1
 	var cloud := FakeCloud.new()
 	cloud.mounted["gamemann/store-x@h1234abcd"] = "res://dot_cloud/gamemann/store-x/h1234abcd/"
-	var s := DotMapSurfaces.new()
-	var w := DotMapBspMesh.new()
-	_check("apply points both at the slice", DotMapStore.apply(MANIFEST["licence"], cloud, s, w)
+	var s := GSMapSurfaces.new()
+	var w := GSMapBspMesh.new()
+	_check("apply points both at the slice", GSMapStore.apply(MANIFEST["licence"], cloud, s, w)
 			and s.pbr_library.ends_with("h1234abcd/pbr") and w.model_library.ends_with("h1234abcd/models"))
-	_check("apply is false when unmounted", not DotMapStore.apply(MANIFEST["licence"], FakeCloud.new(), s, w))
+	_check("apply is false when unmounted", not GSMapStore.apply(MANIFEST["licence"], FakeCloud.new(), s, w))
 	_check("one mounted dir without shared slices", s.pbr_libraries.size() == 1 and w.model_libraries.size() == 1)
 	var lic: Dictionary = MANIFEST["licence"].duplicate(true)
 	lic["store_pack"]["shared"] = [{"id": "gamemann/store-shared-aa", "version": "h1"}, {"id": "gamemann/store-shared-bb", "version": "h2"}]
 	cloud.mounted["gamemann/store-shared-aa@h1"] = "res://dot_cloud/gamemann/store-shared-aa/h1/"
-	var s2 := DotMapSurfaces.new()
-	var w2 := DotMapBspMesh.new()
-	DotMapStore.apply(lic, cloud, s2, w2)
+	var s2 := GSMapSurfaces.new()
+	var w2 := GSMapBspMesh.new()
+	GSMapStore.apply(lic, cloud, s2, w2)
 	_check("mounted shared slices are searched after the map's own", s2.pbr_libraries.size() == 2 and w2.model_libraries.size() == 2
 			and s2.pbr_libraries[1] == "res://dot_cloud/gamemann/store-shared-aa/h1/pbr" and w2.model_libraries[0].ends_with("h1234abcd/models"))
-	_check("an unmounted shared slice is skipped", DotMapStore.mount_dirs(lic, cloud).size() == 2)
+	_check("an unmounted shared slice is skipped", GSMapStore.mount_dirs(lic, cloud).size() == 2)
 	s2.pbr_libraries = PackedStringArray(["res://nothing_a/pbr", "res://nothing_b/pbr"])
 	_check("a set in no shared folder falls back to the single library", s2._pbr_dir("res://m", "", {"file": "pbr/x", "tier": "2k"}) == "res://dot_cloud/gamemann/store-x/h1234abcd/pbr/x/2k")
 	_completed += 1
@@ -185,48 +185,48 @@ func _missing_slices() -> void:
 	_entered += 1
 	var lic: Dictionary = MANIFEST["licence"].duplicate(true)
 	lic["store_pack"]["shared"] = [{"id": "gamemann/store-shared-aa", "version": "h1"}]
-	DotMapStore.reset()
+	GSMapStore.reset()
 	var warns: Array[Dictionary] = []
 	var sink := func(rec: Dictionary) -> void:
-		if rec["channel"] == DotMapStore.CHANNEL and rec["level"] == DotLog.Level.WARN:
+		if rec["channel"] == GSMapStore.CHANNEL and rec["level"] == GSLog.Level.WARN:
 			warns.append(rec)
-	DotLog.set_level(DotLog.Level.WARN)
-	DotLog.add_sink(sink)
-	_check("no notice before anything was tried", DotMapStore.notice(lic) == "")
-	var res: DotResult = await DotMapStore.ensure(lic, OfflineCloud.new())
+	GSLog.set_level(GSLog.Level.WARN)
+	GSLog.add_sink(sink)
+	_check("no notice before anything was tried", GSMapStore.notice(lic) == "")
+	var res: GSResult = await GSMapStore.ensure(lic, OfflineCloud.new())
 	_check("an unreachable slice fails ensure", not res.ok)
-	_check("both slices are named missing", DotMapStore.missing(lic, OfflineCloud.new()) == PackedStringArray(["gamemann/store-x@h1234abcd", "gamemann/store-shared-aa@h1"]))
-	_check("the notice says the art is low-detail", DotMapStore.notice(lic).begins_with("Some map art is missing (2"))
-	_check("the credits line carries the notice", DotMapCredits.line({"licence": lic}).contains("map art is missing"))
-	var w := DotMapBspMesh.new()
+	_check("both slices are named missing", GSMapStore.missing(lic, OfflineCloud.new()) == PackedStringArray(["gamemann/store-x@h1234abcd", "gamemann/store-shared-aa@h1"]))
+	_check("the notice says the art is low-detail", GSMapStore.notice(lic).begins_with("Some map art is missing (2"))
+	_check("the credits line carries the notice", GSMapCredits.line({"licence": lic}).contains("map art is missing"))
+	var w := GSMapBspMesh.new()
 	w.source_path = "res://nowhere/m.json"
-	_check("apply is false without the slices", not DotMapStore.apply(lic, OfflineCloud.new(), DotMapSurfaces.new(), w))
-	DotMapStore.apply(lic, null, DotMapSurfaces.new(), w)
+	_check("apply is false without the slices", not GSMapStore.apply(lic, OfflineCloud.new(), GSMapSurfaces.new(), w))
+	GSMapStore.apply(lic, null, GSMapSurfaces.new(), w)
 	_check("one warning however often it is applied", warns.size() == 1)
 	_check("the warning names every slice and how to get them", warns.size() == 1 and str(warns[0]["fields"].get("slices", "")).contains("store-shared-aa@h1")
 			and str(warns[0]["message"]).contains("stage_stores.sh"))
-	DotMapStore.reset()
-	await DotMapStore.ensure(lic, null)
-	_check("no cloud at all is a notice too, and ensure stays ok", DotMapStore.notice(lic) != "")
+	GSMapStore.reset()
+	await GSMapStore.ensure(lic, null)
+	_check("no cloud at all is a notice too, and ensure stays ok", GSMapStore.notice(lic) != "")
 	var art := lic.duplicate(true)
 	art["pbr_store"] = "stores/pbr-library"
 	art["textures"] = [{"kind": "pbr", "file": "pbr/Bricks", "tier": "1k"}]
 	var base := ProjectSettings.globalize_path("user://store_demo_art")
-	DotMapStore.reset()
-	await DotMapStore.ensure(art, null, "", base)
-	_check("no cloud and no staged art is a notice without a dev script name", DotMapStore.notice(art) != "" and not DotMapStore.notice(art).contains("stage_stores"))
+	GSMapStore.reset()
+	await GSMapStore.ensure(art, null, "", base)
+	_check("no cloud and no staged art is a notice without a dev script name", GSMapStore.notice(art) != "" and not GSMapStore.notice(art).contains("stage_stores"))
 	DirAccess.make_dir_recursive_absolute(base.path_join("stores/pbr-library/Bricks/1k"))
-	DotMapStore.reset()
-	res = await DotMapStore.ensure(art, null, "", base)
-	_check("no cloud but the raw stores staged beside the pack is installed art", res.ok and DotMapStore.notice(art) == "")
+	GSMapStore.reset()
+	res = await GSMapStore.ensure(art, null, "", base)
+	_check("no cloud but the raw stores staged beside the pack is installed art", res.ok and GSMapStore.notice(art) == "")
 	DirAccess.remove_absolute(base.path_join("stores/pbr-library/Bricks/1k"))
-	DotMapStore.reset()
+	GSMapStore.reset()
 	var cloud := FakeCloud.new()
-	await DotMapStore.ensure(lic, cloud)
-	_check("a later fetch clears the notice", DotMapStore.notice(lic) == "")
-	DotLog.remove_sink(sink)
-	DotLog.set_level(DotLog.Level.ERROR)
-	DotMapStore.reset()
+	await GSMapStore.ensure(lic, cloud)
+	_check("a later fetch clears the notice", GSMapStore.notice(lic) == "")
+	GSLog.remove_sink(sink)
+	GSLog.set_level(GSLog.Level.ERROR)
+	GSMapStore.reset()
 	_completed += 1
 
 
@@ -237,14 +237,14 @@ func _stand_ins() -> void:
 	var img := Image.create(8, 8, false, Image.FORMAT_RGB8)
 	img.fill(Color(0.2, 0.6, 0.3))
 	img.save_webp(dir + "/textures/fb_Moss.webp")
-	var w := DotMapBspMesh.new()
+	var w := GSMapBspMesh.new()
 	w.source_path = dir + "/m.json"
 	w.manifest = {"licence": {"pbr_store": "../.stores/pbr-library", "textures": [
 		{"kind": "pbr", "key": "pbr:pbr_Bricks059", "file": "pbr/Bricks059", "tier": "1k", "colour": [0.5, 0.3, 0.2], "sources": ["walls/red01"]},
 		{"kind": "pbr", "key": "pbr:pbr_Xq7", "file": "pbr/Xq7", "tier": "1k", "colour": [0.25, 0.5, 0.75], "sources": ["models/blank"]},
 		{"kind": "pbr", "key": "pbr:pbr_Moss", "file": "pbr/Moss", "tier": "1k", "fallback_file": "textures/fb_Moss.webp"},
 	]}}
-	var s := DotMapSurfaces.new()
+	var s := GSMapSurfaces.new()
 	s.use_lightmap = false
 	var mat_for := s.world_material_for(w, dir)
 	_check("every missing set is listed", s.missing_sets.size() == 3)
@@ -259,7 +259,7 @@ func _stand_ins() -> void:
 	var saturated: Material = mat_for.call({"free": "pbr:pbr_Xq7", "colour": [0.0, 0.0, 1.0]})
 	var sc: Color = (saturated as StandardMaterial3D).albedo_color
 	_check("a saturated blue average is grey, floored at STAND_IN_FLOOR", is_equal_approx(sc.r, sc.b) and is_equal_approx(sc.g, sc.b)
-			and is_equal_approx(sc.b, DotMapSurfaces.STAND_IN_FLOOR))
+			and is_equal_approx(sc.b, GSMapSurfaces.STAND_IN_FLOOR))
 	var small: Material = mat_for.call({"free": "pbr:pbr_Moss"})
 	_check("the pack's small albedo wins over a guess", small is StandardMaterial3D and (small as StandardMaterial3D).albedo_texture != null
 			and (small as StandardMaterial3D).albedo_texture.get_width() == 8)
@@ -267,7 +267,7 @@ func _stand_ins() -> void:
 			return m is StandardMaterial3D and (m as StandardMaterial3D).albedo_color.is_equal_approx(Color(0.55, 0.55, 0.55))))
 	w.manifest["lightmap"] = {"pages": [{"width": 1, "height": 1, "offset": 0}]}
 	w._blob = PackedByteArray([0, 0, 0, 0])
-	var lit_s := DotMapSurfaces.new()
+	var lit_s := GSMapSurfaces.new()
 	var lit_for := lit_s.world_material_for(w, dir)
 	var lit_flat: Material = lit_for.call({"free": "pbr:pbr_Xq7", "colour": [0.25, 0.5, 0.75], "lightmap_page": 0})
 	_check("a lit map keeps its lightmap on a flat stand-in", lit_flat is ShaderMaterial and (lit_flat as ShaderMaterial).get_shader_parameter("lightmap") != null
@@ -281,7 +281,7 @@ func _stand_ins() -> void:
 
 func _missing_models() -> void:
 	_entered += 1
-	var w := DotMapBspMesh.new()
+	var w := GSMapBspMesh.new()
 	w.source_path = "user://store_demo_models/m.json"
 	w.manifest = {"licence": {"model_store": "../.stores/model-library", "model_stand_ins": [
 		{"stand_in": "lib/ph_shelf", "store_file": "polyhaven/ph_shelf/ph_shelf.gltf"},
@@ -302,10 +302,10 @@ func _missing_models() -> void:
 	]}
 	var warns: Array[Dictionary] = []
 	var sink := func(rec: Dictionary) -> void:
-		if rec["channel"] == DotMapBspMesh.CHANNEL and rec["level"] == DotLog.Level.WARN:
+		if rec["channel"] == GSMapBspMesh.CHANNEL and rec["level"] == GSLog.Level.WARN:
 			warns.append(rec)
-	DotLog.set_level(DotLog.Level.WARN)
-	DotLog.add_sink(sink)
+	GSLog.set_level(GSLog.Level.WARN)
+	GSLog.add_sink(sink)
 	var bodies: Array[StaticBody3D] = []
 	var props := w.build_props(Callable(), func(b: StaticBody3D) -> void: bodies.append(b))
 	var proxies := props.get_children().filter(func(c: Node) -> bool: return c.has_meta(&"dot_map_proxy"))
@@ -339,14 +339,14 @@ func _missing_models() -> void:
 	var server_tree := ((server.get_child(server.get_child_count() - 1) as CollisionShape3D).shape as BoxShape3D).size
 	_check("and the same on a server", server_tree.is_equal_approx(Vector3(0.54, 11.7, 0.54)))
 	_check("its proxy is a trunk with a crown that does not collide", (proxies[4] as MeshInstance3D).get_aabb().size.x < 1.0 and proxies[4].get_child_count() == 1)
-	_check("a street lamp is not a tree", DotMapBspMesh.is_tree({"stand_in": "lib/ph_street_lamp_01"}) == false
-			and DotMapBspMesh.is_tree({"stand_in": "tree"}) and DotMapBspMesh.is_tree({"stand_in": "lib/kenney_retro-urban-kit_tree-large"}))
-	DotLog.remove_sink(sink)
-	DotLog.set_level(DotLog.Level.ERROR)
+	_check("a street lamp is not a tree", GSMapBspMesh.is_tree({"stand_in": "lib/ph_street_lamp_01"}) == false
+			and GSMapBspMesh.is_tree({"stand_in": "tree"}) and GSMapBspMesh.is_tree({"stand_in": "lib/kenney_retro-urban-kit_tree-large"}))
+	GSLog.remove_sink(sink)
+	GSLog.set_level(GSLog.Level.ERROR)
 	server.free()
 	props.free()
-	DotMapBspMesh._support_material = null
-	DotMapBspMesh._tinted.clear()
+	GSMapBspMesh._support_material = null
+	GSMapBspMesh._tinted.clear()
 	_completed += 1
 
 
@@ -367,7 +367,7 @@ func _stale_import() -> void:
 	var imp := FileAccess.open(dir + "/box.glb.import", FileAccess.WRITE)
 	imp.store_string("[remap]\n\nimporter=\"scene\"\ntype=\"PackedScene\"\npath=\"res://.godot/imported/box.glb-0000stale.scn\"\n")
 	imp.close()
-	var w := DotMapBspMesh.new()
+	var w := GSMapBspMesh.new()
 	w.source_path = "user://store_demo_stale/m.json"
 	w.model_library = dir
 	w.manifest = {"licence": {"model_stand_ins": [{"stand_in": "lib/box", "store_file": "box.glb"}]}}
@@ -375,13 +375,13 @@ func _stale_import() -> void:
 	_check("the setup is a stale import: exists() true, load() null (else the fallback is not exercised)", stale)
 	var logs: Array[Dictionary] = []
 	var sink := func(rec: Dictionary) -> void:
-		if rec["channel"] == DotMapBspMesh.CHANNEL:
+		if rec["channel"] == GSMapBspMesh.CHANNEL:
 			logs.append(rec)
-	DotLog.set_level(DotLog.Level.WARN)
-	DotLog.add_sink(sink)
+	GSLog.set_level(GSLog.Level.WARN)
+	GSLog.add_sink(sink)
 	var model := w._library_model("lib/box")
 	_check("a stale import is read through GLTFDocument, not drawn as a box", model != null and model.get_child_count() == 1)
-	_check("and says so, as a warning rather than an error", logs.size() == 1 and logs[0]["level"] == DotLog.Level.WARN)
+	_check("and says so, as a warning rather than an error", logs.size() == 1 and logs[0]["level"] == GSLog.Level.WARN)
 	if model != null:
 		model.free()
 	# Both routes failing is logged loudly.
@@ -394,7 +394,7 @@ func _stale_import() -> void:
 	imp2.close()
 	w.manifest = {"licence": {"model_stand_ins": [{"stand_in": "lib/bad", "store_file": "bad.glb"}]}}
 	_check("a model neither route can read is null and logged", w._library_model("lib/bad") == null and logs.size() >= 1)
-	DotLog.remove_sink(sink)
+	GSLog.remove_sink(sink)
 	for f in DirAccess.get_files_at(dir):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(dir.path_join(f)))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(dir))

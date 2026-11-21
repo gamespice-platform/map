@@ -1,7 +1,7 @@
-class_name DotMapStateTransport
+class_name GSMapStateTransport
 extends RefCounted
 
-## The reference [member DotMapStateSync.send_fn] for a game: queues each peer's state messages, sends them as few payloads as the game's channel allows ([member max_bytes]), and unpacks them on the client.
+## The reference [member GSMapStateSync.send_fn] for a game: queues each peer's state messages, sends them as few payloads as the game's channel allows ([member max_bytes]), and unpacks them on the client.
 ## Set [member raw_send], pass [code]t.send[/code] as the world's send_fn, call [code]t.flush_on(world.io)[/code] after the sync's own handler, and feed incoming payloads to [code]t.receive[/code] when [method is_state_payload].
 ## One message bigger than [member max_bytes] goes alone, so the channel must carry that size. Nothing here names a net addon.
 
@@ -18,7 +18,7 @@ var messages := 0
 var _queues: Dictionary = {}
 
 
-## The [member DotMapStateSync.send_fn] shape: queues [param msg] for [param peer].
+## The [member GSMapStateSync.send_fn] shape: queues [param msg] for [param peer].
 func send(peer: Variant, msg: Dictionary) -> void:
 	if not _queues.has(peer):
 		_queues[peer] = []
@@ -46,8 +46,8 @@ func flush() -> void:
 	_queues.clear()
 
 
-## Flushes whenever [param io] settles a tick; connect after the [DotMapStateSync] so its message is queued first.
-func flush_on(io: DotMapIO) -> void:
+## Flushes whenever [param io] settles a tick; connect after the [GSMapStateSync] so its message is queued first.
+func flush_on(io: GSMapIO) -> void:
 	io.settled.connect(func(_tick: int) -> void: flush())
 
 
@@ -60,22 +60,22 @@ func _emit(peer: Variant, batch: Array) -> void:
 ## Whether [param payload] is for [method receive]: a batch, or one state message.
 static func is_state_payload(payload: Dictionary) -> bool:
 	var t := str(payload.get("type", ""))
-	return t == TYPE_BATCH or t == DotMapStateSync.TYPE_STATE or t == DotMapStateSync.TYPE_SNAPSHOT
+	return t == TYPE_BATCH or t == GSMapStateSync.TYPE_STATE or t == GSMapStateSync.TYPE_SNAPSHOT
 
 
 ## Feeds a payload to [param sync] on a client; the result's value is the changes applied.
-func receive(io: DotMapIO, sync: DotMapStateSync, payload: Dictionary) -> DotResult:
+func receive(io: GSMapIO, sync: GSMapStateSync, payload: Dictionary) -> GSResult:
 	if str(payload.get("type", "")) != TYPE_BATCH:
 		return sync.apply(io, payload)
 	var list: Variant = payload.get("messages")
 	if not list is Array:
-		return DotResult.fail(DotError.CODE_PARSE, "batch without messages")
+		return GSResult.fail(GSError.CODE_PARSE, "batch without messages")
 	var n := 0
 	for m: Variant in list:
 		if not m is Dictionary:
-			return DotResult.fail(DotError.CODE_PARSE, "batch holds a non-message")
+			return GSResult.fail(GSError.CODE_PARSE, "batch holds a non-message")
 		var r := sync.apply(io, m)
 		if not r.ok:
 			return r
 		n += int(r.value)
-	return DotResult.success(n)
+	return GSResult.success(n)

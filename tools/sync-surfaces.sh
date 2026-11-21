@@ -8,7 +8,7 @@
 #
 # Why a game vendors the textures instead of reading the addon's: the client shell bundles
 # GameSpice Map, and 12 MB of textures every game may never draw must not ride in it. A game ships
-# exactly the kinds it names, inside its own signed pack, and hands DotMapSurfaces that root
+# exactly the kinds it names, inside its own signed pack, and hands GSMapSurfaces that root
 # (docs/surfaces.md). The list lives in <dest>/kinds.txt, one kind per line, so the copy says
 # what it is for and a later sync does not guess.
 #

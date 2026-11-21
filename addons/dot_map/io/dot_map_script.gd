@@ -1,5 +1,5 @@
-class_name DotMapScript
-extends DotMapEntity
+class_name GSMapScript
+extends GSMapEntity
 
 ## lua_run: the map's script text is never read here. The converter matched the snippet against its
 ## templates and wrote [code]script: {status, ops}[/code] into the record; RunCode replays those

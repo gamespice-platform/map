@@ -1,20 +1,20 @@
-class_name DotMapVote
+class_name GSMapVote
 extends RefCounted
 
 ## A map vote: nominations, a ballot, and a winner. One player, one vote, changeable until the ballot closes.
 ## Changeable because the alternative is a player who misclicks being stuck with it for the rest of the
 ## round, and because letting somebody change their mind is what makes a live tally worth showing.
 
-# No log channel: a tally. begin() returns a DotResult and finish() returns the winner;
-# the map change that follows is logged by what makes it (DotMapTimelimit, or
-# dot-vote's DotVoteDirector through its map source).
+# No log channel: a tally. begin() returns a GSResult and finish() returns the winner;
+# the map change that follows is logged by what makes it (GSMapTimelimit, or
+# dot-vote's GSVoteDirector through its map source).
 
 signal opened(options: Array)
 signal voted(voter: StringName, choice: StringName)
-signal closed(winner: DotMapDef, tally: Dictionary)
+signal closed(winner: GSMapDef, tally: Dictionary)
 
 ## The maps on the ballot, in order. Ties resolve toward the front.
-var options: Array[DotMapDef] = []
+var options: Array[GSMapDef] = []
 
 ## Voter id -> map id.
 var ballots: Dictionary = {}
@@ -60,17 +60,17 @@ func withdraw(id: StringName) -> bool:
 
 
 ## Opens a ballot: nominations first, then the rotation fills the rest. [param extra] is where the non-
-## nominated options come from — usually [method DotMapRotation.pool] minus what is on cooldown.
+## nominated options come from — usually [method GSMapRotation.pool] minus what is on cooldown.
 func begin(
-	catalogue: DotMapCatalogue,
-	extra: Array[DotMapDef],
-	current: DotMapDef = null
-) -> DotResult:
+	catalogue: GSMapCatalogue,
+	extra: Array[GSMapDef],
+	current: GSMapDef = null
+) -> GSResult:
 	if open:
-		return DotResult.fail(DotError.CODE_STATE, "A vote is already open.")
+		return GSResult.fail(GSError.CODE_STATE, "A vote is already open.")
 
 	if catalogue == null:
-		return DotResult.fail(DotError.CODE_INVALID, "A vote needs a catalogue.")
+		return GSResult.fail(GSError.CODE_INVALID, "A vote needs a catalogue.")
 
 	options.clear()
 	ballots.clear()
@@ -105,8 +105,8 @@ func begin(
 		chosen[map.id] = true
 
 	if options.is_empty() and not allow_extend:
-		return DotResult.fail(
-			DotError.CODE_STATE, "There is nothing to vote on."
+		return GSResult.fail(
+			GSError.CODE_STATE, "There is nothing to vote on."
 		)
 
 	nominations.clear()
@@ -114,7 +114,7 @@ func begin(
 
 	opened.emit(options)
 
-	return DotResult.success(options)
+	return GSResult.success(options)
 
 
 ## Casts or changes a vote. [param choice] may be [constant EXTEND].
@@ -163,7 +163,7 @@ func tally() -> Dictionary:
 ## Closes the ballot and returns the winner, or null for extend / nothing. Ties go to whichever option is
 ## earlier in [member options], which is nomination order. Deterministic on purpose — see the class
 ## documentation.
-func finish() -> DotMapDef:
+func finish() -> GSMapDef:
 	if not open:
 		return null
 
@@ -171,7 +171,7 @@ func finish() -> DotMapDef:
 
 	var counts := tally()
 	var best := -1
-	var winner: DotMapDef = null
+	var winner: GSMapDef = null
 	var extend_votes := int(counts.get(EXTEND, 0))
 
 	for map in options:

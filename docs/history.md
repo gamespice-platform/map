@@ -15,9 +15,9 @@ The sync protocol first ran over a real network in game-airdrift (GameSpice Net,
 
 ## Others
 
-- **Every delivered map failed** with "the registered cloud client does not speak the content interface": GameSpice Map called `ensure` / `is_mounted` and GameSpice Cloud offered `acquire(manifest_url)` / `is_ready(content_key)`. The only loader test ran without a cloud client. Before that, **`DotCloudClient` did not register itself at all** and every caller read null as "content is in the build".
+- **Every delivered map failed** with "the registered cloud client does not speak the content interface": GameSpice Map called `ensure` / `is_mounted` and GameSpice Cloud offered `acquire(manifest_url)` / `is_ready(content_key)`. The only loader test ran without a cloud client. Before that, **`GSCloudClient` did not register itself at all** and every caller read null as "content is in the build".
 - **A republished delivered map loaded the old geometry**: `_accept` matched a remembered map on `version` alone.
-- **`"banana"` was a valid map version**: `DotSemVer.parse` never returns null.
+- **`"banana"` was a valid map version**: `GSSemVer.parse` never returns null.
 - **A missing `await` on a coroutine is a parse error, and the scene then hangs** rather than exiting. It looks like an infinite loop in the test and it is a typo; run the check-only pass first.
 - **`map` was refused for operators with the right flag** when typed in chat, because the old default marked it console-only; `sv_chat_commands` now decides.
 - **`map` meant `changelevel` in GameSpice Server** before this addon existed, so an operator typing `map <name>` on a one-game, many-map server got a refusal naming games.

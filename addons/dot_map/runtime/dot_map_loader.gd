@@ -1,8 +1,8 @@
-class_name DotMapLoader
+class_name GSMapLoader
 extends RefCounted
 
-## Turns a [DotMapDef] into a loaded scene, fetching its content first when it is not already here: [code]var loaded := await loader.load_map(map_def)[/code].
-## GameSpice Cloud is not named, so a game that ships every map never installs it: the client is found in [DotRegistry] under [code]dot_cloud_client[/code] and called by name.
+## Turns a [GSMapDef] into a loaded scene, fetching its content first when it is not already here: [code]var loaded := await loader.load_map(map_def)[/code].
+## GameSpice Cloud is not named, so a game that ships every map never installs it: the client is found in [GSRegistry] under [code]dot_cloud_client[/code] and called by name.
 ## An absent cloud reads as "ships in the build", which is also what a registration bug looks like, so [member require_cloud] makes a deployment that knows better fail loudly.
 
 const CHANNEL := "map.loader"
@@ -27,7 +27,7 @@ var packs_fetched: int = 0
 
 ## Whether a map's content is already available. For a client deciding whether to show a progress bar, and
 ## for a server deciding whether it can switch immediately.
-func is_ready(map: DotMapDef) -> bool:
+func is_ready(map: GSMapDef) -> bool:
 	if map == null:
 		return false
 
@@ -50,9 +50,9 @@ func is_ready(map: DotMapDef) -> bool:
 ## Fetches a map's content if needed and loads its scene. Returns the [PackedScene]. Instantiating it and
 ## putting it in the tree is the host's business — a loader that added it to a tree would have to know which
 ## one.
-func load_map(map: DotMapDef) -> DotResult:
+func load_map(map: GSMapDef) -> GSResult:
 	if map == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No map to load.")
+		return GSResult.fail(GSError.CODE_INVALID, "No map to load.")
 
 	var valid := map.validate()
 
@@ -66,8 +66,8 @@ func load_map(map: DotMapDef) -> DotResult:
 			return fetched.wrap("Could not get %s's content." % String(map.id))
 
 	if not ResourceLoader.exists(map.scene_path):
-		return DotResult.fail(
-			DotError.CODE_IO,
+		return GSResult.fail(
+			GSError.CODE_IO,
 			"The map's scene is not there.",
 			"%s: %s" % [String(map.id), map.scene_path]
 		)
@@ -75,48 +75,48 @@ func load_map(map: DotMapDef) -> DotResult:
 	var scene: Resource = load(map.scene_path)
 
 	if not (scene is PackedScene):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A map's scene path must point at a PackedScene.",
 			"%s: %s" % [String(map.id), map.scene_path]
 		)
 
 	maps_loaded += 1
 
-	return DotResult.success(scene)
+	return GSResult.success(scene)
 
 
 ## Makes sure a delivered map's content is mounted. A mounted pack can never be unmounted, on any platform.
-func ensure_content(map: DotMapDef) -> DotResult:
+func ensure_content(map: GSMapDef) -> GSResult:
 	var cloud := _cloud()
 
 	if cloud == null:
 		if require_cloud:
-			return DotResult.fail(
-				DotError.CODE_STATE,
+			return GSResult.fail(
+				GSError.CODE_STATE,
 				"This deployment delivers its maps and dot-cloud is not installed.",
-				"looked for %s in DotRegistry" % String(CLOUD_SERVICE)
+				"looked for %s in GSRegistry" % String(CLOUD_SERVICE)
 			)
 
 		# The ambiguous case, said out loud. An absent cloud is a legitimate
 		# configuration — the maps ship in the build — and is also exactly what a
 		# cloud client that failed to register looks like.
-		DotLog.debug(CHANNEL, "no cloud client; assuming the map is in the build", {
+		GSLog.debug(CHANNEL, "no cloud client; assuming the map is in the build", {
 			"map": String(map.id), "content": String(map.content_id)
 		})
 
-		return DotResult.success(false)
+		return GSResult.success(false)
 
 	if not cloud.has_method("ensure"):
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"The registered cloud client does not speak the content interface.",
 			"no ensure() on %s" % cloud.get_class()
 		)
 
 	var version := map.effective_content_version()
 
-	DotLog.info(CHANNEL, "fetching map content", {
+	GSLog.info(CHANNEL, "fetching map content", {
 		"map": String(map.id),
 		"content": String(map.content_id),
 		"version": version,
@@ -124,13 +124,13 @@ func ensure_content(map: DotMapDef) -> DotResult:
 	})
 
 	# The contract, spelled out, because both ends of it are duck-typed: [code]ensure(content_id, version,
-	# groups, manifest_url) -> DotResult[/code], with the last two optional.
+	# groups, manifest_url) -> GSResult[/code], with the last two optional.
 	var result: Variant = await cloud.call(
 		"ensure", map.content_id, version, map.content_groups, map.manifest_url
 	)
 
-	if result is DotResult:
-		var typed: DotResult = result
+	if result is GSResult:
+		var typed: GSResult = result
 
 		if typed.ok:
 			packs_fetched += 1
@@ -142,22 +142,22 @@ func ensure_content(map: DotMapDef) -> DotResult:
 
 	# A cloud client that returned something else is a configuration error rather
 	# than a fetch failure, and saying which is what makes it findable.
-	return DotResult.fail(
-		DotError.CODE_INTERNAL,
-		"The cloud client returned something that is not a DotResult.",
+	return GSResult.fail(
+		GSError.CODE_INTERNAL,
+		"The cloud client returned something that is not a GSResult.",
 		str(result)
 	)
 
 
 ## The map's zone set, if it has one. Loaded through the same path as the scene and after the same content
 ## fetch, so a delivered map's zones come out of its pack rather than off the server's disk.
-func load_zones(map: DotMapDef) -> DotResult:
+func load_zones(map: GSMapDef) -> GSResult:
 	if map == null or map.zones_path == "":
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	if not FileAccess.file_exists(map.zones_path):
-		return DotResult.fail(
-			DotError.CODE_IO,
+		return GSResult.fail(
+			GSError.CODE_IO,
 			"The map's zone file is not there.",
 			"%s: %s" % [String(map.id), map.zones_path]
 		)
@@ -165,21 +165,21 @@ func load_zones(map: DotMapDef) -> DotResult:
 	var file := FileAccess.open(map.zones_path, FileAccess.READ)
 
 	if file == null:
-		return DotResult.failure(
-			DotError.from_engine(FileAccess.get_open_error(), map.zones_path)
+		return GSResult.failure(
+			GSError.from_engine(FileAccess.get_open_error(), map.zones_path)
 		)
 
 	var text := file.get_as_text()
 	file.close()
 
 	# Returned as text rather than parsed. GameSpice Timer is optional — this addon must compile without it — so the
-	# host, which does have it, calls DotTimerZoneSet.from_json. Naming the class here would make every map load
+	# host, which does have it, calls GSTimerZoneSet.from_json. Naming the class here would make every map load
 	# in a game without a timer fail to parse.
-	return DotResult.success(text)
+	return GSResult.success(text)
 
 
 func _cloud() -> Object:
-	return DotRegistry.get_service(CLOUD_SERVICE)
+	return GSRegistry.get_service(CLOUD_SERVICE)
 
 
 func describe() -> Dictionary:

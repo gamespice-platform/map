@@ -1,4 +1,4 @@
-class_name DotMapLocalMaps
+class_name GSMapLocalMaps
 extends RefCounted
 
 ## Converted maps dropped into a game by hand: a raw [code]dot-bsp-mesh[/code] folder ([code]<name>.json[/code], [code]<name>.bin[/code], [code]textures/[/code]) copied under a root, offered as "(local)" with no pack or manifest written. A [code].zip[/code] of such a folder under a root is unpacked once into [member zip_cache] (keyed by its hash) and offered the same way; [method accept_dropped] copies a folder or zip dragged onto the window into [constant DROP_ROOT] ([method watch_drops] wires it).
@@ -42,13 +42,13 @@ static var _zip_hashes := {}
 
 ## The id prefixes that say what a map is for; anything else is an arena map.
 const KIND_PREFIXES := {
-	"surf_": DotMapDef.KIND_SURF,
-	"bhop_": DotMapDef.KIND_BHOP,
-	"kz_": DotMapDef.KIND_KZ,
-	"kz-": DotMapDef.KIND_KZ,
-	"bkz_": DotMapDef.KIND_KZ,
-	"xc_": DotMapDef.KIND_KZ,
-	"gm_": DotMapDef.KIND_SANDBOX,
+	"surf_": GSMapDef.KIND_SURF,
+	"bhop_": GSMapDef.KIND_BHOP,
+	"kz_": GSMapDef.KIND_KZ,
+	"kz-": GSMapDef.KIND_KZ,
+	"bkz_": GSMapDef.KIND_KZ,
+	"xc_": GSMapDef.KIND_KZ,
+	"gm_": GSMapDef.KIND_SANDBOX,
 }
 
 ## Metres above the generated floor point a start is placed, so a capsule is not born in the floor.
@@ -180,9 +180,9 @@ static func accept_dropped(paths: PackedStringArray, into: String = DROP_ROOT) -
 		entry["root"] = into
 		added.append(entry)
 	for line in errors:
-		DotLog.warn(CHANNEL, "dropped %s" % line)
+		GSLog.warn(CHANNEL, "dropped %s" % line)
 	for e in added:
-		DotLog.info(CHANNEL, "dropped map added: %s" % str(e["id"]))
+		GSLog.info(CHANNEL, "dropped map added: %s" % str(e["id"]))
 	return {"added": added, "errors": errors}
 
 
@@ -204,13 +204,13 @@ static func prefix_in(dir: String) -> String:
 	return ""
 
 
-## What a map is for, from its name ([constant KIND_PREFIXES]); a game that knows better sets [member DotMapDef.kind] itself.
+## What a map is for, from its name ([constant KIND_PREFIXES]); a game that knows better sets [member GSMapDef.kind] itself.
 static func kind_for(name: String) -> StringName:
 	var lower := name.to_lower()
 	for prefix: String in KIND_PREFIXES:
 		if lower.begins_with(prefix):
 			return KIND_PREFIXES[prefix]
-	return DotMapDef.KIND_ARENA
+	return GSMapDef.KIND_ARENA
 
 
 ## [code]0.0.0-<12 hex>[/code] of the manifest's bytes, so a re-converted copy is a new version and a record set on the old
@@ -222,10 +222,10 @@ static func version_of(entry: Dictionary) -> String:
 	return "0.0.0-%s" % FileAccess.get_md5(path).substr(0, 12)
 
 
-## The catalogue row for [param entry]: [member DotMapDef.scene_path] is the mesh manifest (there is no scene), the
-## content id empty (it ships with nobody), and [member DotMapDef.kind] from [method kind_for].
-static func to_def(entry: Dictionary) -> DotMapDef:
-	var def := DotMapDef.new()
+## The catalogue row for [param entry]: [member GSMapDef.scene_path] is the mesh manifest (there is no scene), the
+## content id empty (it ships with nobody), and [member GSMapDef.kind] from [method kind_for].
+static func to_def(entry: Dictionary) -> GSMapDef:
+	var def := GSMapDef.new()
 	def.id = StringName(str(entry["id"]))
 	def.display_name = str(entry["title"])
 	def.kind = entry["kind"]
@@ -243,25 +243,25 @@ static func is_original(entry: Dictionary) -> bool:
 	return str(entry.get("name", "")).to_lower().ends_with(ORIG_MARK)
 
 
-## The surfaces builder to draw [param entry] with: the map's own textures ([member DotMapSurfaces.use_original_textures]) for an
-## [method is_original] pack, the free replacements for any other local map. Pass it to [method DotMapSurfaces.world_material_for].
-static func surfaces_for(entry: Dictionary) -> DotMapSurfaces:
-	var surfaces := DotMapSurfaces.new()
+## The surfaces builder to draw [param entry] with: the map's own textures ([member GSMapSurfaces.use_original_textures]) for an
+## [method is_original] pack, the free replacements for any other local map. Pass it to [method GSMapSurfaces.world_material_for].
+static func surfaces_for(entry: Dictionary) -> GSMapSurfaces:
+	var surfaces := GSMapSurfaces.new()
 	surfaces.use_original_textures = is_original(entry)
 	return surfaces
 
 
-## The map's mesh ([method DotMapBspMesh.load_prefix]): the format, hash and size checks are that reader's.
-static func open(entry: Dictionary) -> DotResult:
-	var res := DotMapBspMesh.load_prefix(str(entry.get("prefix", "")))
+## The map's mesh ([method GSMapBspMesh.load_prefix]): the format, hash and size checks are that reader's.
+static func open(entry: Dictionary) -> GSResult:
+	var res := GSMapBspMesh.load_prefix(str(entry.get("prefix", "")))
 	if not res.ok:
-		DotLog.warn(CHANNEL, "local map %s does not load: %s" % [str(entry.get("id", "")), str(res)])
+		GSLog.warn(CHANNEL, "local map %s does not load: %s" % [str(entry.get("id", "")), str(res)])
 	return res
 
 
 ## The start points: [code]{origin, yaw, team, classname, generated}[/code] in metres, from the manifest's
 ## [code]spawns[/code]; when it names none, one on top of the widest solid hull of the world, marked [code]generated[/code].
-static func spawns(mesh: DotMapBspMesh) -> Array[Dictionary]:
+static func spawns(mesh: GSMapBspMesh) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for s: Variant in mesh.manifest.get("spawns", []):
 		if not s is Dictionary or not (s as Dictionary).get("at") is Array or ((s as Dictionary)["at"] as Array).size() < 3:
@@ -274,7 +274,7 @@ static func spawns(mesh: DotMapBspMesh) -> Array[Dictionary]:
 		var floor_point: Variant = _widest_floor(mesh)
 		if floor_point is Vector3:
 			out.append({"origin": floor_point, "yaw": 0.0, "team": "any", "classname": "", "generated": true})
-			DotLog.info(CHANNEL, "no spawns in %s, one generated at %s" % [mesh.source_path, str(floor_point)])
+			GSLog.info(CHANNEL, "no spawns in %s, one generated at %s" % [mesh.source_path, str(floor_point)])
 	return out
 
 
@@ -341,7 +341,7 @@ static func _unpacked(zip_path: String) -> String:
 		return dir
 	var why := _zip_problem(zip_path)
 	if not why.is_empty():
-		DotLog.warn(CHANNEL, "%s: %s" % [zip_path, why])
+		GSLog.warn(CHANNEL, "%s: %s" % [zip_path, why])
 		return ""
 	var part := dir + ".part"
 	_wipe(part)
@@ -358,7 +358,7 @@ static func _unpacked(zip_path: String) -> String:
 		if f == null:
 			zip.close()
 			_wipe(part)
-			DotLog.warn(CHANNEL, "%s: cannot write %s" % [zip_path, out])
+			GSLog.warn(CHANNEL, "%s: cannot write %s" % [zip_path, out])
 			return ""
 		f.store_buffer(zip.read_file(name))
 		f.close()
@@ -372,7 +372,7 @@ static func _unpacked(zip_path: String) -> String:
 	if DirAccess.rename_absolute(part, dir) != OK:
 		_wipe(part)
 		return ""
-	DotLog.info(CHANNEL, "unpacked %s into %s" % [zip_path, dir])
+	GSLog.info(CHANNEL, "unpacked %s into %s" % [zip_path, dir])
 	return dir
 
 
@@ -457,10 +457,10 @@ static func _title(folder: String, dir: String, name: String) -> String:
 
 
 ## The top centre of the world's solid hull with the largest footprint, lifted by [constant SPAWN_LIFT]; null without one.
-static func _widest_floor(mesh: DotMapBspMesh) -> Variant:
+static func _widest_floor(mesh: GSMapBspMesh) -> Variant:
 	var best: Variant = null
 	var best_area := -1.0
-	for hull: Dictionary in mesh.hull_shapes(DotMapBspMesh.WORLD, PackedStringArray(["solid"])):
+	for hull: Dictionary in mesh.hull_shapes(GSMapBspMesh.WORLD, PackedStringArray(["solid"])):
 		var points := (hull["shape"] as ConvexPolygonShape3D).points
 		if points.is_empty():
 			continue
@@ -472,5 +472,5 @@ static func _widest_floor(mesh: DotMapBspMesh) -> Variant:
 			best_area = area
 			best = Vector3(box.get_center().x, box.end.y + SPAWN_LIFT, box.get_center().z)
 	if best is Vector3:
-		return (best as Vector3) + mesh.model_origin(DotMapBspMesh.WORLD)
+		return (best as Vector3) + mesh.model_origin(GSMapBspMesh.WORLD)
 	return null

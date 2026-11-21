@@ -1,6 +1,6 @@
 extends Node3D
 
-## [DotMapEntities] on a real converted map's entity data.
+## [GSMapEntities] on a real converted map's entity data.
 
 const CHECKS := 53
 const SECTIONS := 8
@@ -15,7 +15,7 @@ var _doc: Dictionary = {}
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -23,7 +23,7 @@ func _run() -> void:
 	print("dot-map bsp entities")
 	_doc = JSON.parse_string(FileAccess.get_file_as_string(REAL))
 	if _doc is Dictionary and not _doc.is_empty():
-		var ents := DotMapEntities.from_manifest(_doc)
+		var ents := GSMapEntities.from_manifest(_doc)
 		_test_parse(ents)
 		_test_travel(ents)
 		_test_links(ents)
@@ -65,7 +65,7 @@ func _check(ok: bool, what: String) -> void:
 		_failures.append(what)
 
 
-func _test_parse(ents: DotMapEntities) -> void:
+func _test_parse(ents: GSMapEntities) -> void:
 	_section("parses a real converted map")
 	var d := ents.describe()
 	_check(d["movers"] == 34 and d["volumes"] == 2 and d["links"] == 113 and d["generic"] == 21, "section sizes: %s" % d)
@@ -85,7 +85,7 @@ func _test_parse(ents: DotMapEntities) -> void:
 	_done()
 
 
-func _test_travel(ents: DotMapEntities) -> void:
+func _test_travel(ents: GSMapEntities) -> void:
 	_section("door and lift travel comes from the brush bounds")
 	var plate := ents.mover_named("lift02_plate")
 	var rec := plate.record
@@ -96,7 +96,7 @@ func _test_travel(ents: DotMapEntities) -> void:
 	_check(plate.transform_at(0.5).origin.is_equal_approx(Vector3.UP * plate.distance * 0.5), "transform_at(0.5) is half")
 	_check(is_equal_approx(plate.travel_time, plate.distance / plate.speed) and plate.travel_time > 1.0, "travel_time is distance over speed: %f" % plate.travel_time)
 	_check(is_equal_approx(plate.advance(0.0, true, plate.travel_time / 4.0), 0.25) and plate.advance(0.9, false, 1e6) == 0.0, "advance moves a quarter, and stops at closed")
-	var hinge: DotMapMover = null
+	var hinge: GSMapMover = null
 	for m in ents.movers:
 		if m.kind == "rotate":
 			hinge = m
@@ -112,7 +112,7 @@ func _test_travel(ents: DotMapEntities) -> void:
 	_done()
 
 
-func _test_links(ents: DotMapEntities) -> void:
+func _test_links(ents: GSMapEntities) -> void:
 	_section("the link graph resolves")
 	var plate := ents.mover_named("lift02_plate")
 	var up := ents.mover_named("lift02_button_up")
@@ -139,26 +139,26 @@ func _test_links(ents: DotMapEntities) -> void:
 	_done()
 
 
-func _test_generic(ents: DotMapEntities) -> void:
+func _test_generic(ents: GSMapEntities) -> void:
 	_section("classes the converter does not know survive")
 	_check(ents.generic_of("path_track").size() == 6 and ents.generic_of("logic_auto").size() == 1, "path and logic entities kept")
 	_check(ents.unknown_classes().is_empty(), "the real map has none unknown")
 	var doc := {"entities": [{"entity": 7, "classname": "made_up_entity", "targetname": "x", "treatment": "unknown", "keys": {"foo": "bar"}}],
 			"links": [{"from": 7, "output": "OnThing", "target": "y", "input": "Go", "delay": 0.5, "to": [], "special": false}]}
-	var e := DotMapEntities.from_manifest(doc)
+	var e := GSMapEntities.from_manifest(doc)
 	_check(e.unknown_classes() == PackedStringArray(["made_up_entity"]), "an unknown class is reported")
 	_check(e.generic_of("made_up_entity")[0]["keys"]["foo"] == "bar", "with every key it had")
 	_check(e.links.unresolved().size() == 1 and e.links.fired_by(7, "OnThing")[0]["delay"] == 0.5, "its outputs are in the graph")
-	var empty := DotMapEntities.from_manifest({})
+	var empty := GSMapEntities.from_manifest({})
 	_check(empty.movers.is_empty() and empty.links.size() == 0 and empty.mover_named("x") == null, "an old manifest with none of it reads as empty")
 	_done()
 
 
-func _test_commands(ents: DotMapEntities) -> void:
+func _test_commands(ents: GSMapEntities) -> void:
 	_section("inputs as game-neutral commands, and the unconverted list")
-	_check(DotMapLinks.command_of("Open") == &"open" and DotMapLinks.command_of("TOGGLE") == &"toggle", "command_of ignores case")
-	_check(DotMapLinks.command_of("Lock") == &"lock" and DotMapLinks.command_of("Unlock") == &"unlock" and DotMapLinks.command_of("Close") == &"close", "lock, unlock, close")
-	_check(DotMapLinks.command_of("Use") == &"press" and DotMapLinks.command_of("EnableMotion") == &"", "press; an input with no command is empty")
+	_check(GSMapLinks.command_of("Open") == &"open" and GSMapLinks.command_of("TOGGLE") == &"toggle", "command_of ignores case")
+	_check(GSMapLinks.command_of("Lock") == &"lock" and GSMapLinks.command_of("Unlock") == &"unlock" and GSMapLinks.command_of("Close") == &"close", "lock, unlock, close")
+	_check(GSMapLinks.command_of("Use") == &"press" and GSMapLinks.command_of("EnableMotion") == &"", "press; an input with no command is empty")
 	var plate := ents.mover_named("lift01_plate")
 	var cmds := ents.commands_for(plate)
 	_check(not cmds.is_empty() and cmds[0]["command"] == &"open", "the lift plate is opened by a link: %s" % [cmds])
@@ -175,7 +175,7 @@ func _test_commands(ents: DotMapEntities) -> void:
 
 func _test_decal_kinds() -> void:
 	_section("a decal whose texture says nothing is left out, not drawn as a dark stain")
-	var fx := DotMapFx.new()
+	var fx := GSMapFx.new()
 	_check(fx._kind_of("props/decal_prison01a").is_empty(), "an unknown name draws nothing")
 	_check(str(fx._kind_of("decals/blood3")[0]) == "blood" and str(fx._kind_of("decals/oilstain")[0]) == "stain", "known names keep their kind")
 	_done()
@@ -184,7 +184,7 @@ func _test_decal_kinds() -> void:
 func _test_trails() -> void:
 	_section("env_spritetrail draws a ribbon behind what it follows")
 	var mk := func(cls: String, pairs: Array) -> Dictionary: return {"classname": cls, "pairs": pairs}
-	var fx := DotMapFx.new()
+	var fx := GSMapFx.new()
 	var mover := Node3D.new()
 	fx.trail_target_fn = func(n: String) -> Node3D: return mover if n == "rocket" else null
 	var root := fx.build([mk.call("env_spritetrail", [["origin", "0 0 100"], ["lifetime", "1"], ["startwidth", "20"], ["endwidth", "0"],
@@ -192,9 +192,9 @@ func _test_trails() -> void:
 			mk.call("env_sprite", [["origin", "0 0 0"], ["model", "sprites/glow01.vmt"]])])
 	add_child(root)
 	_check(int(fx.stats["trails"]) == 1 and int(fx.stats["skipped"]) == 1 and int(fx.stats["sprites"]) == 1, "one trail drawn, one without an origin skipped, sprites unchanged: %s" % [fx.stats])
-	var t: DotMapTrail = null
+	var t: GSMapTrail = null
 	for c in root.get_children():
-		if c is DotMapTrail:
+		if c is GSMapTrail:
 			t = c
 	_check(t.follow == mover and is_equal_approx(t.lifetime, 1.0) and t.start_width > t.end_width and t.colour.r > 0.99, "it follows its parent and takes the entity's lifetime, widths and colour")
 	var eye := Vector3(0, 5, 5)
@@ -215,11 +215,11 @@ func _test_push() -> void:
 	var planes := [[1, 0, 0, 1], [-1, 0, 0, 1], [0, 1, 0, 1], [0, -1, 0, 1], [0, 0, 1, 1], [0, 0, -1, 1]]
 	var rec := {"entity": 3, "model": 2, "classname": "trigger_push", "kind": "push", "spawnflags": 65, "disabled": true,
 			"direction": [0.0, 1.0, 0.0], "speed": 95.25, "brushes": [planes]}
-	var ents := DotMapEntities.from_manifest({"volumes": [rec]})
+	var ents := GSMapEntities.from_manifest({"volumes": [rec]})
 	var v := ents.volumes_of("push")[0]
 	_check(v.direction == Vector3.UP and is_equal_approx(v.speed, 95.25), "direction and speed read: %s %f" % [v.direction, v.speed])
 	_check(v.push_velocity().is_equal_approx(Vector3.UP * 95.25), "push_velocity is direction times speed")
 	_check(v.spawnflags == 65 and v.disabled, "spawnflags and the start-disabled state read")
 	_check(v.contains(Vector3.ZERO) and v.bounds().size.is_equal_approx(Vector3(2, 2, 2)), "it contains its middle and boxes 2 m")
-	_check(DotMapVolume.from_record({"kind": "hurt", "direction": [0, 1, 0], "speed": 3.0}).push_velocity() == Vector3.ZERO, "another kind pushes nothing")
+	_check(GSMapVolume.from_record({"kind": "hurt", "direction": [0, 1, 0], "speed": 3.0}).push_velocity() == Vector3.ZERO, "another kind pushes nothing")
 	_done()

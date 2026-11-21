@@ -1,4 +1,4 @@
-class_name DotMapNavLinks
+class_name GSMapNavLinks
 extends RefCounted
 
 ## What a converted map's own logic adds to a navigation mesh: the doors and teleports a body cannot just walk through, and the buttons, triggers and shots that make each usable.

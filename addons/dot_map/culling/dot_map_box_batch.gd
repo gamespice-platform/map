@@ -1,4 +1,4 @@
-class_name DotMapBoxBatch
+class_name GSMapBoxBatch
 extends RefCounted
 
 ## Draws a hand-built map's plain opaque boxes as a few meshes instead of one per box.
@@ -19,7 +19,7 @@ extends RefCounted
 ## [codeblock]
 ## # skip(body: Node3D, mesh: MeshInstance3D) -> bool: true leaves this box alone.
 ## var skip := func(body: Node3D, _mesh: MeshInstance3D) -> bool: return body.has_meta(&"breakable")
-## DotMapBoxBatch.build(level, DotMapBoxBatch.CELL, skip)
+## GSMapBoxBatch.build(level, GSMapBoxBatch.CELL, skip)
 ## [/codeblock]
 ##
 ## [param coarse] (metres, default 0 = off) adds a second pass for the boxes that are alone in

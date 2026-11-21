@@ -1,7 +1,7 @@
-class_name DotMapVpkWriter
+class_name GSMapVpkWriter
 extends RefCounted
 
-## Writes tiny VPK archives and VTF files of made-up pixels: the fixtures for [DotMapVpk] and [DotMapVtf], for a game's
+## Writes tiny VPK archives and VTF files of made-up pixels: the fixtures for [GSMapVpk] and [GSMapVtf], for a game's
 ## own tests of what it builds on them, and for a tool that needs a stand-in install. It never holds or writes anything
 ## of Valve's: the bytes are the caller's.
 
@@ -28,9 +28,9 @@ static func write_vpk(base: String, files: Dictionary, version := 2, bad_crc := 
 				var stored_in_dir := int(files[path][1]) < 0
 				var e := PackedByteArray()
 				e.resize(18)
-				e.encode_u32(0, DotMapVpk.crc32(bytes) ^ (1 if bad_crc else 0))
+				e.encode_u32(0, GSMapVpk.crc32(bytes) ^ (1 if bad_crc else 0))
 				e.encode_u16(4, preloaded)
-				e.encode_u16(6, DotMapVpk.IN_DIR if stored_in_dir else 0)
+				e.encode_u16(6, GSMapVpk.IN_DIR if stored_in_dir else 0)
 				e.encode_u32(8, (in_dir if stored_in_dir else part).size())
 				e.encode_u32(12, body.size())
 				e.encode_u16(16, 0xFFFF)
@@ -43,7 +43,7 @@ static func write_vpk(base: String, files: Dictionary, version := 2, bad_crc := 
 	tree.append(0)
 	var head := PackedByteArray()
 	head.resize(12 if version == 1 else 28)
-	head.encode_u32(0, DotMapVpk.SIG)
+	head.encode_u32(0, GSMapVpk.SIG)
 	head.encode_u32(4, version)
 	head.encode_u32(8, tree.size())
 	if version == 2:

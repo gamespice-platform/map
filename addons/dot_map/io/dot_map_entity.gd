@@ -1,6 +1,6 @@
-class_name DotMapEntity
+class_name GSMapEntity
 extends RefCounted
-# Map IO runtimes ("io" parameters here and in every entity) are DotMapIO, typed RefCounted so the entity
+# Map IO runtimes ("io" parameters here and in every entity) are GSMapIO, typed RefCounted so the entity
 # scripts and dot_map_io.gd (which names each of them) do not keep each other's parsers alive.
 
 ## One entity of the map's input/output runtime: a name, its keys, its output links and the inputs
@@ -19,7 +19,7 @@ var alive := true
 var color := ""
 ## The record this was built from, so a template can make a copy.
 var record: Dictionary = {}
-## The drawn model this entity drives, bound by [method DotMapIO.bind_world]; the logic runs without one.
+## The drawn model this entity drives, bound by [method GSMapIO.bind_world]; the logic runs without one.
 var node: Node3D = null
 ## Asked every tick for a view to update ([method tick_view]); set by classes that move.
 var animated := false
@@ -103,7 +103,7 @@ func accept(io: RefCounted, input: String, param: String, activator: Variant, ca
 
 
 ## [code]SetParent[/code] / [code]ClearParent[/code]: the parent's name is what [code]KillHierarchy[/code] and
-## [method DotMapIO.kill_hierarchy] follow, and a drawn node moves under the parent's drawn node when both
+## [method GSMapIO.kill_hierarchy] follow, and a drawn node moves under the parent's drawn node when both
 ## are bound (a mover then carries it). The attachment point after the name is ignored. No per-frame cost.
 func set_parent(io: RefCounted, param: String) -> void:
 	var target := param.strip_edges().split(" ", false, 1)[0] if not param.strip_edges().is_empty() else ""
@@ -121,7 +121,7 @@ func _reparent_node(io: RefCounted) -> void:
 		return
 	var np: Node = null
 	if not parentname.is_empty():
-		for p: DotMapEntity in io.resolve(parentname, self, null):
+		for p: GSMapEntity in io.resolve(parentname, self, null):
 			if p != self and p.node != null and p.node.is_inside_tree() and not node.is_ancestor_of(p.node):
 				np = p.node
 				break
@@ -247,8 +247,8 @@ func body_inside(_io: RefCounted, _info: Dictionary) -> void:
 	pass
 
 
-## The entity's [code]origin[/code] key in the game's metres and axes ([member DotMapIO.unit_scale],
-## [member DotMapIO.world_offset]).
+## The entity's [code]origin[/code] key in the game's metres and axes ([member GSMapIO.unit_scale],
+## [member GSMapIO.world_offset]).
 func origin(io: RefCounted) -> Vector3:
 	var f := key("origin", "0 0 0").split_floats(" ", false)
 	if f.size() < 3:

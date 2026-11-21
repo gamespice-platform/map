@@ -1,5 +1,5 @@
-class_name DotMapCompare
-extends DotMapEntity
+class_name GSMapCompare
+extends GSMapEntity
 
 ## logic_compare: holds a value and a comparison value; Compare fires OnLessThan, OnEqualTo,
 ## OnNotEqualTo or OnGreaterThan.

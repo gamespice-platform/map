@@ -1,5 +1,5 @@
-class_name DotMapTemplate
-extends DotMapEntity
+class_name GSMapTemplate
+extends GSMapEntity
 
 ## point_template: ForceSpawn makes a copy of each named template entity (Template01..16) and fires
 ## OnEntitySpawned for the set. The copies keep their names (preserve-names, spawnflag 2) or take a
@@ -9,7 +9,7 @@ var _copies := 0
 
 
 func _input(io: RefCounted, name: String, _param: String, activator: Variant, caller: Variant) -> bool:
-	var maker: int = (caller as DotMapEntity).index if caller is DotMapEntity else -1
+	var maker: int = (caller as GSMapEntity).index if caller is GSMapEntity else -1
 	match name:
 		"forcespawn":
 			_spawn(io, _names(), activator, maker)
@@ -38,16 +38,16 @@ func _spawn(io: RefCounted, names: Array, activator: Variant, maker: int) -> voi
 	var sources: Array = []
 	var renamed := {}
 	for n: String in names:
-		for src: DotMapEntity in io.find(n):
+		for src: GSMapEntity in io.find(n):
 			sources.append(src)
 			if not keep and not src.targetname.is_empty():
 				renamed[src.targetname.to_lower()] = "%s&%04d" % [src.targetname, _copies]
-	for src: DotMapEntity in sources:
+	for src: GSMapEntity in sources:
 		var rec := src.record.duplicate(true)
 		if renamed.has(src.targetname.to_lower()):
 			rec["targetname"] = renamed[src.targetname.to_lower()]
 		_fix_names(rec, renamed)
-		var e: DotMapEntity = io.spawn_record(rec)
+		var e: GSMapEntity = io.spawn_record(rec)
 		io.event("template_spawn", {"template": index, "source": src.index, "entity": e.index, "maker": maker})
 	fire(io, "OnEntitySpawned", activator)
 

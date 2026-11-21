@@ -1,33 +1,33 @@
-class_name DotMapVolumeNode
+class_name GSMapVolumeNode
 extends RefCounted
 
 ## One trigger, hurt, push, teleport, gravity, water or ladder volume of a map, joined to the
-## [DotMapEntity] that carries its outputs. [method step] finds who is inside and tells the entity
+## [GSMapEntity] that carries its outputs. [method step] finds who is inside and tells the entity
 ## (and, for push, teleport and gravity, the game) about entries, exits and bodies that stay.
 
 const TRIGGER_KINDS := ["multiple", "once", "teleport", "push", "hurt", "gravity", "soundscape"]
 ## Body kind to the trigger spawnflag that admits it (clients, NPCs, pushables, physics objects).
 const KIND_FLAG := {"player": 1, "npc": 2, "pushable": 4, "physics": 8}
 
-var volume: DotMapVolume
-var entity: DotMapEntity = null
+var volume: GSMapVolume
+var entity: GSMapEntity = null
 var inside: Dictionary = {}
 ## Parent follow: the movers the volume hangs from (nearest first) for the parent name in [member _parent_of],
 ## and their pose when it was attached (identity for the map's own parent, the pose then for a SetParent).
 var _parent_of := "\u0001"
-var _chain: Array[DotMapMoverNode] = []
+var _chain: Array[GSMapMoverNode] = []
 var _attach := Transform3D.IDENTITY
 ## The parent's motion this step: brush frame to world, and back. Identity when nothing carries the volume.
 var _frame := Transform3D.IDENTITY
 var _inv := Transform3D.IDENTITY
 
 
-func _init(v: DotMapVolume, e: DotMapEntity) -> void:
+func _init(v: GSMapVolume, e: GSMapEntity) -> void:
 	volume = v
 	entity = e
-	if e is DotMapPush:
-		(e as DotMapPush).direction = v.direction
-		(e as DotMapPush).speed = v.speed
+	if e is GSMapPush:
+		(e as GSMapPush).direction = v.direction
+		(e as GSMapPush).speed = v.speed
 
 
 ## Whether the volume does anything now: its entity is alive and enabled.
@@ -38,7 +38,7 @@ func active() -> bool:
 
 
 ## One step: [param bodies] are dictionaries [code]{id, body, position (feet), height, kind, name, class}[/code].
-func step(io: DotMapIO, bodies: Array) -> void:
+func step(io: GSMapIO, bodies: Array) -> void:
 	var now_in := {}
 	if active():
 		_follow(io)
@@ -79,15 +79,15 @@ func step(io: DotMapIO, bodies: Array) -> void:
 func _touches(info: Dictionary) -> bool:
 	if _frame == Transform3D.IDENTITY:
 		return volume.touches_column(info["position"], float(info.get("height", 1.8)))
-	var feet := (info["position"] as Vector3) - Vector3(0.0, DotMapVolume.COLUMN_SLACK, 0.0)
-	var span := Vector3(0.0, float(info.get("height", 1.8)) + DotMapVolume.COLUMN_SLACK, 0.0)
+	var feet := (info["position"] as Vector3) - Vector3(0.0, GSMapVolume.COLUMN_SLACK, 0.0)
+	var span := Vector3(0.0, float(info.get("height", 1.8)) + GSMapVolume.COLUMN_SLACK, 0.0)
 	return volume.touches_segment(_inv * feet, _inv.basis * span)
 
 
 ## A volume parented to a door, lift, train or spinner goes where it goes, as in the engine: the brushes stay in
 ## their own frame and each body is looked at from it. The chain is walked through parents that do not move
 ## themselves (a func_brush on a train) and composed nearest first. Found again only when the parent name changes.
-func _follow(io: DotMapIO) -> void:
+func _follow(io: GSMapIO) -> void:
 	var pname := entity.parentname if entity != null else str(volume.record.get("parentname", ""))
 	if pname != _parent_of:
 		_parent_of = pname
@@ -104,7 +104,7 @@ func _follow(io: DotMapIO) -> void:
 	_inv = _frame.affine_inverse()
 
 
-func _pose(io: DotMapIO) -> Transform3D:
+func _pose(io: GSMapIO) -> Transform3D:
 	var t := Transform3D.IDENTITY
 	for m in _chain:
 		if m.alive:
@@ -112,8 +112,8 @@ func _pose(io: DotMapIO) -> Transform3D:
 	return t
 
 
-static func _movers_above(io: DotMapIO, pname: String) -> Array[DotMapMoverNode]:
-	var out: Array[DotMapMoverNode] = []
+static func _movers_above(io: GSMapIO, pname: String) -> Array[GSMapMoverNode]:
+	var out: Array[GSMapMoverNode] = []
 	var seen := {}
 	var name := pname.strip_edges().split(",", false, 1)[0] if not pname.strip_edges().is_empty() else ""
 	while not name.is_empty() and not seen.has(name.to_lower()):
@@ -121,14 +121,14 @@ static func _movers_above(io: DotMapIO, pname: String) -> Array[DotMapMoverNode]
 		var found := io.find(name)
 		if found.is_empty():
 			break
-		var p: DotMapEntity = found[0]
-		if p is DotMapMoverNode:
+		var p: GSMapEntity = found[0]
+		if p is GSMapMoverNode:
 			out.append(p)
 		name = p.parentname.split(",", false, 1)[0] if not p.parentname.is_empty() else ""
 	return out
 
 
-func _admits(io: DotMapIO, info: Dictionary) -> bool:
+func _admits(io: GSMapIO, info: Dictionary) -> bool:
 	if not TRIGGER_KINDS.has(volume.kind):
 		return true
 	var flags := volume.spawnflags & 15
@@ -139,7 +139,7 @@ func _admits(io: DotMapIO, info: Dictionary) -> bool:
 
 ## A filter entity named by [code]filtername[/code]: filter_activator_name, filter_activator_class and
 ## filter_activator_team (the body's "team", Source's 2 and 3) are understood (and [code]negated[/code]); another class admits everyone and is counted.
-func _filter_passes(io: DotMapIO, info: Dictionary) -> bool:
+func _filter_passes(io: GSMapIO, info: Dictionary) -> bool:
 	if volume.filter.is_empty():
 		return true
 	var found := io.find(volume.filter)
@@ -148,13 +148,13 @@ func _filter_passes(io: DotMapIO, info: Dictionary) -> bool:
 	return _entity_passes(io, found[0], info, 0)
 
 
-## One filter entity against a body: [method DotMapFilter.entity_passes] (activator name, class and team, damage type,
+## One filter entity against a body: [method GSMapFilter.entity_passes] (activator name, class and team, damage type,
 ## filter_multi). Another class admits everyone and is counted.
-func _entity_passes(io: DotMapIO, f: DotMapEntity, info: Dictionary, depth: int) -> bool:
-	return DotMapFilter.entity_passes(io, f, info, depth)
+func _entity_passes(io: GSMapIO, f: GSMapEntity, info: Dictionary, depth: int) -> bool:
+	return GSMapFilter.entity_passes(io, f, info, depth)
 
 
-func _enter(io: DotMapIO, info: Dictionary) -> void:
+func _enter(io: GSMapIO, info: Dictionary) -> void:
 	if entity != null:
 		entity.body_enter(io, info)
 	match volume.kind:
@@ -164,18 +164,18 @@ func _enter(io: DotMapIO, info: Dictionary) -> void:
 			io.event("gravity", {"body": info.get("body"), "scale": float(volume.record.get("gravity", 1.0)), "inside": true})
 
 
-func _leave(io: DotMapIO, info: Dictionary) -> void:
+func _leave(io: GSMapIO, info: Dictionary) -> void:
 	if entity != null:
 		entity.body_leave(io, info)
 	if volume.kind == "gravity" and not (entity != null and entity.flag("persist")):
 		io.event("gravity", {"body": info.get("body"), "scale": 1.0, "inside": false})
 
 
-func _stay(io: DotMapIO, info: Dictionary) -> void:
+func _stay(io: GSMapIO, info: Dictionary) -> void:
 	if entity != null:
 		entity.body_inside(io, info)
 	if volume.kind == "push":
-		var v := volume.push_velocity() if not entity is DotMapPush else (entity as DotMapPush).velocity()
+		var v := volume.push_velocity() if not entity is GSMapPush else (entity as GSMapPush).velocity()
 		v = _frame.basis * v    # a parent that turned the volume turned its push
 		if v != Vector3.ZERO:
 			io.move_body(info.get("body"), v)
@@ -187,7 +187,7 @@ func _stay(io: DotMapIO, info: Dictionary) -> void:
 ## landmark it keeps its offset from the landmark and its own yaw, unless UseLandmarkAngles snaps it
 ## to the destination's. Velocity is kept either way. A body reports its own yaw (degrees) as
 ## [code]yaw[/code] in [param info]; one that does not gets the destination's.
-func _teleport(io: DotMapIO, info: Dictionary) -> void:
+func _teleport(io: GSMapIO, info: Dictionary) -> void:
 	var dest_name := volume.target
 	if entity != null:
 		var live := entity.key("target")
@@ -219,7 +219,7 @@ func _teleport(io: DotMapIO, info: Dictionary) -> void:
 
 
 ## A destination by name as the engine finds it: exact first, then ignoring case.
-static func _destination(io: DotMapIO, name: String) -> Dictionary:
+static func _destination(io: GSMapIO, name: String) -> Dictionary:
 	var d: Variant = io.destinations.get(name)
 	if d is Dictionary:
 		return d

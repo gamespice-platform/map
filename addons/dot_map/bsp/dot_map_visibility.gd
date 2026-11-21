@@ -1,4 +1,4 @@
-class_name DotMapVisibility
+class_name GSMapVisibility
 extends Node
 
 ## Draws only what the camera could see, from a converted map's precomputed visibility: [code]vis.setup(world, world_node)[/code] in the scene, [code]vis.set_door_open(name, true)[/code] opens a door's area portals.
@@ -19,7 +19,7 @@ signal clusters_changed(camera_clusters: PackedInt32Array)
 ## off, pvs, occluders or both ([method parse_mode]); a part the map has no data for is skipped.
 @export var mode: Mode = Mode.BOTH
 ## The camera to follow; unset follows the viewport's current camera.
-@export var camera_ref: DotNodeRef = null
+@export var camera_ref: GSNodeRef = null
 ## Metres round the camera whose clusters count as its own, so crossing a leaf never shows a frame late.
 @export var margin: float = 1.0
 ## Metres the camera moves before its clusters are looked up again.
@@ -31,7 +31,7 @@ signal clusters_changed(camera_clusters: PackedInt32Array)
 @export var chunk_view_distance: float = -1.0
 @export var run_headless: bool = false
 
-var world: DotMapBspMesh = null
+var world: GSMapBspMesh = null
 var root: Node3D = null
 
 var _planes := PackedFloat32Array()
@@ -139,10 +139,10 @@ static func parse_mode(text: String) -> Mode:
 	return MODE_NAMES.get(text.strip_edges().to_lower(), Mode.BOTH)
 
 
-## Reads [param mesh]'s visibility and takes over [param drawn] (its [method DotMapBspMesh.build_node]
+## Reads [param mesh]'s visibility and takes over [param drawn] (its [method GSMapBspMesh.build_node]
 ## tree, with [code]Props[/code] anywhere below it). Fails when the map has no visibility data;
 ## the world is then drawn as it was.
-func setup(mesh: DotMapBspMesh, drawn: Node3D) -> DotResult:
+func setup(mesh: GSMapBspMesh, drawn: Node3D) -> GSResult:
 	world = mesh
 	root = drawn
 	var info: Dictionary = mesh.manifest.get("vis", {})
@@ -169,12 +169,12 @@ func setup(mesh: DotMapBspMesh, drawn: Node3D) -> DotResult:
 	_build_occluder(mesh)
 	_apply_view_distance(mesh)
 	_last_pos = Vector3.INF
-	DotLog.debug(CHANNEL, "visibility set up", describe())
+	GSLog.debug(CHANNEL, "visibility set up", describe())
 	if _clusters == 0 and _occluder == null:
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "the map has no visibility data", str(mesh.manifest.get("name", "")))
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "the map has no visibility data", str(mesh.manifest.get("name", "")))
 	_watch_lights()
 	_apply_mode()
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
 func set_mode(m: Mode) -> void:
@@ -197,11 +197,11 @@ func set_door_open(targetname: String, open: bool) -> void:
 	_dirty = true
 
 
-## Follows every [DotAreaPortal] under [param under] (key or door set): their state is applied now and on each change. Returns how many were bound.
+## Follows every [GSAreaPortal] under [param under] (key or door set): their state is applied now and on each change. Returns how many were bound.
 func bind_area_portals(under: Node) -> int:
 	var n := 0
-	for p in under.find_children("*", "DotAreaPortal", true, false):
-		var portal := p as DotAreaPortal
+	for p in under.find_children("*", "GSAreaPortal", true, false):
+		var portal := p as GSAreaPortal
 		if portal.key < 0 and portal.door.is_empty():
 			continue
 		if not portal.toggled.is_connected(_on_area_portal.bind(portal)):
@@ -211,7 +211,7 @@ func bind_area_portals(under: Node) -> int:
 	return n
 
 
-func _on_area_portal(open: bool, portal: DotAreaPortal) -> void:
+func _on_area_portal(open: bool, portal: GSAreaPortal) -> void:
 	if portal.key >= 0:
 		set_portal_open(portal.key, open)
 	if not portal.door.is_empty():
@@ -286,7 +286,7 @@ static func _aabb_under(n: Node3D, base: Node3D) -> AABB:
 	return out
 
 
-func _build_occluder(mesh: DotMapBspMesh) -> void:
+func _build_occluder(mesh: GSMapBspMesh) -> void:
 	var verts := mesh.vis_bytes("occluder_vertices", 12).to_vector3_array()
 	var index := mesh.vis_bytes("occluder_indices").to_int32_array()
 	if verts.is_empty() or index.size() < 3:
@@ -299,7 +299,7 @@ func _build_occluder(mesh: DotMapBspMesh) -> void:
 	root.add_child(_occluder)
 
 
-func _apply_view_distance(mesh: DotMapBspMesh) -> void:
+func _apply_view_distance(mesh: GSMapBspMesh) -> void:
 	var far := chunk_view_distance
 	if far < 0.0:
 		far = 0.0
@@ -315,7 +315,7 @@ func _apply_view_distance(mesh: DotMapBspMesh) -> void:
 
 
 func _process(_delta: float) -> void:
-	if not _pvs_on() or (DotPlatform.is_headless() and not run_headless) or root == null:
+	if not _pvs_on() or (GSPlatform.is_headless() and not run_headless) or root == null:
 		return
 	var cam := _camera()
 	if cam == null:

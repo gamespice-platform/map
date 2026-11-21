@@ -3,8 +3,8 @@ extends "tests_sync.gd"
 ## Delivered maps, workshop maps and the commands sections.
 
 ## The whole point of "maps are content", run end to end. GameSpice Cloud is loaded by path, not named. This addon
-## must compile in a project that does not have it — that is why [DotMapLoader] duck-types through
-## [DotRegistry] — and a `class_name` in this file would take the whole suite down with it.
+## must compile in a project that does not have it — that is why [GSMapLoader] duck-types through
+## [GSRegistry] — and a `class_name` in this file would take the whole suite down with it.
 func _test_sync_a_delivered_map() -> void:
 	_section("a map the peer has to download")
 
@@ -21,7 +21,7 @@ func _test_sync_a_delivered_map() -> void:
 		return
 
 	var data := "user://dot_map_delivered_test"
-	DotPaths.remove_tree(data)
+	GSPaths.remove_tree(data)
 
 	var pair_keys := _publish_delivered_pack(data)
 	if pair_keys.is_empty():
@@ -33,34 +33,34 @@ func _test_sync_a_delivered_map() -> void:
 	# missing: reading the two sides side by side is the whole check.
 	_check(
 		cloud.has_method("ensure") and cloud.has_method("is_mounted"),
-		"the cloud client speaks the interface DotMapLoader calls",
+		"the cloud client speaks the interface GSMapLoader calls",
 		"ensure/is_mounted — it offered acquire/is_ready and nothing noticed"
 	)
 
-	var delivered := DotMapDef.new()
+	var delivered := GSMapDef.new()
 	delivered.id = &"surf_pack_map"
 	delivered.version = "1.0.0"
 	delivered.content_id = &"surf_pack"
 	delivered.scene_path = "res://dot_cloud/surf_pack/1.0.0/world.tscn"
 
-	var host_catalogue := DotMapCatalogue.new()
+	var host_catalogue := GSMapCatalogue.new()
 	host_catalogue.add(delivered)
 
 	# The client's catalogue is EMPTY, which is the realistic case: a records server
 	# carries two hundred maps and a client ships none of them. Everything the client
 	# knows about this map, it learns from the announce.
-	var pair: SyncPair = await _make_pair(self, host_catalogue, DotMapCatalogue.new())
+	var pair: SyncPair = await _make_pair(self, host_catalogue, GSMapCatalogue.new())
 
 	var loader := pair.client_session.loader
 	_check(loader != null and not loader.is_ready(delivered), "the peer does not have the map yet")
 
 	var fetched: Array[String] = []
 	pair.client.fetching.connect(
-		func(map: DotMapDef) -> void: fetched.append(String(map.id))
+		func(map: GSMapDef) -> void: fetched.append(String(map.id))
 	)
 	var failures: Array[String] = []
 	pair.client.fetch_failed.connect(
-		func(_map: DotMapDef, error: DotError) -> void:
+		func(_map: GSMapDef, error: GSError) -> void:
 			failures.append(error.message)
 	)
 
@@ -79,7 +79,7 @@ func _test_sync_a_delivered_map() -> void:
 	pair.client_session.queue_free()
 	cloud.queue_free()
 	await get_tree().process_frame
-	DotPaths.remove_tree(data)
+	GSPaths.remove_tree(data)
 	_done()
 
 
@@ -92,13 +92,13 @@ func _publish_delivered_pack(data: String) -> Dictionary:
 		"[gd_scene format=3]\n\n"
 		+ "[node name=\"DeliveredMap\" type=\"Node\"]\n"
 	)
-	var written := DotPaths.write_text(source.path_join("world.tscn"), scene)
+	var written := GSPaths.write_text(source.path_join("world.tscn"), scene)
 	_check(written.ok, "a map scene is written to publish")
 
 	var signature: Variant = load(
 		"res://addons/dot_cloud/verify/dot_cloud_signature.gd"
 	)
-	var keys: DotResult = signature.generate_keypair()
+	var keys: GSResult = signature.generate_keypair()
 	_check(keys.ok, "a signing key pair is generated")
 
 	if not keys.ok:
@@ -116,7 +116,7 @@ func _publish_delivered_pack(data: String) -> Dictionary:
 	publisher.signing_key_pem = str(pair_keys["private"])
 	publisher.signing_key_id = "test"
 
-	var published: DotResult = publisher.publish(source, out)
+	var published: GSResult = publisher.publish(source, out)
 	_check(published.ok, "the map pack publishes", str(published.error))
 
 	if not published.ok:
@@ -190,7 +190,7 @@ func _check_delivered_pair(cloud: Node, pair: SyncPair, host_progress: Array[flo
 	# `_test_sync_a_joiner_is_told_to_load`'s.
 	var joining := pair.host.join_payload()
 	_check(
-		DotMapMessage.kind_of(joining) == DotMapMessage.KIND_ANNOUNCE,
+		GSMapMessage.kind_of(joining) == GSMapMessage.KIND_ANNOUNCE,
 		"a peer joining now would be sent an announce"
 	)
 	_check(
@@ -200,7 +200,7 @@ func _check_delivered_pair(cloud: Node, pair: SyncPair, host_progress: Array[flo
 
 
 ## A content client that answers the first fetch late and counts how many were running. Stands in front of a
-## real [code]DotCloudClient[/code], so what is mounted is a real signed pack; the delay is the suite's, so
+## real [code]GSCloudClient[/code], so what is mounted is a real signed pack; the delay is the suite's, so
 ## the host's timeout can be made to pass while the peer is still downloading — a straggler, on demand.
 class SlowContent:
 	extends Node
@@ -217,7 +217,7 @@ class SlowContent:
 	func ensure(
 		content_id: StringName, version: String = "",
 		groups: PackedStringArray = PackedStringArray(), manifest_url: String = ""
-	) -> DotResult:
+	) -> GSResult:
 		calls.append(_running)
 		_running += 1
 		if delay_first > 0.0 and not _delayed:
@@ -234,10 +234,10 @@ class SlowContent:
 ## Publishes one signed pack of data files under [param data]/dist.
 func _publish_pack(
 	data: String, id: String, version: String, files: Dictionary, keys: Dictionary
-) -> DotResult:
+) -> GSResult:
 	var source := data.path_join("src_%s" % id)
 	for name in files:
-		var written := DotPaths.write_text(source.path_join(str(name)), str(files[name]))
+		var written := GSPaths.write_text(source.path_join(str(name)), str(files[name]))
 		if not written.ok:
 			return written
 	var publisher: Variant = load("res://addons/dot_cloud/publish/dot_cloud_publisher.gd").new()
@@ -261,9 +261,9 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 		return
 
 	var data := "user://dot_map_template_test"
-	DotPaths.remove_tree(data)
+	GSPaths.remove_tree(data)
 
-	var keys: DotResult = load("res://addons/dot_cloud/verify/dot_cloud_signature.gd").generate_keypair()
+	var keys: GSResult = load("res://addons/dot_cloud/verify/dot_cloud_signature.gd").generate_keypair()
 	if not keys.ok:
 		_check(false, "a signing key pair is generated", str(keys.error))
 		return
@@ -280,22 +280,22 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 	var real: Node = slow.real
 
 	var template := "res://fixtures/test_world.tscn"
-	var host_catalogue := DotMapCatalogue.new()
+	var host_catalogue := GSMapCatalogue.new()
 	for id in ["surf_data", "slow_data"]:
-		var map := DotMapDef.new()
+		var map := GSMapDef.new()
 		map.id = StringName(id.replace("_data", "_map") if id == "slow_data" else id + "_map")
 		map.content_id = StringName(id)
 		map.scene_path = template
 		map.meta["manifest"] = "res://dot_cloud/%s/1.0.0/%s.json" % [id, String(map.id)]
 		host_catalogue.add(map)
 
-	var pair: SyncPair = await _make_pair(self, host_catalogue, DotMapCatalogue.new())
+	var pair: SyncPair = await _make_pair(self, host_catalogue, GSMapCatalogue.new())
 	pair.client.trusted_template_scenes = PackedStringArray([template])
 
 	var fetched: Array[String] = []
-	pair.client.fetching.connect(func(m: DotMapDef) -> void: fetched.append(String(m.id)))
+	pair.client.fetching.connect(func(m: GSMapDef) -> void: fetched.append(String(m.id)))
 	var failures: Array[String] = []
-	pair.client.fetch_failed.connect(func(_m: DotMapDef, e: DotError) -> void:
+	pair.client.fetch_failed.connect(func(_m: GSMapDef, e: GSError) -> void:
 		failures.append("%s %s" % [e.message, e.detail]))
 
 	var changed := await _change_and_pump(pair, &"surf_data_map", 20.0)
@@ -312,11 +312,11 @@ func _test_sync_a_delivered_template_and_a_straggler() -> void:
 	await _test_straggler(pair, slow, failures)
 
 	await _free_pair(pair)
-	DotRegistry.unregister_instance(&"dot_cloud_client", slow)
+	GSRegistry.unregister_instance(&"dot_cloud_client", slow)
 	slow.queue_free()
 	real.queue_free()
 	await get_tree().process_frame
-	DotPaths.remove_tree(data)
+	GSPaths.remove_tree(data)
 	_done()
 
 
@@ -340,7 +340,7 @@ func _add_slow_cloud(client_script: Variant, data: String, public_key: String) -
 	slow.name = "SlowContent"
 	slow.real = real
 	add_child(slow)
-	DotRegistry.register(&"dot_cloud_client", slow)
+	GSRegistry.register(&"dot_cloud_client", slow)
 	await get_tree().process_frame
 	return slow
 
@@ -368,7 +368,7 @@ func _test_straggler(pair: SyncPair, slow: SlowContent, failures: Array[String])
 		"and its late ready was not answered with a second load (%s)" % [pair.sent_to(1)])
 
 
-## A fixture pack as the index holds it after a mount: the dictionary DotCloudClient hands
+## A fixture pack as the index holds it after a mount: the dictionary GSCloudClient hands
 ## add_pack. Two maps of two kinds, a weapon, and a map of a kind no game here accepts.
 func _workshop_pack(cid: String, version: String, session: StringName, map_id := "utopia_one") -> Dictionary:
 	return {
@@ -393,13 +393,13 @@ func _test_workshop_maps() -> void:
 	print("")
 	_section("-- Workshop maps follow the content index")
 
-	var index := DotContentIndex.new()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	var index := GSContentIndex.new()
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	var catalogue := _catalogue(3)
 	catalogue.follow_content(index, PackedStringArray(["surf", "bhop"]))
 	_check(catalogue.size() == 3, "an empty index adds nothing")
 
-	index.add_pack(_workshop_pack("alice/utopia", "1.0.0", DotContentIndex.SESSION_SOLO))
+	index.add_pack(_workshop_pack("alice/utopia", "1.0.0", GSContentIndex.SESSION_SOLO))
 	var one := catalogue.get_map(&"utopia_one")
 	var hop := catalogue.get_map(&"utopia_bhop")
 	_check(one != null and hop != null and catalogue.size() == 5,
@@ -418,17 +418,17 @@ func _test_workshop_maps() -> void:
 		"a pack map is marked with its pack and the game's own maps are not")
 
 	# The places a player sees the list.
-	var vote := DotMapVote.new()
+	var vote := GSMapVote.new()
 	vote.max_options = 5
 	vote.begin(catalogue, [one, hop])
 	_check("Utopia One [Utopia surf maps]" in vote.option_labels(),
 		"the vote ballot shows the pack name")
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	session.catalogue = catalogue
 	session.initial_map = &""
 	add_child(session)
 	var host := FakeHost.new()
-	DotMapCommands.install(host, session)
+	GSMapCommands.install(host, session)
 	var ctx := FakeCtx.new()
 	(host.commands["maps"] as FakeCommand).handler.call(ctx)
 	_check(ctx.replies.size() == 1 and ctx.replies[0].contains("utopia_one [Utopia surf maps]")
@@ -437,7 +437,7 @@ func _test_workshop_maps() -> void:
 	session.queue_free()
 
 	# A pack cannot take a map's id from the game.
-	index.add_pack(_workshop_pack("bob/clash", "1.0.0", DotContentIndex.SESSION_SOLO, "surf_1"))
+	index.add_pack(_workshop_pack("bob/clash", "1.0.0", GSContentIndex.SESSION_SOLO, "surf_1"))
 	_check(catalogue.get_map(&"surf_1").pack_title == "",
 		"a pack map under an id the game already holds does not replace it")
 
@@ -450,27 +450,27 @@ func _test_workshop_maps() -> void:
 		"a row the operator replaced is theirs and survives a refresh")
 
 	catalogue.unfollow_content()
-	index.add_pack(_workshop_pack("carol/late", "1.0.0", DotContentIndex.SESSION_SOLO, "late_map"))
+	index.add_pack(_workshop_pack("carol/late", "1.0.0", GSContentIndex.SESSION_SOLO, "late_map"))
 	_check(catalogue.get_map(&"late_map") == null and catalogue.get_map(&"utopia_bhop") == null,
 		"an unfollowed catalogue drops the pack maps and hears no more")
 	_done()
 
 
-func _test_workshop_sessions(index: DotContentIndex, catalogue: DotMapCatalogue) -> void:
+func _test_workshop_sessions(index: GSContentIndex, catalogue: GSMapCatalogue) -> void:
 	# Online never sees a solo entry; solo again brings them back.
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	_check(catalogue.get_map(&"utopia_one") == null and catalogue.size() == 3,
 		"in an online session no solo entry appears")
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	_check(catalogue.get_map(&"utopia_one") != null,
 		"and solo shows them again, since nothing was ever removed")
 
 	# A pack the server also requires is tagged online; tag_pack is silent, so refresh.
-	index.tag_pack(&"alice/utopia", "1.0.0", DotContentIndex.SESSION_ONLINE)
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.tag_pack(&"alice/utopia", "1.0.0", GSContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	catalogue.refresh_content()
 	_check(catalogue.get_map(&"utopia_one") != null, "a pack the server also requires shows online")
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	index.set_session(GSContentIndex.SESSION_SOLO)
 
 	# Accepts: none by default, "*" for all.
 	var none := _catalogue(1)
@@ -488,7 +488,7 @@ class FakeCommand:
 	var help := ""
 	var permission := ""
 	var handler: Callable = Callable()
-	## Tri-state, like DotConCommand.ChatPolicy: "" is the host server's default, and the
+	## Tri-state, like GSConCommand.ChatPolicy: "" is the host server's default, and the
 	## other two are the command's own word. A plain bool here would have hidden the
 	## difference the real console now draws.
 	var chat := ""
@@ -512,8 +512,8 @@ class FakeCommand:
 		return self
 
 
-## A `DotModule`-shaped host and nothing else, not a real `DotConsole`: GameSpice Server is not linked here
-## and `DotMapCommands` names no GameSpice Server class, so a fake proves the duck-typing.
+## A `GSModule`-shaped host and nothing else, not a real `GSConsole`: GameSpice Server is not linked here
+## and `GSMapCommands` names no GameSpice Server class, so a fake proves the duck-typing.
 class FakeHost:
 	extends RefCounted
 
@@ -537,7 +537,7 @@ class FakeHost:
 		return c
 
 
-## What a DotModule looks like to a commands class: add_command, a console, and no has_name.
+## What a GSModule looks like to a commands class: add_command, a console, and no has_name.
 class ModuleHost:
 	extends RefCounted
 
@@ -567,13 +567,13 @@ func _test_commands() -> void:
 	print("")
 	_section("-- `map` belongs here, not in dot-server")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	session.catalogue = _catalogue(4)
 	session.initial_map = &""
 	add_child(session)
 
 	var host := FakeHost.new()
-	var commands := DotMapCommands.install(host, session)
+	var commands := GSMapCommands.install(host, session)
 
 	_check(commands.registered.size() == 5, "five commands register on a duck-typed host")
 	_check(host.commands.has("map"), "including the plain name dot-server used to hold")
@@ -588,7 +588,7 @@ func _test_commands() -> void:
 	# The records-server deployment: a map change that no flag makes typable, because what
 	# it destroys is every run in progress rather than anything about who is asking.
 	var strict_host := FakeHost.new()
-	var strict := DotMapCommands.new()
+	var strict := GSMapCommands.new()
 	strict.session = session
 	strict.allow_chat_change = false
 	strict.bind(strict_host)
@@ -623,19 +623,19 @@ func _test_commands() -> void:
 	_done()
 
 
-func _test_commands_fetch(session: DotMapSession, map_cmd: FakeCommand) -> void:
+func _test_commands_fetch(session: GSMapSession, map_cmd: FakeCommand) -> void:
 	# A server whose maps arrive over the network holds what has been FETCHED, and the id a player just typed is
 	# normally not in it. Refusing that id is refusing a map that exists -- and the refusal happened BEFORE
 	# `change_fn`, so the one piece of code written to go and get it was never reached.
 	var fetched := []
 	var fetching := FakeHost.new()
-	var fetcher := DotMapCommands.new()
+	var fetcher := GSMapCommands.new()
 	fetcher.session = session
 	fetcher.may_fetch_unknown = true
-	fetcher.change_fn = func(id: StringName) -> DotResult:
+	fetcher.change_fn = func(id: StringName) -> GSResult:
 		fetched.append(id)
-		return DotResult.success(null) if String(id).begins_with("surf_") \
-			else DotResult.fail(DotError.CODE_INVALID, "Nothing to fetch.")
+		return GSResult.success(null) if String(id).begins_with("surf_") \
+			else GSResult.fail(GSError.CODE_INVALID, "Nothing to fetch.")
 	fetcher.bind(fetching)
 	var fetch_cmd := fetching.commands["map"] as FakeCommand
 
@@ -675,22 +675,22 @@ func _test_commands_fetch(session: DotMapSession, map_cmd: FakeCommand) -> void:
 	)
 
 
-func _test_commands_naming(session: DotMapSession) -> void:
+func _test_commands_naming(session: GSMapSession) -> void:
 	# Every name is configurable, for GameSpice Vote's reason: a deployment may already have a
 	# `map` of its own, and a second registration of one name is the first one gone.
-	var renamed := DotMapCommands.new()
+	var renamed := GSMapCommands.new()
 	renamed.session = session
 	renamed.prefix = "sv_"
 	renamed.names = {"maps": "maplist"}
 	_check(renamed.command_name("maps") == "sv_maplist", "every command name is configurable")
 
-	# The changer is duck-typed on `change_to` so a DotMapSyncHost can stand in front of
+	# The changer is duck-typed on `change_to` so a GSMapSyncHost can stand in front of
 	# the session -- the two have the same three methods deliberately.
-	var sync := DotMapSyncHost.new()
+	var sync := GSMapSyncHost.new()
 	sync.session = session
 	add_child(sync)
 	var synced_host := FakeHost.new()
-	DotMapCommands.install(synced_host, session, sync)
+	GSMapCommands.install(synced_host, session, sync)
 	_check(
 		synced_host.commands.has("map"),
 		"and a sync host stands in for the session without dot-map caring which it got"
@@ -698,7 +698,7 @@ func _test_commands_naming(session: DotMapSession) -> void:
 	sync.queue_free()
 
 
-func _test_commands_change(session: DotMapSession, map_cmd: FakeCommand) -> void:
+func _test_commands_change(session: GSMapSession, map_cmd: FakeCommand) -> void:
 	# The change itself, ACTUALLY PERFORMED. Both `change_to` methods are coroutines, so a handler that called
 	# one without awaiting would get a GDScriptFunctionState back, skip its reply, and leave an operator with
 	# "Changing to X…" and no answer -- while the map changed perfectly.
@@ -719,9 +719,9 @@ func _test_commands_change(session: DotMapSession, map_cmd: FakeCommand) -> void
 	# under all three.
 	var routed := []
 	var by_fn := FakeHost.new()
-	DotMapCommands.install_with(by_fn, session, func(id: StringName) -> DotResult:
+	GSMapCommands.install_with(by_fn, session, func(id: StringName) -> GSResult:
 		routed.append(id)
-		return DotResult.success(null)
+		return GSResult.success(null)
 	)
 	var fn_ctx := FakeCtx.new()
 	fn_ctx.args = PackedStringArray(["surf_1"])

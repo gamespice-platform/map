@@ -1,5 +1,5 @@
-class_name DotMapNpcStub
-extends DotMapEntity
+class_name GSMapNpcStub
+extends GSMapEntity
 
 ## npc_metropolice, npc_combine_s, npc_citizen as the map's I/O sees them: a health value the map may set. There is no
 ## AI here; [code]SetHealth[/code] stores the value, reports it as state and sends an [code]npc_health[/code] event so a

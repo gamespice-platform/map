@@ -1,9 +1,9 @@
-class_name DotMapTeleport
-extends DotMapEntity
+class_name GSMapTeleport
+extends GSMapEntity
 
 ## trigger_teleport as logic: where it sends a body is its live [code]target[/code] key, so
 ## [code]SetRemoteDestination[/code] and [code]AddOutput target ...[/code] re-aim it as in the engine.
-## The move itself is [method DotMapVolumeNode._teleport] (the volume carries the touch).
+## The move itself is [method GSMapVolumeNode._teleport] (the volume carries the touch).
 
 
 func _input(io: RefCounted, name: String, param: String, _activator: Variant, _caller: Variant) -> bool:

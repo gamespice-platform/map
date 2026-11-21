@@ -1,9 +1,9 @@
-class_name DotMapFilter
-extends DotMapEntity
+class_name GSMapFilter
+extends GSMapEntity
 
 ## filter_activator_name, filter_activator_class, filter_activator_team, filter_damage_type and filter_multi.
 ## [method passes] answers for one body or hit described by an info dictionary ([code]name[/code], [code]class[/code], [code]team[/code], [code]damage_type[/code]); [code]TestActivator[/code] asks the same of an input's activator and fires [code]OnPass[/code] or [code]OnFail[/code].
-## A key the host's info does not carry admits everyone and is counted in [member DotMapIO.unhandled] as [code]filter|<class>[/code], so a missing answer is visible, never a silent block.
+## A key the host's info does not carry admits everyone and is counted in [member GSMapIO.unhandled] as [code]filter|<class>[/code], so a missing answer is visible, never a silent block.
 
 const MAX_DEPTH := 4
 
@@ -61,10 +61,10 @@ func _admit_unknown(io: RefCounted) -> bool:
 	return true
 
 
-## Any filter entity against [param info]: a [DotMapFilter] answers, another class admits everyone and is counted.
-static func entity_passes(io: RefCounted, f: DotMapEntity, info: Dictionary, depth: int = 0) -> bool:
-	if f is DotMapFilter:
-		return (f as DotMapFilter).passes(io, info, depth)
+## Any filter entity against [param info]: a [GSMapFilter] answers, another class admits everyone and is counted.
+static func entity_passes(io: RefCounted, f: GSMapEntity, info: Dictionary, depth: int = 0) -> bool:
+	if f is GSMapFilter:
+		return (f as GSMapFilter).passes(io, info, depth)
 	var k := "filter|" + f.classname.to_lower()
 	io.unhandled[k] = int(io.unhandled.get(k, 0)) + 1
 	return true

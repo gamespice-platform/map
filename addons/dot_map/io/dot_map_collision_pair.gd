@@ -1,5 +1,5 @@
-class_name DotMapCollisionPair
-extends DotMapEntity
+class_name GSMapCollisionPair
+extends GSMapEntity
 
 ## logic_collision_pair: stops two named entities colliding with each other (it starts doing so unless StartDisabled is 0).
 ## Bodies are the game's, so each change is told as a [code]collision_pair[/code] event: [code]collide[/code] false means

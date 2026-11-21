@@ -1,8 +1,8 @@
 @tool
-class_name DotMapSyncClient
+class_name GSMapSyncClient
 extends Node
 
-## A peer's half of a map change: fetch what the host named, say so, then show it; the counterpart to [DotMapSyncHost].
+## A peer's half of a map change: fetch what the host named, say so, then show it; the counterpart to [GSMapSyncHost].
 ## Transport-agnostic: set [member send_fn] to reach the host and feed what arrives into [method handle].
 ## A host never names a scene path: the map comes from this client's own catalogue by id unless [member accept_unknown_maps], which is safe only inside GameSpice Cloud's mount.
 
@@ -17,19 +17,19 @@ const MOUNT_ROOT := "res://dot_cloud/"
 const CLOUD_SERVICE := &"dot_cloud_client"
 
 ## The host announced a map and the fetch has begun. For a progress screen.
-signal fetching(map: DotMapDef)
+signal fetching(map: GSMapDef)
 
 ## Fetch progress, 0..1.
 signal fetch_progress(fraction: float)
 
 ## The content is here. The host has not said to show it yet.
-signal content_ready(map: DotMapDef)
+signal content_ready(map: GSMapDef)
 
 ## The map is in the world.
-signal changed(map: DotMapDef)
+signal changed(map: GSMapDef)
 
 ## Something went wrong on this end. The host will time this peer out.
-signal fetch_failed(map: DotMapDef, error: DotError)
+signal fetch_failed(map: GSMapDef, error: GSError)
 
 ## The host abandoned the change.
 signal change_aborted(map_id: StringName, reason: String)
@@ -37,7 +37,7 @@ signal change_aborted(map_id: StringName, reason: String)
 @export_group("Wiring")
 
 ## The session this drives. Required.
-@export var session_ref: DotNodeRef = null
+@export var session_ref: GSNodeRef = null
 
 @export_group("Trust")
 
@@ -55,7 +55,7 @@ signal change_aborted(map_id: StringName, reason: String)
 ## inside its own pack. The shape this exists for is one built-in scene that reads a delivered document.
 @export var trusted_template_scenes: PackedStringArray = PackedStringArray()
 
-## The [member DotMapDef.meta] keys a listed template reads its data from. Each must be present and inside
+## The [member GSMapDef.meta] keys a listed template reads its data from. Each must be present and inside
 ## the mount; a templated map naming none of them is refused, because a template with no data to read is not
 ## a delivered map.
 @export var template_path_keys: PackedStringArray = PackedStringArray(["manifest"])
@@ -67,13 +67,13 @@ signal change_aborted(map_id: StringName, reason: String)
 @export_range(0.0, 5.0, 0.05) var progress_interval_sec: float = 0.25
 
 ## The session this drives, assigned directly when there is no [member session_ref].
-var session: DotMapSession = null
+var session: GSMapSession = null
 
 ## Sends one payload to the host. Set by the game.
 var send_fn: Callable = Callable()
 
 ## The map this client was last told to get, whether or not it has it.
-var announced: DotMapDef = null
+var announced: GSMapDef = null
 
 ## Whether the content for [member announced] is here.
 var is_ready: bool = false
@@ -100,34 +100,34 @@ func _ready() -> void:
 	if session == null and session_ref != null:
 		var resolved := session_ref.resolve(self)
 		if resolved.ok:
-			session = resolved.value as DotMapSession
+			session = resolved.value as GSMapSession
 
 
 ## Feeds one payload from the host in. Returns whether it was a map message, so a game sharing a channel can
 ## keep looking. Not awaited by the caller — an announce starts a fetch that can take minutes, and a
 ## transport's receive path must not be suspended for it.
 func handle(payload: Dictionary) -> bool:
-	if not DotMapMessage.is_map_message(payload):
+	if not GSMapMessage.is_map_message(payload):
 		return false
 
-	match DotMapMessage.kind_of(payload):
-		DotMapMessage.KIND_ANNOUNCE:
+	match GSMapMessage.kind_of(payload):
+		GSMapMessage.KIND_ANNOUNCE:
 			var announcement: Variant = payload.get("map", {})
 			if announcement is Dictionary:
 				_on_announce(announcement as Dictionary)
 			return true
 
-		DotMapMessage.KIND_LOAD:
+		GSMapMessage.KIND_LOAD:
 			_on_load(
 				StringName(str(payload.get("map", ""))),
 				str(payload.get("version", ""))
 			)
 			return true
 
-		DotMapMessage.KIND_ABORT:
+		GSMapMessage.KIND_ABORT:
 			var id := StringName(str(payload.get("map", "")))
 			var reason := str(payload.get("reason", ""))
-			DotLog.info(CHANNEL, "the host abandoned the map change", {
+			GSLog.info(CHANNEL, "the host abandoned the map change", {
 				"map": String(id), "why": reason
 			})
 			announced = null
@@ -138,8 +138,8 @@ func handle(payload: Dictionary) -> bool:
 
 	# A ready or a progress arriving here is the host talking like a peer, which is a
 	# wiring mistake worth seeing rather than ignoring.
-	DotLog.warn(CHANNEL, "the host sent a peer-only message", {
-		"kind": String(DotMapMessage.kind_of(payload))
+	GSLog.warn(CHANNEL, "the host sent a peer-only message", {
+		"kind": String(GSMapMessage.kind_of(payload))
 	})
 	return true
 
@@ -148,7 +148,7 @@ func _on_announce(dict: Dictionary) -> void:
 	var accepted := _accept(dict)
 
 	if not accepted.ok:
-		DotLog.warn(CHANNEL, "refusing the announced map", {
+		GSLog.warn(CHANNEL, "refusing the announced map", {
 			"why": accepted.error.message, "detail": accepted.error.detail
 		})
 		# Deliberately silent to the host beyond not reporting ready: it will time
@@ -157,7 +157,7 @@ func _on_announce(dict: Dictionary) -> void:
 		fetch_failed.emit(null, accepted.error)
 		return
 
-	var map: DotMapDef = accepted.value
+	var map: GSMapDef = accepted.value
 
 	announced = map
 	is_ready = false
@@ -167,16 +167,16 @@ func _on_announce(dict: Dictionary) -> void:
 
 ## Fetches the announced map's content and reports readiness. Its own coroutine rather than an awaited call
 ## from [method handle], so a transport's receive path is never suspended for the length of a download.
-func _fetch(map: DotMapDef) -> void:
+func _fetch(map: GSMapDef) -> void:
 	if _fetching:
 		# A second announce while the first is in flight is a host that changed its mind. The first fetch finishes
 		# and reports against the map it was for; the host compares ids and versions, so a stale report cannot be
 		# mistaken for a current one.
-		DotLog.debug(CHANNEL, "already fetching; the newer announce will follow")
+		GSLog.debug(CHANNEL, "already fetching; the newer announce will follow")
 
 	if session == null or session.loader == null:
-		fetch_failed.emit(map, DotError.make(
-			DotError.CODE_STATE, "No map session to fetch through."
+		fetch_failed.emit(map, GSError.make(
+			GSError.CODE_STATE, "No map session to fetch through."
 		))
 		return
 
@@ -185,7 +185,7 @@ func _fetch(map: DotMapDef) -> void:
 		# what makes changing back to a map everybody has instant.
 		is_ready = true
 		content_ready.emit(map)
-		_send(DotMapMessage.ready(map.id, map.version))
+		_send(GSMapMessage.ready(map.id, map.version))
 		return
 
 	var key := _key_of(map)
@@ -194,9 +194,9 @@ func _fetch(map: DotMapDef) -> void:
 	_subscribe_to_progress()
 	fetching.emit(map)
 	_progress_sent_at = Time.get_ticks_msec()
-	_send(DotMapMessage.progress(map.id, 0.0))
+	_send(GSMapMessage.progress(map.id, 0.0))
 
-	var fetched: DotResult = await session.loader.ensure_content(map)
+	var fetched: GSResult = await session.loader.ensure_content(map)
 
 	_in_flight.erase(key)
 	_fetching = not _in_flight.is_empty()
@@ -205,7 +205,7 @@ func _fetch(map: DotMapDef) -> void:
 		_load_after_fetch = ""
 
 	if not fetched.ok:
-		DotLog.error(CHANNEL, "could not get the announced map", {
+		GSLog.error(CHANNEL, "could not get the announced map", {
 			"map": String(map.id), "why": fetched.error.message
 		})
 		fetch_failed.emit(map, fetched.error)
@@ -214,7 +214,7 @@ func _fetch(map: DotMapDef) -> void:
 	if announced == map:
 		is_ready = true
 	content_ready.emit(map)
-	_send(DotMapMessage.ready(map.id, map.version))
+	_send(GSMapMessage.ready(map.id, map.version))
 
 	if load_waiting and announced == map:
 		_load(map)
@@ -233,7 +233,7 @@ func _on_load(id: StringName, version: String) -> void:
 		)
 
 		if target == null:
-			DotLog.warn(CHANNEL, "told to load a map we were never sent", {
+			GSLog.warn(CHANNEL, "told to load a map we were never sent", {
 				"map": String(id)
 			})
 			return
@@ -242,7 +242,7 @@ func _on_load(id: StringName, version: String) -> void:
 	# version second, so a refused load left `announced` naming the map it had just refused — and the next load
 	# for that id found it there and skipped the catalogue lookup that would have been asked.
 	if version != "" and target.version != version:
-		DotLog.warn(CHANNEL, "told to load a different version than announced", {
+		GSLog.warn(CHANNEL, "told to load a different version than announced", {
 			"map": String(id), "announced": target.version, "asked": version
 		})
 		return
@@ -253,7 +253,7 @@ func _on_load(id: StringName, version: String) -> void:
 	# its load while its download is still running.
 	if _in_flight.has(_key_of(target)):
 		_load_after_fetch = _key_of(target)
-		DotLog.debug(CHANNEL, "told to load a map still downloading; loading when it lands", {
+		GSLog.debug(CHANNEL, "told to load a map still downloading; loading when it lands", {
 			"map": String(id)
 		})
 		return
@@ -261,11 +261,11 @@ func _on_load(id: StringName, version: String) -> void:
 	_load(target)
 
 
-func _load(map: DotMapDef) -> void:
-	var changed_result: DotResult = await session.change_to_map(map)
+func _load(map: GSMapDef) -> void:
+	var changed_result: GSResult = await session.change_to_map(map)
 
 	if not changed_result.ok:
-		DotLog.error(CHANNEL, "the announced map would not load", {
+		GSLog.error(CHANNEL, "the announced map would not load", {
 			"map": String(map.id), "why": changed_result.error.message
 		})
 		fetch_failed.emit(map, changed_result.error)
@@ -277,11 +277,11 @@ func _load(map: DotMapDef) -> void:
 ## Turns an announced definition into a map this client is willing to load. The client's own catalogue wins
 ## outright when it has the id: a host may tell this client [i]which[/i] map, never [i]what[/i] the map is
 ## made of.
-func _accept(dict: Dictionary) -> DotResult:
+func _accept(dict: Dictionary) -> GSResult:
 	var id := StringName(str(dict.get("id", "")))
 
 	if id == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "The announced map has no id.")
+		return GSResult.fail(GSError.CODE_INVALID, "The announced map has no id.")
 
 	if session != null and session.catalogue != null:
 		var known := session.catalogue.get_map(id)
@@ -293,8 +293,8 @@ func _accept(dict: Dictionary) -> DotResult:
 			var wanted := str(dict.get("version", known.version))
 
 			if wanted != known.version and known.is_local():
-				return DotResult.fail(
-					DotError.CODE_STATE,
+				return GSResult.fail(
+					GSError.CODE_STATE,
 					"This client has a different version of that map.",
 					"%s: have %s, asked for %s" % [String(id), known.version, wanted]
 				)
@@ -311,11 +311,11 @@ func _accept(dict: Dictionary) -> DotResult:
 					and wanted_pack != known.effective_content_version():
 				return _accept_delivered(dict, id)
 
-			return DotResult.success(known)
+			return GSResult.success(known)
 
 	if not accept_unknown_maps:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"This client does not have that map and will not take one from a host.",
 			String(id)
 		)
@@ -326,8 +326,8 @@ func _accept(dict: Dictionary) -> DotResult:
 ## Accepts a map this client did not already know, if and only if it is delivered. The refusal is the whole
 ## control. A definition from a host may name any scene path it likes, and a client that loaded one would
 ## load anything in its own build.
-func _accept_delivered(dict: Dictionary, id: StringName) -> DotResult:
-	var map := DotMapDef.from_dictionary(dict)
+func _accept_delivered(dict: Dictionary, id: StringName) -> GSResult:
+	var map := GSMapDef.from_dictionary(dict)
 
 	var valid := map.validate()
 
@@ -335,8 +335,8 @@ func _accept_delivered(dict: Dictionary, id: StringName) -> DotResult:
 		return valid.wrap("The announced map is not usable.")
 
 	if map.is_local():
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"A host may not send a map that is not delivered content.",
 			"%s names no content_id, so its scene would be a path in this build"
 				% String(id)
@@ -349,8 +349,8 @@ func _accept_delivered(dict: Dictionary, id: StringName) -> DotResult:
 	# The id and version are the host's, and a version of ".." names a prefix that simplifies to
 	# "res://dot_cloud/", which every pack's files begin with.
 	if prefix.simplify_path() + "/" != prefix:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"The announced map's content address is not a plain id and version.",
 			prefix
 		)
@@ -360,15 +360,15 @@ func _accept_delivered(dict: Dictionary, id: StringName) -> DotResult:
 	# simplify_path first, because "res://dot_cloud/a/1/../../../addons/x.tscn" does
 	# begin with the prefix. GameSpice Cloud learned this one the same way.
 	if not templated and not _is_under(map.scene_path, prefix):
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"The announced map's scene is outside its own content.",
 			"%s is not under %s" % [map.scene_path, prefix]
 		)
 
 	if map.zones_path != "" and not _is_under(map.zones_path, prefix):
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"The announced map's zone file is outside its own content.",
 			"%s is not under %s" % [map.zones_path, prefix]
 		)
@@ -384,7 +384,7 @@ func _accept_delivered(dict: Dictionary, id: StringName) -> DotResult:
 		session.catalogue.remove(map.id)
 		session.catalogue.add(map)
 
-	return DotResult.success(map)
+	return GSResult.success(map)
 
 
 ## Whether [param path] is one of [member trusted_template_scenes], exactly.
@@ -400,7 +400,7 @@ func _is_trusted_template(path: String) -> bool:
 
 ## A templated map's data: the named keys present, and every path in its meta inside
 ## its own content. See [member trusted_template_scenes] for what this does not cover.
-func _check_template_data(map: DotMapDef, prefix: String) -> DotResult:
+func _check_template_data(map: GSMapDef, prefix: String) -> GSResult:
 	var named := 0
 
 	for key in template_path_keys:
@@ -411,15 +411,15 @@ func _check_template_data(map: DotMapDef, prefix: String) -> DotResult:
 			continue
 		named += 1
 		if not _is_under(value, prefix):
-			return DotResult.fail(
-				DotError.CODE_FORBIDDEN,
+			return GSResult.fail(
+				GSError.CODE_FORBIDDEN,
 				"The announced map's data is outside its own content.",
 				"meta.%s: %s is not under %s" % [key, value, prefix]
 			)
 
 	if named == 0:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"The announced map names a template scene and no delivered data for it.",
 			"%s: none of meta.%s is set" % [String(map.id), ", meta.".join(template_path_keys)]
 		)
@@ -429,13 +429,13 @@ func _check_template_data(map: DotMapDef, prefix: String) -> DotResult:
 	# host can point it at a file in this build.
 	var stray := _stray_path(map.meta, prefix, "meta")
 	if stray != "":
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"The announced map carries a path outside its own content.",
 			stray
 		)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## The first path-shaped string under [param value] that is not inside [param prefix],
@@ -474,20 +474,20 @@ static func _is_under(path: String, prefix: String) -> bool:
 	return path.strip_edges().simplify_path().begins_with(prefix)
 
 
-static func _key_of(map: DotMapDef) -> String:
+static func _key_of(map: GSMapDef) -> String:
 	return "%s@%s" % [String(map.id), map.version]
 
 
 func _send(payload: Dictionary) -> void:
 	if not send_fn.is_valid():
-		DotLog.warn(CHANNEL, "no send_fn; the host will never hear that we are ready")
+		GSLog.warn(CHANNEL, "no send_fn; the host will never hear that we are ready")
 		return
 	send_fn.call(payload)
 
 
 ## Subscribes to GameSpice Cloud's download progress, once. Wired here rather than left to the game.
 func _subscribe_to_progress() -> void:
-	var cloud := DotRegistry.get_service(CLOUD_SERVICE)
+	var cloud := GSRegistry.get_service(CLOUD_SERVICE)
 
 	if cloud == null or not cloud.has_signal("progress_changed"):
 		return
@@ -517,7 +517,7 @@ func report_progress(fraction: float) -> void:
 			and now - _progress_sent_at < int(progress_interval_sec * 1000.0):
 		return
 	_progress_sent_at = now
-	_send(DotMapMessage.progress(announced.id, clamped))
+	_send(GSMapMessage.progress(announced.id, clamped))
 
 
 func describe() -> Dictionary:

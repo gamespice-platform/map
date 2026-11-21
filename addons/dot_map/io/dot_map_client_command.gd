@@ -1,5 +1,5 @@
-class_name DotMapClientCommand
-extends DotMapEntity
+class_name GSMapClientCommand
+extends GSMapEntity
 
 ## point_clientcommand: Command is recorded as kind "clientcommand" for the game to read and is never executed, not even for an allow-listed name.
 

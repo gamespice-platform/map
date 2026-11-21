@@ -12,7 +12,7 @@ const SECTIONS := 48
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -107,14 +107,14 @@ func _test_command_names() -> void:
 	_check(Array(spec["names"]["maps"]) == ["listmaps"], "a game's list replaces the default list (%s)" % [spec["names"]["maps"]])
 	_check(Array(spec["names"]["mapinfo"]) == ["where"], "and a name that is not repeated survives the layering")
 
-	var session := DotMapSession.new()
+	var session := GSMapSession.new()
 	session.catalogue = _catalogue(2)
 	session.initial_map = &""
 	add_child(session)
 
 	var wide := _file([{"defaults": {"commands": {"prefix": "sv_", "names": {"maps": ["maplist", "ml"], "mapinfo": "where"}}}}])
 	var host := FakeHost.new()
-	var commands := DotMapCommands.new()
+	var commands := GSMapCommands.new()
 	commands.session = session
 	commands.spec_fn = wide.commands
 	commands.bind(host)
@@ -127,23 +127,23 @@ func _test_command_names() -> void:
 	# A collision is a WARN and a skip, never a steal.
 	var held := FakeHost.new()
 	held.taken = ["maplist"]
-	var clash := DotMapCommands.new()
+	var clash := GSMapCommands.new()
 	clash.session = session
 	clash.names = {"maps": ["maplist", "ml"]}
 	clash.bind(held)
 	_check(not held.commands.has("maplist") and held.commands.has("ml"), "a name another command holds is skipped and the alias still registers")
 	_check(clash.skipped == PackedStringArray(["maplist"]), "and the skip is recorded (%s)" % [clash.skipped])
-	var twice := DotMapCommands.new()
+	var twice := GSMapCommands.new()
 	twice.session = session
 	twice.names = {"maps": "mapinfo"}
 	var dup := FakeHost.new()
 	twice.bind(dup)
 	_check(twice.skipped.has("mapinfo") and dup.commands["mapinfo"].handler == twice._cmd_maps, "two roles on one name: the first keeps it")
 
-	# A DotModule host has no has_name of its own; the check must go through its console.
+	# A GSModule host has no has_name of its own; the check must go through its console.
 	var mod := ModuleHost.new()
 	mod.console.taken = ["status"]
-	var grab := DotMapCommands.new()
+	var grab := GSMapCommands.new()
 	grab.session = session
 	grab.names = {"maps": ["status", "ml"]}
 	grab.bind(mod)
@@ -158,7 +158,7 @@ func _test_rotation_exempt() -> void:
 	var ids := ["dm_a", "dm_b", "surf_x", "bhop_one", "m_z"]
 	# Only exempt: everything else, sorted by id; the exempt map stays installed.
 	var cat := _named_catalogue(ids)
-	var rot := DotMapRotation.of(cat)
+	var rot := GSMapRotation.of(cat)
 	var f := _file([{"exempt": ["m_z"]}])
 	var res := f.apply(rot)
 	_check(Array(res.value) == ["bhop_one", "dm_a", "dm_b", "surf_x"], "only exempt: all installed maps but m_z, sorted (%s)" % [res.value])
@@ -185,14 +185,14 @@ func _test_rotation_exempt() -> void:
 	f.apply(rot, "calm")
 	_check(_ids_in(cat) == ["bhop_one", "dm_a", "dm_b", "m_z"], "a rotation with only exempt: plays everything else")
 	# A pack that arrives later is covered by a file with only exempt:.
-	var index := DotContentIndex.new()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	var index := GSContentIndex.new()
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	var lcat := _named_catalogue(["dm_a", "m_z"])
 	lcat.follow_content(index, PackedStringArray(["surf", "bhop"]))
-	var lrot := DotMapRotation.of(lcat)
+	var lrot := GSMapRotation.of(lcat)
 	var lf := _file([{"exempt": ["m_z", "utopia_bhop"]}])
 	lf.apply(lrot)
-	index.add_pack(_workshop_pack("alice/utopia", "1.0.0", DotContentIndex.SESSION_SOLO))
+	index.add_pack(_workshop_pack("alice/utopia", "1.0.0", GSContentIndex.SESSION_SOLO))
 	_check(lcat.get_map(&"utopia_one").in_rotation and not lcat.get_map(&"utopia_bhop").in_rotation
 		and lcat.get_map(&"dm_a").in_rotation and not lcat.get_map(&"m_z").in_rotation,
 		"a pack mounted later joins the rotation except its exempt maps")
@@ -208,7 +208,7 @@ func _test_rotation_exempt() -> void:
 	_done()
 
 
-func _ids_in_after(f: DotMapRotationFile, rot: DotMapRotation, cat: DotMapCatalogue) -> Array:
+func _ids_in_after(f: GSMapRotationFile, rot: GSMapRotation, cat: GSMapCatalogue) -> Array:
 	f.apply(rot)
 	return _ids_in(cat)
 
@@ -216,13 +216,13 @@ func _ids_in_after(f: DotMapRotationFile, rot: DotMapRotation, cat: DotMapCatalo
 func _test_zero_config_rotation() -> void:
 	_section("no rotation file: installed maps rotate sorted by id")
 	var cat := _named_catalogue(["m_c", "m_a", "m_b"])
-	var rot := DotMapRotation.of(cat)
-	rot.mode = DotMapRotation.Mode.SEQUENTIAL
-	DotMapRotationFile.from_trees([]).value.apply(rot)
-	var ids: Array = rot.pool().map(func(m: DotMapDef) -> String: return String(m.id))
+	var rot := GSMapRotation.of(cat)
+	rot.mode = GSMapRotation.Mode.SEQUENTIAL
+	GSMapRotationFile.from_trees([]).value.apply(rot)
+	var ids: Array = rot.pool().map(func(m: GSMapDef) -> String: return String(m.id))
 	_check(ids == ["m_a", "m_b", "m_c"], "pool is sorted by id (%s)" % [ids])
 	rot.sort_unordered = false
-	ids = rot.pool().map(func(m: DotMapDef) -> String: return String(m.id))
+	ids = rot.pool().map(func(m: GSMapDef) -> String: return String(m.id))
 	_check(ids == ["m_c", "m_a", "m_b"], "sort_unordered = false keeps catalogue order (%s)" % [ids])
 	_done()
 
@@ -230,7 +230,7 @@ func _test_zero_config_rotation() -> void:
 func _test_rotation_play() -> void:
 	_section("rotation entries carry per-map settings")
 	var cat := _named_catalogue(["zz_camp_a", "zz_camp_b", "zz_plain", "other"])
-	var rot := DotMapRotation.of(cat)
+	var rot := GSMapRotation.of(cat)
 	var f := _file([{"defaults": {"maps": ["zz_plain", {"zz_camp_*": {"waves": "camp_nights"}}, {"map": "other", "waves": "hard", "profile": "night"}]}}])
 	f.apply(rot)
 	_check(cat.get_map(&"zz_camp_a").play == {"waves": "camp_nights"} and cat.get_map(&"zz_camp_b").play == {"waves": "camp_nights"},
@@ -255,8 +255,8 @@ func _test_rotation_profile() -> void:
 	_put(pdir.path_join("night/fast.yml"), "mode: koth\ngravity: 600\n")
 	_put(base.path_join("abs_prof.yml"), "mode: ffa\nfraglimit: 30\n")
 	var cat := _named_catalogue(["p_a", "p_b", "g_one", "g_two", "p_plain", "p_path", "p_abs", "p_missing", "p_both"])
-	var rot := DotMapRotation.of(cat)
-	var tree: Variant = DotYaml.parse("""defaults:
+	var rot := GSMapRotation.of(cat)
+	var tree: Variant = GSYaml.parse("""defaults:
   mode: tdm
   rotations:
     main:
@@ -286,7 +286,7 @@ func _test_rotation_profile() -> void:
 	f.config_dir = base
 	_check(f.warnings.is_empty(), "a game mode and cfg: in a rotation body are not read as the picking mode (%s)" % [f.warnings])
 	f.apply(rot, "main")
-	_check(rot.mode == DotMapRotation.Mode.SEQUENTIAL and rot.order.size() == 9, "mode: cycle still picks the order, and every entry plays")
+	_check(rot.mode == GSMapRotation.Mode.SEQUENTIAL and rot.order.size() == 9, "mode: cycle still picks the order, and every entry plays")
 	var a := cat.get_map(&"p_a").profile
 	_check(a.get("mode") == "ctf" and a.get("values") == {"timelimit": 20} and str(a.get("cfg_path")).ends_with("cfg/ctf.yml"),
 		"the map:/mode: entry form names a mode, and cfg/ctf.yml gives its cvars (nested values skipped) (%s)" % [a])
@@ -312,16 +312,16 @@ func _test_rotation_profile() -> void:
 	_check(cat.get_map(&"p_plain").profile.get("mode") == "tdm", "a rotation without one takes the section's")
 	_check(cat.get_map(&"p_a").profile.is_empty(), "a map out of rotation has no profile")
 	var seen: Array = []
-	f.profile_changed.connect(func(m: DotMapDef, prof: Dictionary) -> void: seen.append([m.id, prof.get("mode")]))
+	f.profile_changed.connect(func(m: GSMapDef, prof: Dictionary) -> void: seen.append([m.id, prof.get("mode")]))
 	f.note_changed(cat.get_map(&"p_plain"))
 	_check(seen == [[&"p_plain", "tdm"]], "profile_changed reports the map's profile (%s)" % [seen])
-	_check(DotMapRotationFile.is_mode_id("ctf") and not DotMapRotationFile.is_mode_id("ctf.yml")
-		and not DotMapRotationFile.is_mode_id("a/b") and not DotMapRotationFile.is_mode_id("/x/y"), "what counts as a mode id")
+	_check(GSMapRotationFile.is_mode_id("ctf") and not GSMapRotationFile.is_mode_id("ctf.yml")
+		and not GSMapRotationFile.is_mode_id("a/b") and not GSMapRotationFile.is_mode_id("/x/y"), "what counts as a mode id")
 	var plain := _file([{"defaults": {"maps": ["p_a"]}}])
 	plain.apply(rot)
 	_check(cat.get_map(&"p_a").profile.is_empty(), "no mode or cfg: no profile")
 	var live := {"timelimit": 10, "gravity": 800}
-	var mc := DotMapConfig.new()
+	var mc := GSMapConfig.new()
 	mc.allow("timelimit", {"type": "int"})
 	mc.get_fn = func(k: String) -> Variant: return live.get(k)
 	mc.set_fn = func(k: String, v: Variant) -> bool:
@@ -373,7 +373,7 @@ func _test_map_config() -> void:
 	_cfg_file("server/addons", "surf_exact", "fc_gravity: 400\n")
 	_cfg_file("addons", "bad_type", "fc_air: fast\nrm: \"quit\"\nfc_gravity: -5\n")
 
-	var cfg := DotMapConfig.new()
+	var cfg := GSMapConfig.new()
 	cfg.config_dir = CFG_ROOT
 	cfg.allow("fc_air", {"type": "float"}).allow("fc_gravity", {"type": "float", "min": 0.0})
 	cfg.defaults = {"fc_air": 10, "fc_extra": 1}
@@ -412,7 +412,7 @@ func _test_map_config() -> void:
 	_cfg_file("addons", "PF_@", "fc_gravity: 44\n")
 	_cfg_file("addons", "pf_abc", "fc_air: 55\n")
 	_cfg_file("server/addons", "pf_%", "fc_air: 66\n")
-	var pc := DotMapConfig.new()
+	var pc := GSMapConfig.new()
 	pc.config_dir = CFG_ROOT
 	pc.allow("fc_air", {"type": "float"}).allow("fc_gravity", {"type": "float"})
 	var ps: Dictionary = pc.resolve("pf_zzz").value["settings"]
@@ -427,7 +427,7 @@ func _test_map_config() -> void:
 	_done()
 
 
-func _test_map_config_restore(cfg: DotMapConfig) -> void:
+func _test_map_config_restore(cfg: GSMapConfig) -> void:
 	var live := {"fc_air": 150.0, "fc_gravity": 800.0, "fc_extra": 0}
 	cfg.defaults = {}
 	cfg.get_fn = func(k: String) -> Variant: return live.get(k)
@@ -441,7 +441,7 @@ func _test_map_config_restore(cfg: DotMapConfig) -> void:
 	cfg.apply("dm_plain")
 	_check(live["fc_air"] == 77.0, "a value changed since is not stomped on restore")
 	var clamped := {"fc_air": 150.0, "fc_gravity": 800.0, "fc_extra": 0}
-	var cfg2 := DotMapConfig.new()
+	var cfg2 := GSMapConfig.new()
 	cfg2.config_dir = CFG_ROOT
 	cfg2.allow("fc_air", {"type": "float"}).allow("fc_gravity", {"type": "float", "min": 0.0}).allow("fc_extra")
 	cfg2.get_fn = func(k: String) -> Variant: return clamped.get(k)
@@ -456,7 +456,7 @@ func _test_map_config_restore(cfg: DotMapConfig) -> void:
 	_check(cfg2._check("fc_extra", 1.0e30).ok, "a huge value is accepted")
 	cfg2.allow("fc_int", {"type": "int"})
 	_check(not cfg2._check("fc_int", 1.0e30).ok, "an int too big to hold is refused, not clamped")
-	var bare := DotMapConfig.new()
+	var bare := GSMapConfig.new()
 	_check(not bare.apply("x").ok, "apply without hooks fails")
 
 
@@ -488,18 +488,18 @@ func _test_supports() -> void:
 		{"bounds": [5.0, 0.0, 0.0, 6.0, 1.0, 1.0], "health": 10.0, "holds": [2], "model": 8},
 		{"health": 5.0},
 	]
-	var made := DotMapSupport.build_all(recs, 8, true, 10)
+	var made := GSMapSupport.build_all(recs, 8, true, 10)
 	_check(made.size() == 2, "a record without bounds is no support", str(made.size()))
-	var s: DotMapSupport = made[0]
+	var s: GSMapSupport = made[0]
 	_check(s.holds == PackedInt32Array([10, 11]) and s.collision_layer == 8 and s.collision_mask == 0, "it holds the offset indexes and collides with nothing", str(s.holds))
-	_check(DotMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 10.0) == 0 and absf(s.health - 20.0) < 0.01, "a shot along the ray hurts the nearest, not the one behind it")
-	_check(DotMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 10.0, 2.0) == -1, "a wall nearer than the support keeps the shot off it")
-	_check(DotMapSupport.shoot(made, Vector3(-3, 3.5, 0.5), Vector3.RIGHT, 20.0, 10.0) == -1, "a miss hurts nothing")
+	_check(GSMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 10.0) == 0 and absf(s.health - 20.0) < 0.01, "a shot along the ray hurts the nearest, not the one behind it")
+	_check(GSMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 10.0, 2.0) == -1, "a wall nearer than the support keeps the shot off it")
+	_check(GSMapSupport.shoot(made, Vector3(-3, 3.5, 0.5), Vector3.RIGHT, 20.0, 10.0) == -1, "a miss hurts nothing")
 	var told := []
 	var _c := s.broken.connect(func(held: PackedInt32Array, _at: Vector3) -> void: told.append(held))
-	var _hit := DotMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 25.0)
+	var _hit := GSMapSupport.shoot(made, Vector3(-3, 0.5, 0.5), Vector3.RIGHT, 20.0, 25.0)
 	_check(s.is_broken() and told.size() == 1 and told[0] == PackedInt32Array([10, 11]) and s.collision_layer == 0, "when its health runs out it breaks, tells what stood on it and stops being a body")
-	var client := DotMapSupport.build_all(recs, 8, false)
+	var client := GSMapSupport.build_all(recs, 8, false)
 	_check(not client[1].hurt(500.0) and not client[1].is_broken(), "a client's hurt does nothing")
 	client[1].apply_broken()
 	_check(client[1].is_broken(), "but the host's word breaks it there")

@@ -3,8 +3,8 @@ extends "suite_base.gd"
 ## The harness of [code]io_world_demo[/code] (record and world builders) and its door stand-in sections; split out only to keep each file small.
 
 
-func _io(records: Array, rate: int = 20) -> DotMapIO:
-	var io := DotMapIO.new()
+func _io(records: Array, rate: int = 20) -> GSMapIO:
+	var io := GSMapIO.new()
 	io.rate = rate
 	io.rng_seed = 3
 	io.record_history = true
@@ -12,12 +12,12 @@ func _io(records: Array, rate: int = 20) -> DotMapIO:
 	return io
 
 
-func _door_rec(entity: int, kind: String = "slide", extra: Dictionary = {}) -> DotMapMover:
+func _door_rec(entity: int, kind: String = "slide", extra: Dictionary = {}) -> GSMapMover:
 	var d := {"entity": entity, "model": entity, "kind": kind, "classname": "func_door", "targetname": "door",
 			"direction": [0, 1, 0], "distance": 2.0, "travel_time": 2.0, "wait": 3.0, "origin": [0, 0, 0],
 			"axis": [0, 1, 0], "degrees": 90.0}
 	d.merge(extra, true)
-	return DotMapMover.from_record(d)
+	return GSMapMover.from_record(d)
 
 
 ## A model node with one solid child, as the mesh builder makes.
@@ -37,7 +37,7 @@ func _solid(n: Node3D) -> bool:
 	return (n.get_child(0) as StaticBody3D).collision_layer != 0
 
 
-func _ticks(io: DotMapIO, tname: String, key: String, value: Variant) -> Array:
+func _ticks(io: GSMapIO, tname: String, key: String, value: Variant) -> Array:
 	var out: Array = []
 	for h: Dictionary in io.history:
 		if h["name"] == tname and h["key"] == key and h["value"] == value:
@@ -52,9 +52,9 @@ func _test_door_standin() -> void:
 	var m := _door_rec(0, "rotate", {"model": null, "classname": "prop_door_rotating", "targetname": "pd",
 			"origin": [3, 0, 4], "axis": [0, 1, 0], "degrees": 90.0, "travel_time": 1.0, "use": true})
 	io.bind_movers([m])
-	var door := DotMapDoorStandIn.build(m, 90.0)
+	var door := GSMapDoorStandIn.build(m, 90.0)
 	add_child(door)
-	var e := io.entity_of(0) as DotMapMoverNode
+	var e := io.entity_of(0) as GSMapMoverNode
 	e.set_hit_box(Transform3D(), Vector3.ONE)
 	e.bind_node(door)
 	_check(door.position == Vector3(3, 0, 4) and is_equal_approx(door.rotation.y, deg_to_rad(90.0)), "the node sits at the hinge, yawed by the entity's angles")
@@ -64,7 +64,7 @@ func _test_door_standin() -> void:
 	io.send("pd", "Open")
 	io.advance(20)
 	_check(door.transform.basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(180.0))) and door.position.is_equal_approx(Vector3(3, 0, 4)), "opening swings it a further 90 degrees about the hinge")
-	_check((io.entity_of(1) as DotMapCounter).value == 1.0, "and OnFullyOpen fires at the end")
+	_check((io.entity_of(1) as GSMapCounter).value == 1.0, "and OnFullyOpen fires at the end")
 	io.send("pd", "Close")
 	io.advance(20)
 	_check(door.transform.basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(90.0))), "closing swings it back")
@@ -80,14 +80,14 @@ func _test_door_hinge() -> void:
 	var hrec := {"model": null, "classname": "prop_door_rotating", "targetname": "hd", "origin": [10, 0, 20], "axis": [0, 1, 0],
 			"degrees": 90.0, "travel_time": 1.0, "open_dir": 0, "yaw": 0.0, "panel_yaw": 0.0, "panel_width": 1.2, "panel_offset": 0.6, "use": true}
 	var hm := _door_rec(0, "rotate", hrec)
-	var hdoor := DotMapDoorStandIn.build(hm, 270.0)
+	var hdoor := GSMapDoorStandIn.build(hm, 270.0)
 	add_child(hdoor)
 	var hpanel := hdoor.get_node("Panel") as MeshInstance3D
 	_check(hdoor.position == Vector3(10, 0, 20) and is_equal_approx(hdoor.rotation.y, 0.0), "a door with a panel_yaw ignores the entity's angles (270) and sits on the hinge")
 	_check(is_equal_approx((hpanel.mesh as BoxMesh).size.z, 1.2) and is_equal_approx(hpanel.position.z, -0.6), "its panel is as wide as the hinge-to-origin line says and starts at the hinge")
 	# A game's own model (origin mid-panel, built at the hinge with the entity's yaw) is hung under a pivot on the
 	# hinge, half a width along the panel, so it swings about the hinge and not about its own middle.
-	var wld := DotMapWorld.new()
+	var wld := GSMapWorld.new()
 	var model := Node3D.new()
 	model.position = hm.origin
 	var pivot := wld._hung_model(model, hm, 270.0)
@@ -101,12 +101,12 @@ func _test_door_hinge() -> void:
 	wld.free()
 	var bare_rec := hrec.duplicate()
 	bare_rec.erase("panel_yaw")
-	var plain := DotMapDoorStandIn.build(_door_rec(0, "rotate", bare_rec), 270.0)
-	_check(is_equal_approx(plain.rotation.y, deg_to_rad(270.0)) and is_equal_approx((plain.get_node("Panel").mesh as BoxMesh).size.z, DotMapDoorStandIn.SIZE.x), "armed: without panel_yaw the same record takes the angles and the standard width")
+	var plain := GSMapDoorStandIn.build(_door_rec(0, "rotate", bare_rec), 270.0)
+	_check(is_equal_approx(plain.rotation.y, deg_to_rad(270.0)) and is_equal_approx((plain.get_node("Panel").mesh as BoxMesh).size.z, GSMapDoorStandIn.SIZE.x), "armed: without panel_yaw the same record takes the angles and the standard width")
 	plain.free()
 	var hio := _io([_rec(0, "prop_door_rotating", "hd", [["angles", "0 270 0"]])])
 	hio.bind_movers([hm])
-	var he := hio.entity_of(0) as DotMapMoverNode
+	var he := hio.entity_of(0) as GSMapMoverNode
 	he.set_hit_box(Transform3D(), Vector3.ONE)
 	he.bind_node(hdoor)
 	hio.start()
@@ -118,10 +118,10 @@ func _test_door_hinge() -> void:
 		var tip := hdoor.global_transform * Vector3(0, 0, -1.2)
 		_check(hdoor.position.is_equal_approx(Vector3(10, 0, 20)) and (tip.x - 10.0) * opener[1] > 0.5,
 				"half open for an opener on %s, the tip at %s: swung about the hinge, away from the opener" % [opener[0], tip])
-	_check(not is_equal_approx(DotMapMover.from_record({"kind": "rotate", "yaw": 180.0, "open_dir": 0}).side_away_from(Vector3(1, 0, 0)), DotMapMover.from_record({"kind": "rotate", "yaw": 0.0, "open_dir": 0}).side_away_from(Vector3(1, 0, 0))),
+	_check(not is_equal_approx(GSMapMover.from_record({"kind": "rotate", "yaw": 180.0, "open_dir": 0}).side_away_from(Vector3(1, 0, 0)), GSMapMover.from_record({"kind": "rotate", "yaw": 0.0, "open_dir": 0}).side_away_from(Vector3(1, 0, 0))),
 			"armed: the yaw decides which side is the front, so a wrong yaw would swing the door the wrong way")
 	hdoor.free()
-	var nodoor := DotMapDoorStandIn.build(_door_rec(0, "rotate", {"solid": false}), 0.0)
+	var nodoor := GSMapDoorStandIn.build(_door_rec(0, "rotate", {"solid": false}), 0.0)
 	_check(nodoor.get_node_or_null("col_solid") == null, "a passable door gets no body")
 	nodoor.free()
 
@@ -132,7 +132,7 @@ func _test_door_sides() -> void:
 	var am := _door_rec(0, "rotate", {"model": null, "classname": "prop_door_rotating", "targetname": "pd",
 			"origin": [0, 0, 0], "axis": [0, 1, 0], "degrees": 90.0, "travel_time": 1.0, "open_dir": 0, "yaw": 0.0, "use": true})
 	away.bind_movers([am])
-	var ae := away.entity_of(0) as DotMapMoverNode
+	var ae := away.entity_of(0) as GSMapMoverNode
 	ae.accept(away, "Open", "", Vector3(2, 0, 0), null)
 	away.advance(20)
 	_check(ae.pose_delta(away.now, 20).basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(90.0))), "an opener on the front (+X) side: the panel swings the positive way, away from it")
@@ -142,27 +142,27 @@ func _test_door_sides() -> void:
 	away.advance(20)
 	_check(ae.pose_delta(away.now, 20).basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(-90.0))), "an opener behind it: the other way")
 	var joiner := _io([_rec(0, "prop_door_rotating", "pd", [])])
-	joiner.bind_movers([DotMapMover.from_record(am.record)])
+	joiner.bind_movers([GSMapMover.from_record(am.record)])
 	joiner.entity_of(0).apply_state(joiner, "side", ae.state()["side"], 0)
 	joiner.entity_of(0).apply_state(joiner, "motion", ae.state()["motion"], 0)
 	_check(joiner.entity_of(0).state()["side"] == -1.0, "the chosen side is state a joiner receives")
 	var forged := _io([_rec(0, "prop_door_rotating", "pd", [])])
-	forged.bind_movers([DotMapMover.from_record(am.record)])
-	var fe := forged.entity_of(0) as DotMapMoverNode
+	forged.bind_movers([GSMapMover.from_record(am.record)])
+	var fe := forged.entity_of(0) as GSMapMoverNode
 	_check(fe.apply_state(forged, "side", 1.0e11, 0) and fe._side == 1.0, "a forged side of 1e11 is clamped to +1")
 	fe.apply_state(forged, "side", -5.0, 0)
 	_check(fe._side == -1.0, "a side of -5 is clamped to -1")
 	fe.apply_state(forged, "side", 0.0, 0)
 	_check(fe._side == -1.0, "a side of 0 keeps the current side")
 	forged.authoritative = false
-	var sync := DotMapStateSync.new()
+	var sync := GSMapStateSync.new()
 	var before := forged.now
-	sync.apply(forged, {"type": DotMapStateSync.TYPE_STATE, "tick": before, "changes": [[0, "side", 1.0e11], [0, "side", INF]]})
+	sync.apply(forged, {"type": GSMapStateSync.TYPE_STATE, "tick": before, "changes": [[0, "side", 1.0e11], [0, "side", INF]]})
 	_check(sync.refused == 2 and fe._side == -1.0, "the state sync refuses a side beyond 1 or not finite")
 	var unk := _io([_rec(0, "prop_door_rotating", "pd", [])])
-	var um := DotMapMover.from_record(am.record.merged({"spawn_side": -1.0, "degrees": 90.0}))
+	var um := GSMapMover.from_record(am.record.merged({"spawn_side": -1.0, "degrees": 90.0}))
 	unk.bind_movers([um])
-	var ue := unk.entity_of(0) as DotMapMoverNode
+	var ue := unk.entity_of(0) as GSMapMoverNode
 	_check(ue._side == -1.0, "a spawn_side of -1 starts on the back")
 	ue.accept(unk, "Open", "", null, null)
 	ue.accept(unk, "Close", "", null, null)
@@ -170,11 +170,11 @@ func _test_door_sides() -> void:
 	ue.accept(unk, "Open", "", {"name": "timer"}, null)
 	_check(ue._side == -1.0, "an opener with no position keeps spawn_side")
 	var uj := _io([_rec(0, "prop_door_rotating", "pd", [])])
-	uj.bind_movers([DotMapMover.from_record(um.record if "record" in um else am.record)])
+	uj.bind_movers([GSMapMover.from_record(um.record if "record" in um else am.record)])
 	uj.entity_of(0).apply_state(uj, "side", ue.state()["side"], 0)
 	_check(uj.entity_of(0).state()["side"] == ue.state()["side"], "a joiner stays consistent with the kept side")
-	var fixed := DotMapMover.from_record({"kind": "rotate", "degrees": -90.0, "open_dir": 2, "spawn_side": 1.0})
+	var fixed := GSMapMover.from_record({"kind": "rotate", "degrees": -90.0, "open_dir": 2, "spawn_side": 1.0})
 	_check(fixed.side_away_from(Vector3(5, 0, 0)) == 1.0, "opendir 1 and 2 keep the record's own sign whoever opens")
-	var back := DotMapMoverNode.new()
+	var back := GSMapMoverNode.new()
 	back.set_mover(fixed)
 	_check(back._side == -1.0 and fixed.rest_fraction() == 0.0, "spawnpos 1 on a back-only door stands at the positive angle")

@@ -1,4 +1,4 @@
-class_name DotMapLitWorld
+class_name GSMapLitWorld
 extends Node
 ## Keeps a lightmapped world's actors lit like the baked scene: the author's per-leaf ambient at the camera drives the Environment's ambient, and the live lamps that only duplicated the bake are freed.
 
@@ -6,7 +6,7 @@ extends Node
 const INTERVAL := 0.2
 const BLEND := 0.4
 
-var world: DotMapBspMesh = null
+var world: GSMapBspMesh = null
 var environment: Environment = null
 ## The node the world is drawn under when it is moved: the camera is sampled in its frame.
 var frame: Node3D = null
@@ -17,19 +17,19 @@ var min_sun_energy: float = 0.0
 var _clock: float = 0.0
 
 
-## Whether [param world] is drawn from its lightmap with [param enabled] on (a cvar or setting); the same test [member DotMapSurfaces.use_lightmap] applies.
-static func wanted(world: DotMapBspMesh, enabled: bool = true) -> bool:
+## Whether [param world] is drawn from its lightmap with [param enabled] on (a cvar or setting); the same test [member GSMapSurfaces.use_lightmap] applies.
+static func wanted(world: GSMapBspMesh, enabled: bool = true) -> bool:
 	return enabled and world != null and world.has_lightmap()
 
 
 ## Adds the driver under [param parent] for a world drawn lightmapped, freeing every node of [param lamps] (the lights the bake already holds; keep dynamic ones out of the list). [param p_frame] is the world's node when it is not at the origin. Returns null when the world is not lit this way.
-static func attach(parent: Node, world: DotMapBspMesh, environment: Environment, lamps: Array = [], enabled: bool = true, p_frame: Node3D = null) -> DotMapLitWorld:
+static func attach(parent: Node, world: GSMapBspMesh, environment: Environment, lamps: Array = [], enabled: bool = true, p_frame: Node3D = null) -> GSMapLitWorld:
 	if not wanted(world, enabled):
 		return null
 	for lamp: Node in lamps:
 		if is_instance_valid(lamp):
 			lamp.queue_free()
-	var node := DotMapLitWorld.new()
+	var node := GSMapLitWorld.new()
 	node.name = "LitWorld"
 	node.world = world
 	node.environment = environment
@@ -38,14 +38,14 @@ static func attach(parent: Node, world: DotMapBspMesh, environment: Environment,
 	return node
 
 
-## An actor's ambient [param c] after the visibility floor and, when set, [member DotMapBspMesh.lightmap_max_chroma_ratio].
+## An actor's ambient [param c] after the visibility floor and, when set, [member GSMapBspMesh.lightmap_max_chroma_ratio].
 static func lifted(c: Color) -> Color:
-	var floor_lum := DotMapBspMesh.visibility_floor
+	var floor_lum := GSMapBspMesh.visibility_floor
 	var lum := c.get_luminance()
 	if floor_lum > 0.0 and lum < floor_lum:
 		c = c * (floor_lum / lum) if lum > 0.0 else Color(floor_lum, floor_lum, floor_lum)
-	if DotMapBspMesh.lightmap_max_chroma_ratio > 0.0:
-		var v := DotMapSurfaces.limit_chroma(Vector3(c.r, c.g, c.b), DotMapBspMesh.lightmap_max_chroma_ratio)
+	if GSMapBspMesh.lightmap_max_chroma_ratio > 0.0:
+		var v := GSMapSurfaces.limit_chroma(Vector3(c.r, c.g, c.b), GSMapBspMesh.lightmap_max_chroma_ratio)
 		c = Color(v.x, v.y, v.z)
 	return c
 

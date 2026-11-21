@@ -1,6 +1,6 @@
 extends Node3D
 
-## [DotMapBrush]: every kind built, measured, ray-cast and (with --shot) drawn. The checks cannot see a face
+## [GSMapBrush]: every kind built, measured, ray-cast and (with --shot) drawn. The checks cannot see a face
 ## wound inside out or a texture stretched along a slope, so the frame has to be looked at: the checker
 ## material below makes both obvious.
 
@@ -16,7 +16,7 @@ var _bodies := {}
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -84,17 +84,17 @@ func _specs() -> Dictionary:
 
 func _test_spec() -> void:
 	_section("specs")
-	for kind in DotMapBrush.kinds():
+	for kind in GSMapBrush.kinds():
 		_check(_specs().has(kind), "demo has a spec for %s" % kind)
-	_check(DotMapBrush.has_kind("ramp") and DotMapBrush.resolve("ramp") == "wedge", "ramp is wedge")
-	var bad := DotMapBrush.validate({"kind": "teapot", "size": [1, 1, 1]})
-	_check(not bad.ok and bad.error.code == DotError.CODE_INVALID, "unknown kind is invalid")
-	_check(not DotMapBrush.validate({"kind": "box", "size": [1, 0, 1]}).ok, "flat size is invalid")
-	_check(not DotMapBrush.validate({"kind": "box", "size": [1, 1]}).ok, "two-part size is invalid")
-	_check(not DotMapBrush.validate({"kind": "stairs", "size": [1, 1, 1], "params": {"steps": 0}}).ok, "no steps is invalid")
-	_check(not DotMapBrush.validate({"kind": "slab_holes", "size": [1, 1, 1], "params": {"holes": [[1, 2]]}}).ok, "bad hole is invalid")
-	_check(DotMapBrush.build_body({"kind": "box", "size": [1, 0, 1]}) == null, "invalid spec builds nothing")
-	_check(DotMapBrush.pieces({"kind": "stairs", "size": [1, 1, 1], "params": {"steps": 4}}).size() == 4, "stairs: a piece per step")
+	_check(GSMapBrush.has_kind("ramp") and GSMapBrush.resolve("ramp") == "wedge", "ramp is wedge")
+	var bad := GSMapBrush.validate({"kind": "teapot", "size": [1, 1, 1]})
+	_check(not bad.ok and bad.error.code == GSError.CODE_INVALID, "unknown kind is invalid")
+	_check(not GSMapBrush.validate({"kind": "box", "size": [1, 0, 1]}).ok, "flat size is invalid")
+	_check(not GSMapBrush.validate({"kind": "box", "size": [1, 1]}).ok, "two-part size is invalid")
+	_check(not GSMapBrush.validate({"kind": "stairs", "size": [1, 1, 1], "params": {"steps": 0}}).ok, "no steps is invalid")
+	_check(not GSMapBrush.validate({"kind": "slab_holes", "size": [1, 1, 1], "params": {"holes": [[1, 2]]}}).ok, "bad hole is invalid")
+	_check(GSMapBrush.build_body({"kind": "box", "size": [1, 0, 1]}) == null, "invalid spec builds nothing")
+	_check(GSMapBrush.pieces({"kind": "stairs", "size": [1, 1, 1], "params": {"steps": 4}}).size() == 4, "stairs: a piece per step")
 	_done()
 
 
@@ -121,9 +121,9 @@ func _build_gallery() -> void:
 	var i := 0
 	var specs := _specs()
 	for key: String in specs:
-		var body := DotMapBrush.build_body(specs[key], checker)
+		var body := GSMapBrush.build_body(specs[key], checker)
 		body.name = key
-		var size := DotMapBrush.size_of(specs[key])
+		var size := GSMapBrush.size_of(specs[key])
 		var col := i % 5
 		var row := i / 5
 		body.position = Vector3((col - 2) * 9.0, size.y * 0.5, row * 9.0)
@@ -179,7 +179,7 @@ func _test_bounds() -> void:
 	_section("meshes fill their size and collide")
 	var specs := _specs()
 	for key: String in specs:
-		var want := DotMapBrush.size_of(specs[key])
+		var want := GSMapBrush.size_of(specs[key])
 		var got := _bounds_of(key)
 		_check(got.size.is_equal_approx(want) or got.size.distance_to(want) < 0.01, "%s mesh is %s, want %s" % [key, got.size, want])
 		_check(got.get_center().length() < 0.01, "%s is centred (%s)" % [key, got.get_center()])
@@ -194,14 +194,14 @@ func _test_bounds() -> void:
 
 func _test_uvs() -> void:
 	_section("UVs are in metres")
-	var small := DotMapBrush.mesh_of(DotMapBrush.pieces({"kind": "box", "size": [2, 2, 2]}))
-	var big := DotMapBrush.mesh_of(DotMapBrush.pieces({"kind": "box", "size": [8, 2, 2]}))
+	var small := GSMapBrush.mesh_of(GSMapBrush.pieces({"kind": "box", "size": [2, 2, 2]}))
+	var big := GSMapBrush.mesh_of(GSMapBrush.pieces({"kind": "box", "size": [8, 2, 2]}))
 	_check(_uv_span(small).is_equal_approx(Vector2(2, 2)), "2 m box: top face spans 2 x 2 UV (%s)" % _uv_span(small))
 	_check(_uv_span(big).is_equal_approx(Vector2(8, 2)), "8 m box: top face spans 8 x 2 UV (%s)" % _uv_span(big))
-	var scaled := DotMapBrush.mesh_of(DotMapBrush.pieces({"kind": "box", "size": [2, 2, 2]}), 0.5)
+	var scaled := GSMapBrush.mesh_of(GSMapBrush.pieces({"kind": "box", "size": [2, 2, 2]}), 0.5)
 	_check(_uv_span(scaled).is_equal_approx(Vector2(4, 4)), "uv_metres 0.5 doubles the repeat")
 	# A 45 degree slope: the wedge's sloped face is 4*sqrt(2) long and must span that in UV v.
-	var wedge := DotMapBrush.mesh_of(DotMapBrush.pieces({"kind": "wedge", "size": [4, 4, 2]}))
+	var wedge := GSMapBrush.mesh_of(GSMapBrush.pieces({"kind": "wedge", "size": [4, 4, 2]}))
 	var found := false
 	var arrays := wedge.surface_get_arrays(0)
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -214,11 +214,11 @@ func _test_uvs() -> void:
 			found = absf(d - e) < 0.01
 			break
 	_check(found, "a slope's UV edge length equals its real length")
-	var stairs := DotMapBrush.pieces({"kind": "quarter_pipe", "size": [6, 3, 3]})
+	var stairs := GSMapBrush.pieces({"kind": "quarter_pipe", "size": [6, 3, 3]})
 	var full := 0
 	for p: Array in stairs:
 		full += p.size()
-	var drawn: int = (DotMapBrush.mesh_of(stairs).surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	var drawn: int = (GSMapBrush.mesh_of(stairs).surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
 	_check(drawn < full * 6, "quarter-pipe: faces shared between slices are not drawn")
 	_done()
 

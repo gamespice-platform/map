@@ -8,11 +8,11 @@ func _init() -> void:
 	var workers := int(args[1])
 	var t0 := Time.get_ticks_msec()
 	var t := t0
-	var w: DotMapBspMesh = DotMapBspMesh.load_prefix(prefix).value
+	var w: GSMapBspMesh = GSMapBspMesh.load_prefix(prefix).value
 	w.load_threads = workers
 	print("load_prefix ms ", Time.get_ticks_msec() - t)
 	t = Time.get_ticks_msec()
-	var s := DotMapSurfaces.new()
+	var s := GSMapSurfaces.new()
 	s.load_threads = workers
 	var mf := s.world_material_for(w, prefix.get_base_dir())
 	print("textures ms ", Time.get_ticks_msec() - t)

@@ -1,4 +1,4 @@
-class_name DotMapVolume
+class_name GSMapVolume
 extends RefCounted
 
 ## A trigger, push, hurt, teleport, water or ladder brush from a converted map, with exact
@@ -45,8 +45,8 @@ var _column_box_cached := false
 
 
 ## Builds from a record of the manifest's [code]volumes[/code].
-static func from_record(rec: Dictionary) -> DotMapVolume:
-	var v := DotMapVolume.new()
+static func from_record(rec: Dictionary) -> GSMapVolume:
+	var v := GSMapVolume.new()
 	v.record = rec
 	v.entity = int(rec["entity"]) if rec.get("entity") != null else -1
 	v.model = int(rec.get("model", 0))

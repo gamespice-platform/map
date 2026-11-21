@@ -1,7 +1,7 @@
-class_name DotMapStateSync
+class_name GSMapStateSync
 extends RefCounted
 
-## Carries a map's changing state from the server's [DotMapIO] to its clients, which run no logic.
+## Carries a map's changing state from the server's [GSMapIO] to its clients, which run no logic.
 
 const TYPE_STATE := "io_state"
 const TYPE_SNAPSHOT := "io_snapshot"
@@ -24,12 +24,12 @@ var refused := 0
 ## Keys a class does not carry to clients (a counter's value, say).
 var ignored := 0
 
-var _io: DotMapIO = null
+var _io: GSMapIO = null
 var _pending: Array = []
 
 
 ## Starts listening to [param io] as the authority.
-func attach_host(io: DotMapIO, send: Callable) -> void:
+func attach_host(io: GSMapIO, send: Callable) -> void:
 	_io = io
 	send_fn = send
 	io.state_changed.connect(_on_state)
@@ -54,7 +54,7 @@ func snapshot_message() -> Dictionary:
 	return {"type": TYPE_SNAPSHOT, "tick": snap["tick"], "entities": snap["entities"]}
 
 
-func _on_state(e: DotMapEntity, key: String, value: Variant, _tick: int) -> void:
+func _on_state(e: GSMapEntity, key: String, value: Variant, _tick: int) -> void:
 	if key in skip_keys or not _io.authoritative:
 		return
 	_pending.append([e.index, key, value])
@@ -70,33 +70,33 @@ func _on_settled(tick: int) -> void:
 			send_fn.call(p, msg)
 
 
-## A client takes one message from the host into [param io] (built with [member DotMapIO.authoritative]
+## A client takes one message from the host into [param io] (built with [member GSMapIO.authoritative]
 ## false from the same records). Returns how many changes it applied.
-func apply(io: DotMapIO, msg: Dictionary) -> DotResult:
+func apply(io: GSMapIO, msg: Dictionary) -> GSResult:
 	var kind := str(msg.get("type", ""))
 	if kind != TYPE_STATE and kind != TYPE_SNAPSHOT:
-		return DotResult.fail(DotError.CODE_PARSE, "not a map state message")
+		return GSResult.fail(GSError.CODE_PARSE, "not a map state message")
 	if not msg.get("tick") is int and not msg.get("tick") is float:
-		return DotResult.fail(DotError.CODE_PARSE, "state message without a tick")
+		return GSResult.fail(GSError.CODE_PARSE, "state message without a tick")
 	if io.authoritative:
-		return DotResult.fail(DotError.CODE_STATE, "an authoritative runtime takes no state from outside")
+		return GSResult.fail(GSError.CODE_STATE, "an authoritative runtime takes no state from outside")
 	var raw: Variant = msg["tick"]
 	if raw is float and (is_nan(raw) or is_inf(raw) or absf(raw) > 1.0e12):
-		return DotResult.fail(DotError.CODE_INVALID, "state message tick is not a usable number")
+		return GSResult.fail(GSError.CODE_INVALID, "state message tick is not a usable number")
 	var tick := int(raw)
 	if tick < io.now:
-		return DotResult.fail(DotError.CODE_INVALID, "state message older than the clock")
+		return GSResult.fail(GSError.CODE_INVALID, "state message older than the clock")
 	if tick - io.now > io.rate * MAX_TICK_JUMP_SECONDS:
-		return DotResult.fail(DotError.CODE_INVALID, "state message jumps the clock too far")
+		return GSResult.fail(GSError.CODE_INVALID, "state message jumps the clock too far")
 	var size_err := _too_big(kind, msg)
 	if size_err != "":
-		return DotResult.fail(DotError.CODE_INVALID, size_err)
+		return GSResult.fail(GSError.CODE_INVALID, size_err)
 	io.now = tick
 	var n := 0
 	if kind == TYPE_SNAPSHOT:
 		var ents: Variant = msg.get("entities")
 		if not ents is Dictionary:
-			return DotResult.fail(DotError.CODE_PARSE, "snapshot without entities")
+			return GSResult.fail(GSError.CODE_PARSE, "snapshot without entities")
 		for k: Variant in ents:
 			var st: Variant = ents[k]
 			if st is Dictionary:
@@ -105,13 +105,13 @@ func apply(io: DotMapIO, msg: Dictionary) -> DotResult:
 	else:
 		var changes: Variant = msg.get("changes")
 		if not changes is Array:
-			return DotResult.fail(DotError.CODE_PARSE, "state message without changes")
+			return GSResult.fail(GSError.CODE_PARSE, "state message without changes")
 		for c: Variant in changes:
 			if c is Array and (c as Array).size() == 3:
 				n += _apply_one(io, int(c[0]), str(c[1]), c[2], tick)
 			else:
 				refused += 1
-	return DotResult.success(n)
+	return GSResult.success(n)
 
 
 func _too_big(kind: String, msg: Dictionary) -> String:
@@ -130,7 +130,7 @@ func _too_big(kind: String, msg: Dictionary) -> String:
 	return ""
 
 
-func _apply_one(io: DotMapIO, index: int, key: String, value: Variant, tick: int) -> int:
+func _apply_one(io: GSMapIO, index: int, key: String, value: Variant, tick: int) -> int:
 	var e := io.entity_of(index)
 	if e == null:
 		refused += 1

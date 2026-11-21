@@ -1,6 +1,6 @@
 extends "mesh_nodes.gd"
 
-## The solid-prop collision half of [DotMapBspMesh]: boxes cut from a stand-in, trunks and support blocks.
+## The solid-prop collision half of [GSMapBspMesh]: boxes cut from a stand-in, trunks and support blocks.
 
 ## A prop_dynamic `solid` value that collides as a box around its drawn model (2 bbox, 3 and 4 obb, 6 vphysics); 0, 1 and 5 do not.
 const SOLID_BOX := [2, 3, 4, 6]

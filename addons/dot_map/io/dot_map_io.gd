@@ -1,4 +1,4 @@
-class_name DotMapIO
+class_name GSMapIO
 extends RefCounted
 
 ## The runtime for a map's input/output logic: outputs fire inputs at other entities after a delay. It is
@@ -9,9 +9,9 @@ const CHANNEL := "map.io"
 const CODE_SOURCE_FORMAT := "dot-bsp-source"
 
 ## An entity changed: [code]key[/code] is "enabled", "color" or a logic class's own value.
-signal state_changed(entity: DotMapEntity, key: String, value: Variant, tick: int)
+signal state_changed(entity: GSMapEntity, key: String, value: Variant, tick: int)
 
-## A call that ran logic has finished and the state it changed is settled; [DotMapStateSync] sends here.
+## A call that ran logic has finished and the state it changed is settled; [GSMapStateSync] sends here.
 signal settled(tick: int)
 
 ## Ticks of the authoritative simulation per second; a link's delay is rounded to whole ticks.
@@ -26,7 +26,7 @@ var max_chain := 64
 var max_events_per_tick := 8192
 ## Cvar names (or [code]prefix*[/code] patterns) a map command may set; the rest is denied.
 var command_allow := PackedStringArray()
-## False on a client: it takes state from the host ([DotMapStateSync]), advances only its clock and
+## False on a client: it takes state from the host ([GSMapStateSync]), advances only its clock and
 ## its views, and runs no logic (no queue, no inputs, no damage).
 var authoritative := true
 ## Keep [member history] of every state change (tests and replays).
@@ -59,7 +59,7 @@ var world_offset := Vector3.ZERO
 ## Where a teleport may send a body: [code]{name: {at: [x, y, z], yaw}}[/code] from the manifest.
 var destinations: Dictionary = {}
 ## Area damage queued by explosions and fires: [code]{origin, radius, amount, kind, source}[/code];
-## [DotMapVolumes] applies it to the bodies it knows and clears it.
+## [GSMapVolumes] applies it to the bodies it knows and clears it.
 var area_damage: Array = []
 
 var entities: Array = []
@@ -96,55 +96,55 @@ var _current_depth := 0
 
 func _init() -> void:
 	_classes = {
-		"logic_relay": DotMapRelay, "logic_timer": DotMapTimer, "math_counter": DotMapCounter,
-		"logic_case": DotMapCase, "logic_compare": DotMapCompare, "logic_branch": DotMapBranch,
-		"logic_auto": DotMapAuto, "trigger_multiple": DotMapTrigger, "trigger_once": DotMapTrigger,
-		"trigger_teleport": DotMapTeleport,
-		"lua_run": DotMapScript, "point_servercommand": DotMapServerCommand, "point_clientcommand": DotMapClientCommand,
-		"func_brush": DotMapToggleBrush, "func_wall_toggle": DotMapToggleBrush, "func_illusionary": DotMapToggleBrush,
-		"func_breakable": DotMapBreakable, "func_breakable_surf": DotMapBreakable,
-		"prop_physics": DotMapBreakable, "prop_physics_multiplayer": DotMapBreakable,
-		"prop_physics_override": DotMapBreakable,
-		"math_colorblend": DotMapColorBlend, "logic_measure_movement": DotMapMeasureMovement,
-		"env_global": DotMapGlobal, "point_template": DotMapTemplate,
-		"logic_beats": DotMapBeats, "logic_winlose": DotMapWinLose, "game_score": DotMapGameScore, "game_player_equip": DotMapPlayerEquip, "game_ui": DotMapGameUi, "logic_collision_pair": DotMapCollisionPair,
-		"func_physbox": DotMapPhysbox, "func_physbox_multiplayer": DotMapPhysbox,
-		"env_soundscape": DotMapSoundscape, "env_soundscape_proxy": DotMapSoundscape,
-		"env_soundscape_triggerable": DotMapSoundscape, "trigger_soundscape": DotMapTriggerSoundscape, "trigger_hurt": DotMapHurt, "trigger_push": DotMapPush, "ambient_generic": DotMapSound,
-		"game_text": DotMapGameText, "point_tesla": DotMapTesla, "prop_dynamic": DotMapPropDynamic,
-		"prop_dynamic_override": DotMapPropDynamic, "env_tonemap_controller": DotMapTonemap,
+		"logic_relay": GSMapRelay, "logic_timer": GSMapTimer, "math_counter": GSMapCounter,
+		"logic_case": GSMapCase, "logic_compare": GSMapCompare, "logic_branch": GSMapBranch,
+		"logic_auto": GSMapAuto, "trigger_multiple": GSMapTrigger, "trigger_once": GSMapTrigger,
+		"trigger_teleport": GSMapTeleport,
+		"lua_run": GSMapScript, "point_servercommand": GSMapServerCommand, "point_clientcommand": GSMapClientCommand,
+		"func_brush": GSMapToggleBrush, "func_wall_toggle": GSMapToggleBrush, "func_illusionary": GSMapToggleBrush,
+		"func_breakable": GSMapBreakable, "func_breakable_surf": GSMapBreakable,
+		"prop_physics": GSMapBreakable, "prop_physics_multiplayer": GSMapBreakable,
+		"prop_physics_override": GSMapBreakable,
+		"math_colorblend": GSMapColorBlend, "logic_measure_movement": GSMapMeasureMovement,
+		"env_global": GSMapGlobal, "point_template": GSMapTemplate,
+		"logic_beats": GSMapBeats, "logic_winlose": GSMapWinLose, "game_score": GSMapGameScore, "game_player_equip": GSMapPlayerEquip, "game_ui": GSMapGameUi, "logic_collision_pair": GSMapCollisionPair,
+		"func_physbox": GSMapPhysbox, "func_physbox_multiplayer": GSMapPhysbox,
+		"env_soundscape": GSMapSoundscape, "env_soundscape_proxy": GSMapSoundscape,
+		"env_soundscape_triggerable": GSMapSoundscape, "trigger_soundscape": GSMapTriggerSoundscape, "trigger_hurt": GSMapHurt, "trigger_push": GSMapPush, "ambient_generic": GSMapSound,
+		"game_text": GSMapGameText, "point_tesla": GSMapTesla, "prop_dynamic": GSMapPropDynamic,
+		"prop_dynamic_override": GSMapPropDynamic, "env_tonemap_controller": GSMapTonemap,
 	}
 	for cls in ["npc_metropolice", "npc_combine_s", "npc_citizen"]:
-		_classes[cls] = DotMapNpcStub
+		_classes[cls] = GSMapNpcStub
 	for cls in ["phys_ballsocket", "phys_hinge", "phys_constraint", "phys_lengthconstraint", "phys_slideconstraint"]:
-		_classes[cls] = DotMapConstraint
+		_classes[cls] = GSMapConstraint
 	for cls in ["filter_activator_name", "filter_activator_class", "filter_activator_team", "filter_damage_type", "filter_multi"]:
-		_classes[cls] = DotMapFilter
+		_classes[cls] = GSMapFilter
 	for cls in ["func_door", "func_door_rotating", "func_movelinear", "func_rotating", "func_tracktrain",
 			"func_train", "func_tanktrain", "func_plat", "func_button", "func_rot_button", "prop_door_rotating"]:
-		_classes[cls] = DotMapMoverNode
+		_classes[cls] = GSMapMoverNode
 	for c in ["env_sprite", "env_spritetrail", "env_lightglow", "point_spotlight", "env_laser", "env_beam",
 			"env_spark", "env_steam", "env_fire", "env_smokestack", "env_explosion", "env_shake", "env_fade",
 			"info_particle_system", "env_screenoverlay"]:
-		_classes[c] = DotMapEffect
+		_classes[c] = GSMapEffect
 
 
 ## Builds from a source document ([code]dot-bsp-source[/code], the lossless store's
 ## [code]doc.json[/code]); this is the one place that reads its shape.
-func load_document(doc: Dictionary) -> DotResult:
+func load_document(doc: Dictionary) -> GSResult:
 	if str(doc.get("format", "")) != CODE_SOURCE_FORMAT:
-		return DotResult.fail(DotError.CODE_PARSE, "not a dot-bsp-source document")
+		return GSResult.fail(GSError.CODE_PARSE, "not a dot-bsp-source document")
 	if int(doc.get("version", 0)) > 1:
-		return DotResult.fail(DotError.CODE_VERSION, "source document version %s is newer than this reader" % doc.get("version"))
+		return GSResult.fail(GSError.CODE_VERSION, "source document version %s is newer than this reader" % doc.get("version"))
 	var recs: Variant = doc.get("entities")
 	if not recs is Array:
-		return DotResult.fail(DotError.CODE_PARSE, "source document has no entity list")
+		return GSResult.fail(GSError.CODE_PARSE, "source document has no entity list")
 	return load_records(recs)
 
 
 ## Builds from entity records ([code]index, classname, targetname, parentname, pairs, outputs[/code]);
 ## the interface any other source of a map's entities satisfies.
-func load_records(records: Array) -> DotResult:
+func load_records(records: Array) -> GSResult:
 	entities = []
 	_by_name = {}
 	_by_index = {}
@@ -153,17 +153,17 @@ func load_records(records: Array) -> DotResult:
 	globals = {}
 	for r: Variant in records:
 		if not r is Dictionary:
-			return DotResult.fail(DotError.CODE_PARSE, "entity record is not a dictionary")
+			return GSResult.fail(GSError.CODE_PARSE, "entity record is not a dictionary")
 		var rec: Dictionary = r
 		if not rec.has("classname"):
-			return DotResult.fail(DotError.CODE_PARSE, "entity record without a classname")
+			return GSResult.fail(GSError.CODE_PARSE, "entity record without a classname")
 		_make(rec)
-	DotLog.debug(CHANNEL, "loaded", {"entities": entities.size()})
-	return DotResult.success(entities.size())
+	GSLog.debug(CHANNEL, "loaded", {"entities": entities.size()})
+	return GSResult.success(entities.size())
 
 
 ## Adds one more entity from a record at run time (a template's copy); its index is the next free one.
-func spawn_record(rec: Dictionary) -> DotMapEntity:
+func spawn_record(rec: Dictionary) -> GSMapEntity:
 	var copy := rec.duplicate(true)
 	copy["index"] = _next_index()
 	var e := _make(copy)
@@ -178,9 +178,9 @@ func _next_index() -> int:
 	return top + 1
 
 
-func _make(rec: Dictionary) -> DotMapEntity:
+func _make(rec: Dictionary) -> GSMapEntity:
 	var script: Variant = _classes.get(str(rec["classname"]).to_lower())
-	var e: DotMapEntity = script.new() if script != null else DotMapEntity.new()
+	var e: GSMapEntity = script.new() if script != null else GSMapEntity.new()
 	e.load_record(rec)
 	entities.append(e)
 	_by_index[e.index] = e
@@ -190,29 +190,29 @@ func _make(rec: Dictionary) -> DotMapEntity:
 	return e
 
 
-## Gives [param classname] an entity class of its own (a script extending [DotMapEntity]).
-func register_class(classname: String, script: Script) -> DotResult:
+## Gives [param classname] an entity class of its own (a script extending [GSMapEntity]).
+func register_class(classname: String, script: Script) -> GSResult:
 	if classname.is_empty() or script == null:
-		return DotResult.fail(DotError.CODE_INVALID, "register_class needs a class name and a script")
+		return GSResult.fail(GSError.CODE_INVALID, "register_class needs a class name and a script")
 	_classes[classname.to_lower()] = script
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## A game's meaning for inputs on [param classname]:
 ## [code]handler(entity, input, param, activator, caller) -> bool[/code], asked before the built-in
 ## inputs; true means handled.
-func register_handler(classname: String, handler: Callable) -> DotResult:
+func register_handler(classname: String, handler: Callable) -> GSResult:
 	if classname.is_empty() or not handler.is_valid():
-		return DotResult.fail(DotError.CODE_INVALID, "register_handler needs a class name and a valid callable")
+		return GSResult.fail(GSError.CODE_INVALID, "register_handler needs a class name and a valid callable")
 	var key := classname.to_lower()
 	if not _handlers.has(key):
 		_handlers[key] = []
 	(_handlers[key] as Array).append(handler)
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## The entity with the map's [param index], or null.
-func entity_of(index: int) -> DotMapEntity:
+func entity_of(index: int) -> GSMapEntity:
 	return _by_index.get(index)
 
 
@@ -223,8 +223,8 @@ func attach_sounds(records: Array) -> int:
 	var n := 0
 	for rec: Dictionary in records:
 		var e: Variant = _by_index.get(int(rec.get("entity", -1)))
-		if e is DotMapSound and not str(rec.get("stand_in", "")).is_empty():
-			var snd := e as DotMapSound
+		if e is GSMapSound and not str(rec.get("stand_in", "")).is_empty():
+			var snd := e as GSMapSound
 			snd.stand_in = str(rec["stand_in"])
 			snd.looped = bool(rec.get("looped", snd.looped))
 			n += 1
@@ -239,14 +239,14 @@ func set_catalogue(classes: Dictionary) -> void:
 
 ## Reads [code]catalogue.json[/code] (beside this script unless [param path] is given), the names,
 ## types and defaults of every class the converter has seen, and installs it with [method set_catalogue].
-func load_catalogue(path: String = "") -> DotResult:
-	var file := path if not path.is_empty() else (DotMapIO as Script).resource_path.get_base_dir().path_join("catalogue.json")
+func load_catalogue(path: String = "") -> GSResult:
+	var file := path if not path.is_empty() else (GSMapIO as Script).resource_path.get_base_dir().path_join("catalogue.json")
 	var f := FileAccess.open(file, FileAccess.READ)
 	if f == null:
-		return DotResult.fail(DotError.CODE_IO, "cannot read %s" % file)
+		return GSResult.fail(GSError.CODE_IO, "cannot read %s" % file)
 	var doc: Variant = JSON.parse_string(f.get_as_text())
 	if not doc is Dictionary or str((doc as Dictionary).get("format", "")) != "dot-map-io-catalogue":
-		return DotResult.fail(DotError.CODE_PARSE, "%s is not a dot-map-io-catalogue" % file)
+		return GSResult.fail(GSError.CODE_PARSE, "%s is not a dot-map-io-catalogue" % file)
 	var common: Dictionary = (doc as Dictionary).get("common", {})
 	var merged := {}
 	for cls: String in (doc as Dictionary).get("classes", {}):
@@ -258,7 +258,7 @@ func load_catalogue(path: String = "") -> DotResult:
 			full[part] = d
 		merged[cls] = full
 	set_catalogue(merged)
-	return DotResult.success((_catalogue as Dictionary).size())
+	return GSResult.success((_catalogue as Dictionary).size())
 
 
 ## The catalogue entry of a class (inputs, outputs, keys with type and default), or an empty one.
@@ -268,7 +268,7 @@ func class_def(classname: String) -> Dictionary:
 
 ## Fires the map-start outputs (logic_auto, relay OnSpawn) and arms timers. Call once, at tick 0.
 func start() -> void:
-	for e: DotMapEntity in entities.duplicate():
+	for e: GSMapEntity in entities.duplicate():
 		e.on_map_spawn(self)
 	_flush()
 	_views()
@@ -296,92 +296,92 @@ func ticks_for(delay: float) -> int:
 
 
 ## Queues an input from outside (a button the game saw pressed, a trigger a body entered).
-func send(target: String, input: String, param: String = "", delay: float = 0.0, activator: Variant = null) -> DotResult:
+func send(target: String, input: String, param: String = "", delay: float = 0.0, activator: Variant = null) -> GSResult:
 	if resolve(target, null, activator).is_empty() and not target.begins_with("!"):
-		return DotResult.fail(DotError.CODE_INVALID, "no entity named %s" % target)
+		return GSResult.fail(GSError.CODE_INVALID, "no entity named %s" % target)
 	if not authoritative:
-		return DotResult.fail(DotError.CODE_INVALID, "a client runs no logic")
+		return GSResult.fail(GSError.CODE_INVALID, "a client runs no logic")
 	_enqueue(target, input, param, now + ticks_for(delay), activator, null, null, 0)
 	_settle()
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## Fires [param output] on the entity with the map's [param index], as if it had raised it.
-func raise(index: int, output: String, activator: Variant = null) -> DotResult:
+func raise(index: int, output: String, activator: Variant = null) -> GSResult:
 	if not _by_index.has(index):
-		return DotResult.fail(DotError.CODE_INVALID, "no entity %d" % index)
+		return GSResult.fail(GSError.CODE_INVALID, "no entity %d" % index)
 	if not authoritative:
-		return DotResult.fail(DotError.CODE_INVALID, "a client runs no logic")
-	(_by_index[index] as DotMapEntity).fire(self, output, activator)
+		return GSResult.fail(GSError.CODE_INVALID, "a client runs no logic")
+	(_by_index[index] as GSMapEntity).fire(self, output, activator)
 	_settle()
-	return DotResult.success()
+	return GSResult.success()
 
 
-## The buttons a player holds, for the active game_ui with the map's [param index] (see [method DotMapGameUi.feed]).
+## The buttons a player holds, for the active game_ui with the map's [param index] (see [method GSMapGameUi.feed]).
 func feed_ui(index: int, held: Dictionary) -> void:
 	var e: Variant = _by_index.get(index)
-	if e is DotMapGameUi and authoritative:
-		(e as DotMapGameUi).feed(self, held)
+	if e is GSMapGameUi and authoritative:
+		(e as GSMapGameUi).feed(self, held)
 		_settle()
 
 
 ## Every game_ui that is active (a game feeds each one the holder's buttons every tick).
 func active_uis() -> Array:
-	return entities.filter(func(e: DotMapEntity) -> bool: return e is DotMapGameUi and (e as DotMapGameUi).active)
+	return entities.filter(func(e: GSMapEntity) -> bool: return e is GSMapGameUi and (e as GSMapGameUi).active)
 
 
 ## A body touched the trigger with the map's entity [param index]; the trigger class decides what that fires.
-func touch(index: int, activator: Variant = null) -> DotResult:
+func touch(index: int, activator: Variant = null) -> GSResult:
 	if not authoritative:
-		return DotResult.fail(DotError.CODE_INVALID, "a client runs no logic")
+		return GSResult.fail(GSError.CODE_INVALID, "a client runs no logic")
 	var e: Variant = _by_index.get(index)
-	if e is DotMapTrigger:
-		(e as DotMapTrigger).touch(self, activator)
-	elif not e is DotMapEntity or not (e as DotMapEntity).touched(self, activator, false):
-		return DotResult.fail(DotError.CODE_INVALID, "entity %d is not a trigger or a mover that is touched" % index)
+	if e is GSMapTrigger:
+		(e as GSMapTrigger).touch(self, activator)
+	elif not e is GSMapEntity or not (e as GSMapEntity).touched(self, activator, false):
+		return GSResult.fail(GSError.CODE_INVALID, "entity %d is not a trigger or a mover that is touched" % index)
 	_settle()
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## A body used (pressed E on) the entity with the map's [param index]: a button presses, a door
 ## toggles, unless it is locked (then it fires its locked output).
-func use(index: int, activator: Variant = null) -> DotResult:
+func use(index: int, activator: Variant = null) -> GSResult:
 	if not authoritative:
-		return DotResult.fail(DotError.CODE_INVALID, "a client runs no logic")
+		return GSResult.fail(GSError.CODE_INVALID, "a client runs no logic")
 	var e: Variant = _by_index.get(index)
-	if not e is DotMapEntity or not (e as DotMapEntity).touched(self, activator, true):
-		return DotResult.fail(DotError.CODE_INVALID, "entity %d cannot be used" % index)
+	if not e is GSMapEntity or not (e as GSMapEntity).touched(self, activator, true):
+		return GSResult.fail(GSError.CODE_INVALID, "entity %d cannot be used" % index)
 	_settle()
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## Damage from the game to the breakable or button with the map's [param index] (the authority only).
 ## Returns true when it broke or a button took the shot.
 func hurt(index: int, amount: float, at: Vector3 = Vector3.ZERO, by: Variant = null) -> bool:
 	var e: Variant = _by_index.get(index)
-	if authoritative and e is DotMapMoverNode:
-		var shot: bool = (e as DotMapMoverNode).shot(self, amount, by)
+	if authoritative and e is GSMapMoverNode:
+		var shot: bool = (e as GSMapMoverNode).shot(self, amount, by)
 		_settle()
 		return shot
-	if not authoritative or not e is DotMapBreakable:
+	if not authoritative or not e is GSMapBreakable:
 		return false
-	var broke: bool = (e as DotMapBreakable).hurt(self, amount, at, by)
+	var broke: bool = (e as GSMapBreakable).hurt(self, amount, at, by)
 	_settle()
 	return broke
 
 
-## Gives the movers their records (a [DotMapEntities].movers list); returns how many entities took one.
+## Gives the movers their records (a [GSMapEntities].movers list); returns how many entities took one.
 func bind_movers(movers: Array) -> int:
 	var n := 0
 	for m: Variant in movers:
-		var e: Variant = _by_index.get((m as DotMapMover).entity)
-		if e is DotMapMoverNode:
-			(e as DotMapMoverNode).set_mover(m)
+		var e: Variant = _by_index.get((m as GSMapMover).entity)
+		if e is GSMapMoverNode:
+			(e as GSMapMoverNode).set_mover(m)
 			if not _animated.has(e):
 				_animated.append(e)
 			n += 1
 		else:
-			_missing("bind_mover." + (m as DotMapMover).classname)
+			_missing("bind_mover." + (m as GSMapMover).classname)
 	return n
 
 
@@ -390,31 +390,31 @@ func bind_breakables(records: Array) -> int:
 	var n := 0
 	for r: Variant in records:
 		var e: Variant = _by_index.get(int((r as Dictionary).get("entity", -1)))
-		if e is DotMapBreakable:
-			(e as DotMapBreakable).set_record(r)
+		if e is GSMapBreakable:
+			(e as GSMapBreakable).set_record(r)
 			n += 1
 	return n
 
 
 ## Binds every brush entity to the drawn model under [param root] that carries its model number (the
-## [code]model[/code] key "*N"; the node's [code]model[/code] meta), and a [DotMapGlass] of that model to its
+## [code]model[/code] key "*N"; the node's [code]model[/code] meta), and a [GSMapGlass] of that model to its
 ## breakable.
 func bind_world(root: Node) -> int:
 	var by_model := {}
 	var glass_by_model := {}
 	for c in root.find_children("*", "Node3D", true, false):
-		if c is DotMapGlass:
-			glass_by_model[(c as DotMapGlass).model] = c
+		if c is GSMapGlass:
+			glass_by_model[(c as GSMapGlass).model] = c
 		elif c.has_meta(&"model"):
 			by_model[int(c.get_meta(&"model"))] = c
 	var n := 0
-	for e: DotMapEntity in entities:
+	for e: GSMapEntity in entities:
 		var mk := e.key("model")
 		if not mk.begins_with("*"):
 			continue
 		var model := int(mk.substr(1))
-		if e is DotMapBreakable and glass_by_model.has(model):
-			(e as DotMapBreakable).glass = glass_by_model[model]
+		if e is GSMapBreakable and glass_by_model.has(model):
+			(e as GSMapBreakable).glass = glass_by_model[model]
 		if by_model.has(model):
 			e.bind_node(by_model[model])
 			if e.animated:
@@ -430,25 +430,25 @@ func resolve(target: String, source: Variant, activator: Variant) -> Array:
 	var lo := target.to_lower()
 	match lo:
 		"!self", "!caller":
-			if source is DotMapEntity:
+			if source is GSMapEntity:
 				out.append(source)
 			return out
 		"!activator":
-			if activator is DotMapEntity:
+			if activator is GSMapEntity:
 				out.append(activator)
 			return out
 		"!player":
 			return out
 	if lo.contains("*"):
-		for e: DotMapEntity in entities:
+		for e: GSMapEntity in entities:
 			if e.alive and not e.targetname.is_empty() and e.targetname.matchn(target):
 				out.append(e)
 		return out
 	for e: Variant in _by_name.get(lo, []):
-		if (e as DotMapEntity).alive:
+		if (e as GSMapEntity).alive:
 			out.append(e)
 	if out.is_empty():
-		for e: DotMapEntity in entities:
+		for e: GSMapEntity in entities:
 			if e.alive and e.classname.to_lower() == lo:
 				out.append(e)
 	return out
@@ -459,7 +459,7 @@ func find(targetname: String) -> Array:
 
 
 ## Queues every link of [param output] on [param source]. Returns how many were queued.
-func fire(source: DotMapEntity, output: String, activator: Variant, param: String = "") -> int:
+func fire(source: GSMapEntity, output: String, activator: Variant, param: String = "") -> int:
 	var lo := output.to_lower()
 	var count := 0
 	var spent: Array = []
@@ -475,7 +475,7 @@ func fire(source: DotMapEntity, output: String, activator: Variant, param: Strin
 			depth = _current_depth + 1
 		if depth > max_chain:
 			loop_trips += 1
-			DotLog.warn(CHANNEL, "output chain dropped as a loop", {
+			GSLog.warn(CHANNEL, "output chain dropped as a loop", {
 				"from": source.targetname, "output": output, "target": link["target"], "input": link["input"]})
 			continue
 		var p: String = link["param"] if not str(link["param"]).is_empty() else param
@@ -491,12 +491,12 @@ func fire(source: DotMapEntity, output: String, activator: Variant, param: Strin
 
 
 ## Queues an input for an entity itself (a timer's next beat); never counted as unhandled.
-func schedule_self(entity: DotMapEntity, input: String, param: String, delay: float) -> void:
+func schedule_self(entity: GSMapEntity, input: String, param: String, delay: float) -> void:
 	_enqueue("#%d" % entity.index, input, param, now + ticks_for(delay), null, entity, null, 0)
 
 
 ## Removes the pending events [param source] queued (a relay's CancelPending).
-func cancel_pending(source: DotMapEntity) -> int:
+func cancel_pending(source: GSMapEntity) -> int:
 	var kept: Array = []
 	for ev: Dictionary in _queue:
 		if ev["source"] != source or str(ev["input"]).begins_with("__"):
@@ -510,7 +510,7 @@ func pending() -> int:
 	return _queue.size()
 
 
-func kill(e: DotMapEntity) -> void:
+func kill(e: GSMapEntity) -> void:
 	if not e.alive:
 		return
 	e.alive = false
@@ -518,16 +518,16 @@ func kill(e: DotMapEntity) -> void:
 
 
 ## Kills [param e] and the entities whose parent it is.
-func kill_hierarchy(e: DotMapEntity) -> void:
+func kill_hierarchy(e: GSMapEntity) -> void:
 	kill(e)
 	if e.targetname.is_empty():
 		return
-	for c: DotMapEntity in entities:
+	for c: GSMapEntity in entities:
 		if c.alive and c.parentname.to_lower() == e.targetname.to_lower():
 			kill_hierarchy(c)
 
 
-func rename(e: DotMapEntity, new_name: String) -> void:
+func rename(e: GSMapEntity, new_name: String) -> void:
 	var old := e.targetname.to_lower()
 	if _by_name.has(old):
 		(_by_name[old] as Array).erase(e)
@@ -536,7 +536,7 @@ func rename(e: DotMapEntity, new_name: String) -> void:
 
 
 ## Records a state change for listeners (and [member history] when asked).
-func report_state(e: DotMapEntity, key: String, value: Variant) -> void:
+func report_state(e: GSMapEntity, key: String, value: Variant) -> void:
 	e._view_changed(key, value)
 	if e.animated:
 		e.tick_view(self)
@@ -546,56 +546,56 @@ func report_state(e: DotMapEntity, key: String, value: Variant) -> void:
 
 
 ## A random stream private to [param e]: same seed, same entity, same draws.
-func stream_for(e: DotMapEntity) -> DotRandomStream:
+func stream_for(e: GSMapEntity) -> GSRandomStream:
 	if not _streams.has(e.index):
-		_streams[e.index] = DotRandomStream.new(rng_seed).stream(StringName("io%d" % e.index))
+		_streams[e.index] = GSRandomStream.new(rng_seed).stream(StringName("io%d" % e.index))
 	return _streams[e.index]
 
 
 ## Records one map command and sends allowed ones to the game; nothing is ever executed here.
-func record_command(e: DotMapEntity, text: String) -> Dictionary:
+func record_command(e: GSMapEntity, text: String) -> Dictionary:
 	var rec := {}
-	for part in DotMapCommand.split(text):
-		var v := DotMapCommand.judge(part, command_allow)
+	for part in GSMapCommand.split(text):
+		var v := GSMapCommand.judge(part, command_allow)
 		rec = {"tick": now, "entity": e.index, "text": part, "name": v["name"], "kind": v["kind"] if v["allowed"] else "denied",
 				"allowed": v["allowed"], "reason": v["reason"]}
 		commands.append(rec)
 		if rec["allowed"]:
 			event(str(rec["kind"]), rec)
 		else:
-			DotLog.info(CHANNEL, "map command denied", {"command": part, "reason": v["reason"]})
+			GSLog.info(CHANNEL, "map command denied", {"command": part, "reason": v["reason"]})
 	return rec
 
 
 ## Replays a lua_run's converter-translated operations to the game's event callable as
 ## [code]"script.<op>"[/code]; an untranslated snippet, or an operation outside the whitelist, is recorded as refused.
-func run_script(e: DotMapEntity) -> void:
+func run_script(e: GSMapEntity) -> void:
 	var info: Variant = e.record.get("script")
 	var ops: Array = []
 	if info is Dictionary and str((info as Dictionary).get("status", "")) == "translated" and (info as Dictionary).get("ops") is Array:
 		ops = (info as Dictionary)["ops"]
 	if ops.is_empty():
 		scripts.append({"tick": now, "entity": e.index, "op": "", "allowed": false})
-		DotLog.info(CHANNEL, "map script not run", {"entity": e.targetname})
+		GSLog.info(CHANNEL, "map script not run", {"entity": e.targetname})
 		return
 	for op: Variant in ops:
-		var ok := DotMapScript.valid_op(op)
+		var ok := GSMapScript.valid_op(op)
 		scripts.append({"tick": now, "entity": e.index, "op": str((op as Dictionary).get("op", "")) if op is Dictionary else "", "allowed": ok})
 		if ok:
 			event("script." + str((op as Dictionary)["op"]), (op as Dictionary).duplicate())
 		else:
-			DotLog.info(CHANNEL, "map script operation refused", {"entity": e.targetname})
+			GSLog.info(CHANNEL, "map script operation refused", {"entity": e.targetname})
 
 
 ## Records a point_clientcommand line. Its own kind, never allowed and never sent to [member event_fn]: it would run on a player's machine, not the server's.
-func record_client_command(e: DotMapEntity, text: String) -> Dictionary:
+func record_client_command(e: GSMapEntity, text: String) -> Dictionary:
 	var rec := {}
-	for part in DotMapCommand.split(text):
+	for part in GSMapCommand.split(text):
 		var name := part.split(" ", false, 1)[0].to_lower()
 		rec = {"tick": now, "entity": e.index, "text": part, "name": name, "kind": "clientcommand",
 				"allowed": false, "reason": "client commands are never run"}
 		commands.append(rec)
-		DotLog.info(CHANNEL, "map client command recorded, not run", {"command": part})
+		GSLog.info(CHANNEL, "map client command recorded, not run", {"command": part})
 	return rec
 
 
@@ -607,7 +607,7 @@ func event(kind: String, data: Dictionary) -> void:
 		_missing("event." + kind)
 
 
-func effect(kind: String, e: DotMapEntity, on: bool) -> void:
+func effect(kind: String, e: GSMapEntity, on: bool) -> void:
 	if effect_fn.is_valid():
 		effect_fn.call(kind, e, on)
 	else:
@@ -652,7 +652,7 @@ func coverage() -> Dictionary:
 ## A snapshot of every entity's state, for a joining client.
 func snapshot() -> Dictionary:
 	var out := {}
-	for e: DotMapEntity in entities:
+	for e: GSMapEntity in entities:
 		out[e.index] = e.state()
 	return {"tick": now, "entities": out}
 
@@ -677,7 +677,7 @@ func _missing(what: String) -> void:
 	missing_callables[what] = int(missing_callables.get(what, 0)) + 1
 
 
-func _index_name(e: DotMapEntity) -> void:
+func _index_name(e: GSMapEntity) -> void:
 	if e.targetname.is_empty():
 		return
 	var k := e.targetname.to_lower()
@@ -703,7 +703,7 @@ func _flush() -> void:
 	while not _queue.is_empty() and int((_queue[0] as Dictionary)["due"]) <= now:
 		if _tick_events >= max_events_per_tick:
 			loop_trips += 1
-			DotLog.error(CHANNEL, "too many events in one tick; dropping the rest", {"tick": now, "dropped": _queue.size()})
+			GSLog.error(CHANNEL, "too many events in one tick; dropping the rest", {"tick": now, "dropped": _queue.size()})
 			var kept: Array = []
 			for q: Dictionary in _queue:
 				if int(q["due"]) > now:
@@ -729,7 +729,7 @@ func _settle() -> void:
 
 
 func _views() -> void:
-	for e: DotMapEntity in _animated:
+	for e: GSMapEntity in _animated:
 		e.tick_view(self)
 
 
@@ -739,12 +739,12 @@ func _deliver(ev: Dictionary) -> void:
 	var source: Variant = ev["caller"]
 	var activator: Variant = ev["activator"]
 	var param: String = ev["param"]
-	if source is DotMapEntity:
+	if source is GSMapEntity:
 		delivered_from[source.index] = int(delivered_from.get(source.index, 0)) + 1
 	if target.begins_with("#"):
 		var idx := int(target.substr(1))
 		if _by_index.has(idx):
-			(_by_index[idx] as DotMapEntity).accept(self, input, param, activator, null)
+			(_by_index[idx] as GSMapEntity).accept(self, input, param, activator, null)
 		return
 	delivered += 1
 	var lo := target.to_lower()
@@ -752,7 +752,7 @@ func _deliver(ev: Dictionary) -> void:
 		var actor: Variant = activator
 		if lo == "!player" and player_fn.is_valid():
 			actor = player_fn.call()
-		if actor is DotMapEntity:
+		if actor is GSMapEntity:
 			_to_entity(actor, input, param, activator, source)
 		elif actor_fn.is_valid():
 			actor_fn.call(actor, input, param, source)
@@ -763,11 +763,11 @@ func _deliver(ev: Dictionary) -> void:
 	if targets.is_empty():
 		unresolved[target] = int(unresolved.get(target, 0)) + 1
 		return
-	for e: DotMapEntity in targets:
+	for e: GSMapEntity in targets:
 		_to_entity(e, input, param, activator, source)
 
 
-func _to_entity(e: DotMapEntity, input: String, param: String, activator: Variant, caller: Variant) -> void:
+func _to_entity(e: GSMapEntity, input: String, param: String, activator: Variant, caller: Variant) -> void:
 	for h: Callable in _handlers.get(e.classname.to_lower(), []):
 		if h.is_valid() and h.call(e, input, param, activator, caller):
 			return

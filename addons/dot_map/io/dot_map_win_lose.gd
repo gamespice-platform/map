@@ -1,5 +1,5 @@
-class_name DotMapWinLose
-extends DotMapEntity
+class_name GSMapWinLose
+extends GSMapEntity
 
 ## logic_winlose: a map's own ending.
 

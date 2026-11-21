@@ -1,6 +1,6 @@
 extends Node3D
 
-## Every surface kind of [DotMapSurfaces] on code-built boxes, and the suite that proves the library hands
+## Every surface kind of [GSMapSurfaces] on code-built boxes, and the suite that proves the library hands
 ## back what a map generator expects.
 
 const CHECKS := 140
@@ -15,11 +15,11 @@ var _failed := 0
 var _failures := PackedStringArray()
 var _entered := 0
 var _completed := 0
-var _surfaces := DotMapSurfaces.new()
+var _surfaces := GSMapSurfaces.new()
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -81,8 +81,8 @@ func _test_kinds() -> void:
 	_section("every kind loads")
 	var kinds := _surfaces.kinds()
 	_check(kinds.size() == 28, "twenty-eight kinds")
-	var shrink := DotMapSurfaces.shrink_textures_headless
-	DotMapSurfaces.shrink_textures_headless = false
+	var shrink := GSMapSurfaces.shrink_textures_headless
+	GSMapSurfaces.shrink_textures_headless = false
 	for k in kinds:
 		var res := _surfaces.try_material(StringName(k))
 		_check(res.ok, "%s loads" % k)
@@ -94,23 +94,23 @@ func _test_kinds() -> void:
 			"%s has albedo, normal and roughness" % k
 		)
 		_check(m.albedo_texture.get_width() == 1024, "%s is 1K" % k)
-	DotMapSurfaces.shrink_textures_headless = shrink
+	GSMapSurfaces.shrink_textures_headless = shrink
 	_done()
 
 
 func _test_headless_shrink() -> void:
 	_section("headless, a kind's textures load as 4x4 downsamples")
-	var lib := DotMapSurfaces.new()
+	var lib := GSMapSurfaces.new()
 	var a := lib.material(&"brick")
 	var b := lib.material(&"brick", Color(0.5, 0.6, 0.7))
-	if DotPlatform.is_headless():
+	if GSPlatform.is_headless():
 		_check(a.albedo_texture.get_width() == 4 and a.normal_texture.get_width() == 4 and a.roughness_texture.get_width() == 4, "brick's maps are 4x4 (%d)" % a.albedo_texture.get_width())
 	else:
 		_check(a.albedo_texture.get_width() == 1024, "a windowed build keeps the full textures")
 	_check(a.albedo_texture == b.albedo_texture, "two tints of a kind share one texture")
-	DotMapSurfaces.shrink_textures_headless = false
-	var full := DotMapSurfaces.new().material(&"brick")
-	DotMapSurfaces.shrink_textures_headless = true
+	GSMapSurfaces.shrink_textures_headless = false
+	var full := GSMapSurfaces.new().material(&"brick")
+	GSMapSurfaces.shrink_textures_headless = true
 	_check(full.albedo_texture.get_width() == 1024, "shrink_textures_headless false keeps 1K (%d)" % full.albedo_texture.get_width())
 	_done()
 
@@ -137,14 +137,14 @@ func _test_aliases_and_fallback() -> void:
 	_check(not _surfaces.has_kind(&"unobtainium"), "an unknown kind is not a kind")
 	_check(not _surfaces.try_material(&"unobtainium").ok, "an unknown kind is a failure")
 	_check(
-		_surfaces.try_material(&"unobtainium").error.code == DotError.CODE_INVALID,
+		_surfaces.try_material(&"unobtainium").error.code == GSError.CODE_INVALID,
 		"and the code is invalid"
 	)
 	var f := _surfaces.material(&"unobtainium")
 	_check(f != null and f.albedo_texture == null, "material() still returns a flat material")
-	var broken := DotMapSurfaces.new("res://does/not/exist")
+	var broken := GSMapSurfaces.new("res://does/not/exist")
 	var res := broken.try_material(&"brick")
-	_check(not res.ok and res.error.code == DotError.CODE_IO, "a missing root is an io failure")
+	_check(not res.ok and res.error.code == GSError.CODE_IO, "a missing root is an io failure")
 	_check(broken.material(&"brick") != null, "and material() still answers")
 	_done()
 
@@ -152,10 +152,10 @@ func _test_aliases_and_fallback() -> void:
 func _test_paths() -> void:
 	_section("a path function rebases the root")
 	var seen: Array = []
-	var s := DotMapSurfaces.new("res://nowhere")
+	var s := GSMapSurfaces.new("res://nowhere")
 	s.path_fn = func(p: String) -> String:
 		seen.append(p)
-		return p.replace("res://nowhere", DotMapSurfaces.DEFAULT_ROOT)
+		return p.replace("res://nowhere", GSMapSurfaces.DEFAULT_ROOT)
 	var res := s.try_material(&"asphalt")
 	_check(res.ok, "asphalt loads through the rebased path")
 	_check(seen.size() == 3, "the function saw each of three textures")
@@ -165,9 +165,9 @@ func _test_paths() -> void:
 
 func _test_unlit_blend() -> void:
 	_section("a blended face without a bake draws both layers")
-	var root := DotMapSurfaces.DEFAULT_ROOT
+	var root := GSMapSurfaces.DEFAULT_ROOT
 	var m := _surfaces._blended_material(root + "/asphalt", root + "/brick", "blend")
-	_check(m.shader == DotMapSurfaces.BLENDED, "it is the blended shader")
+	_check(m.shader == GSMapSurfaces.BLENDED, "it is the blended shader")
 	_check(m.get_shader_parameter("albedo_tex") != null, "the first layer's albedo is bound")
 	_check(m.get_shader_parameter("albedo2_tex") != null and m.get_shader_parameter("albedo2_tex") != m.get_shader_parameter("albedo_tex"), "the second layer's albedo is bound and differs")
 	_done()
@@ -175,13 +175,13 @@ func _test_unlit_blend() -> void:
 
 func _test_liquids() -> void:
 	_section("a world's water, slime and lava faces are the liquid shader")
-	_check(DotMapSurfaces.liquid_kind("de_nuke/nukwater_movingplane") == &"water", "nukwater is water")
-	_check(DotMapSurfaces.liquid_kind("maps/lava01") == &"lava", "lava01 is lava")
-	_check(DotMapSurfaces.liquid_kind("tile/lavatory_floor") == &"water", "a lavatory is not lava")
-	_check(DotMapSurfaces.liquid_kind("nature/toxicslime002a") == &"slime", "toxic slime is slime")
-	var draw := _surfaces.world_material_for(DotMapBspMesh.new(), "")
+	_check(GSMapSurfaces.liquid_kind("de_nuke/nukwater_movingplane") == &"water", "nukwater is water")
+	_check(GSMapSurfaces.liquid_kind("maps/lava01") == &"lava", "lava01 is lava")
+	_check(GSMapSurfaces.liquid_kind("tile/lavatory_floor") == &"water", "a lavatory is not lava")
+	_check(GSMapSurfaces.liquid_kind("nature/toxicslime002a") == &"slime", "toxic slime is slime")
+	var draw := _surfaces.world_material_for(GSMapBspMesh.new(), "")
 	var water: Material = draw.call({"water": true, "material": "dev/dev_water2", "free": "pbr:pbr_SheetMetal001"})
-	_check(water is ShaderMaterial and (water as ShaderMaterial).shader == DotMapSurfaces.LIQUID, "a water face is the liquid shader, not its free texture")
+	_check(water is ShaderMaterial and (water as ShaderMaterial).shader == GSMapSurfaces.LIQUID, "a water face is the liquid shader, not its free texture")
 	_check(is_zero_approx(float((water as ShaderMaterial).get_shader_parameter("lip_width"))), "a world's face draws no lip")
 	var lava: ShaderMaterial = draw.call({"water": true, "material": "maps/lava01"})
 	_check(float(lava.get_shader_parameter("glow")) > 0.0, "lava glows")
@@ -195,20 +195,20 @@ func _test_light_rolloff() -> void:
 	_section("the lightmap roll-off leaves a normal bake alone and tames an overshoot")
 	var same := true
 	for v: Vector3 in [Vector3.ZERO, Vector3(0.1, 0.5, 0.3), Vector3(0.8, 0.9, 0.95), Vector3(1.0, 0.2, 1.0), Vector3(0.99, 1.0, 0.0)]:
-		same = same and DotMapSurfaces.light_rolloff(v) == v
+		same = same and GSMapSurfaces.light_rolloff(v) == v
 	_check(same, "values at or below 1 pass through exactly")
-	var hot := DotMapSurfaces.light_rolloff(Vector3(3.7, 2.0, 0.5))
+	var hot := GSMapSurfaces.light_rolloff(Vector3(3.7, 2.0, 0.5))
 	_check(maxf(hot.x, maxf(hot.y, hot.z)) < 1.5, "a red of 3.7 stays under the 1.5 asymptote")
 	_check(hot.x > hot.y and hot.y > hot.z, "the hue order survives the roll-off")
 	var prev := 1.0
 	var rising := true
 	for i in 40:
-		var o := DotMapSurfaces.light_rolloff(Vector3.ONE * (1.0 + i * 0.25))
+		var o := GSMapSurfaces.light_rolloff(Vector3.ONE * (1.0 + i * 0.25))
 		rising = rising and o.x >= prev - 0.0001
 		prev = o.x
 	_check(rising, "a brighter bake is never darker")
-	_check(DotMapSurfaces.light_rolloff(Vector3.ONE * 1.001).x < 1.01, "the knee is continuous")
-	var code := DotMapSurfaces.LIGHTMAPPED.code
+	_check(GSMapSurfaces.light_rolloff(Vector3.ONE * 1.001).x < 1.01, "the knee is continuous")
+	var code := GSMapSurfaces.LIGHTMAPPED.code
 	_check(code.contains("if (peak > 1.0)") and code.contains("1.0 + 0.5 * (1.0 - exp(-(peak - 1.0) / 0.5))"), "the shader holds the same constants")
 	_check(code.contains("clamp((peak - 1.0) / 3.0, 0.0, 0.6)"), "the shader bleaches by the same rule")
 	_done()
@@ -218,30 +218,30 @@ func _test_chroma_limit() -> void:
 	_section("the optional chroma limit is off by default and pulls a blue bake toward grey")
 	var blue := Vector3(0.19, 0.21, 0.88)
 	var ratio := func(v: Vector3) -> float: return maxf(v.x, maxf(v.y, v.z)) / minf(v.x, minf(v.y, v.z))
-	_check(DotMapBspMesh.lightmap_max_chroma_ratio == 0.0, "the setting defaults to off")
+	_check(GSMapBspMesh.lightmap_max_chroma_ratio == 0.0, "the setting defaults to off")
 	var same := true
 	for v: Vector3 in [Vector3.ZERO, blue, Vector3(3.7, 2.0, 0.5), Vector3(1, 0, 0)]:
-		same = same and DotMapSurfaces.limit_chroma(v, 0.0) == v
+		same = same and GSMapSurfaces.limit_chroma(v, 0.0) == v
 	_check(same, "ratio 0 returns every sample unchanged")
-	var out := DotMapSurfaces.limit_chroma(blue, 1.6)
+	var out := GSMapSurfaces.limit_chroma(blue, 1.6)
 	_check(ratio.call(out) <= 1.6001, "a blue sample is limited to 1.6 (%.3f)" % ratio.call(out))
 	_check(is_equal_approx(out.x + out.y + out.z, blue.x + blue.y + blue.z), "the mean, so the luminance, is kept")
 	_check(out.z > out.x, "the hue is kept, only weaker")
 	var mild := Vector3(0.5, 0.55, 0.6)
-	_check(DotMapSurfaces.limit_chroma(mild, 1.6) == mild, "a sample already within the ratio is untouched")
-	_check(ratio.call(DotMapSurfaces.limit_chroma(Vector3(0.0, 0.2, 0.9), 1.6)) <= 1.6001, "a zero channel is limited too")
-	_check(DotMapSurfaces.limit_chroma(Vector3.ZERO, 1.6) == Vector3.ZERO, "black stays black")
-	var code := DotMapSurfaces.LIGHTMAPPED.code
+	_check(GSMapSurfaces.limit_chroma(mild, 1.6) == mild, "a sample already within the ratio is untouched")
+	_check(ratio.call(GSMapSurfaces.limit_chroma(Vector3(0.0, 0.2, 0.9), 1.6)) <= 1.6001, "a zero channel is limited too")
+	_check(GSMapSurfaces.limit_chroma(Vector3.ZERO, 1.6) == Vector3.ZERO, "black stays black")
+	var code := GSMapSurfaces.LIGHTMAPPED.code
 	_check(code.contains("uniform float max_chroma_ratio = 0.0;") and code.contains("if (max_chroma_ratio > 0.0)"), "the shader limit is a uniform that defaults off")
 	_check(code.contains("(max_chroma_ratio - 1.0) * g / denom"), "the shader uses the same rule")
-	var was := DotMapBspMesh.lightmap_max_chroma_ratio
-	var floor_off := DotMapBspMesh._limit_tint(blue)
-	DotMapBspMesh.set_lightmap_max_chroma_ratio(1.6)
-	var floor_on := DotMapBspMesh._limit_tint(blue)
-	var amb_on := DotMapLitWorld.lifted(Color(blue.x, blue.y, blue.z))
-	DotMapBspMesh.set_lightmap_max_chroma_ratio(0.0)
-	var amb_off := DotMapLitWorld.lifted(Color(blue.x, blue.y, blue.z))
-	DotMapBspMesh.set_lightmap_max_chroma_ratio(was)
+	var was := GSMapBspMesh.lightmap_max_chroma_ratio
+	var floor_off := GSMapBspMesh._limit_tint(blue)
+	GSMapBspMesh.set_lightmap_max_chroma_ratio(1.6)
+	var floor_on := GSMapBspMesh._limit_tint(blue)
+	var amb_on := GSMapLitWorld.lifted(Color(blue.x, blue.y, blue.z))
+	GSMapBspMesh.set_lightmap_max_chroma_ratio(0.0)
+	var amb_off := GSMapLitWorld.lifted(Color(blue.x, blue.y, blue.z))
+	GSMapBspMesh.set_lightmap_max_chroma_ratio(was)
 	_check(ratio.call(Vector3(floor_off.r, floor_off.g, floor_off.b)) <= 2.5001 and floor_on.b / floor_on.r <= 1.6001, "the floor light honours it (2.5 off, 1.6 on)")
 	_check(amb_on.b / amb_on.r <= 1.6001 and amb_off.b / amb_off.r > 2.5, "an actor's ambient honours it and is untouched when off")
 	_done()

@@ -1,5 +1,5 @@
-class_name DotMapPropDynamic
-extends DotMapEntity
+class_name GSMapPropDynamic
+extends GSMapEntity
 
 ## prop_dynamic and prop_dynamic_override: the shared inputs (Enable, Disable, Kill, Color, SetParent) plus SetAnimation and SetDefaultAnimation, which only send a [code]prop_animation[/code] event:
 ## the stand-in models have no animations, so the view does not change unless the game answers the event. Skin sends a [code]prop_skin[/code] event

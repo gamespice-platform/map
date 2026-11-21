@@ -1,7 +1,7 @@
-class_name DotMapDataSqlSchema
+class_name GSMapDataSqlSchema
 extends RefCounted
 
-## The one table of [DotMapDataSql] as plain data for a GameSpice SQL driver to render, so this names no GameSpice SQL class.
+## The one table of [GSMapDataSql] as plain data for a GameSpice SQL driver to render, so this names no GameSpice SQL class.
 ## One row per section; the digest and meta of a bundle are one more row under [constant META_SECTION].
 
 const DEFAULT_TABLE := "dot_map_data"

@@ -1,4 +1,4 @@
-class_name DotMapTrail
+class_name GSMapTrail
 extends Node3D
 
 ## An [code]env_spritetrail[/code]: a camera-facing additive ribbon behind a moving point. It samples [member follow] (or its own

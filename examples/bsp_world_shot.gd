@@ -1,6 +1,6 @@
 extends Node3D
 
-## Renders one frame of a converted map the way a game builds it, through [DotMapWorld]: free photo and
+## Renders one frame of a converted map the way a game builds it, through [GSMapWorld]: free photo and
 ## generated textures, the environment, the stand-in props, glass. Run it under a display
 ## (tools/screenshot.sh). godot --path .
 
@@ -8,39 +8,39 @@ var _out := "user://shot.png"
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	_out = str(args.get("out", _out))
-	var res := DotMapBspMesh.load_prefix(str(args.get("world", "")))
+	var res := GSMapBspMesh.load_prefix(str(args.get("world", "")))
 	if not res.ok:
 		printerr("cannot load: ", res.error)
 		get_tree().quit(2)
 		return
-	var world: DotMapBspMesh = res.value
+	var world: GSMapBspMesh = res.value
 	if args.has("nomodels"):
 		world.model_library = "/nonexistent"    # the library models are left out: what a pack without the store shows
 	print(world.describe_lines())
 	print("free: %s, props: %d, ambient sounds: %d" % [world.is_free(), world.manifest.get("props", []).size(),
 			world.sounds_data().get("ambient", []).size()])
 	if args.has("slimmodels"):
-		DotMapBspMesh.model_texture_max = 0    # compress the library models' textures, as a game that turns the cap on does
-	DotMapBspMesh.model_half_masks = not args.has("fullmodelmasks")
-	DotMapBspMesh.model_half_normals = not args.has("fullmodelnormals")
+		GSMapBspMesh.model_texture_max = 0    # compress the library models' textures, as a game that turns the cap on does
+	GSMapBspMesh.model_half_masks = not args.has("fullmodelmasks")
+	GSMapBspMesh.model_half_normals = not args.has("fullmodelnormals")
 	var dir := str(args["world"]).get_base_dir()
-	var surfaces := DotMapLocalMaps.surfaces_for({"name": str(args["world"]).get_file()})    # an _orig pack shows its own textures
+	var surfaces := GSMapLocalMaps.surfaces_for({"name": str(args["world"]).get_file()})    # an _orig pack shows its own textures
 	surfaces.use_lightmap = not args.has("nolight")
 	surfaces.half_res_masks = not args.has("fullmasks")
 	surfaces.half_res_normals = not args.has("fullnormals")
 	var mat_for := surfaces.world_material_for(world, dir)
-	var built := DotMapWorld.build(world, {"material_for": mat_for})
+	var built := GSMapWorld.build(world, {"material_for": mat_for})
 	if not built.ok:
 		printerr("cannot build the world: ", built.error)
 		get_tree().quit(3)
 		return
-	var dw: DotMapWorld = built.value
+	var dw: GSMapWorld = built.value
 	add_child(dw)
 	_overview_sky(dw, world, args)
 	var node: Node3D = dw.visual
@@ -86,7 +86,7 @@ func _ready() -> void:
 	get_tree().quit(0 if err == OK else 1)
 
 
-func _light_if_unlit(world: DotMapBspMesh) -> void:
+func _light_if_unlit(world: GSMapBspMesh) -> void:
 	if world.build_environment() == null:
 		# A map with no environment of its own would be black: give the frame plain light.
 		var we := WorldEnvironment.new()
@@ -101,7 +101,7 @@ func _light_if_unlit(world: DotMapBspMesh) -> void:
 		add_child(sun)
 
 
-func _overview_sky(dw: DotMapWorld, world: DotMapBspMesh, args: Dictionary) -> void:
+func _overview_sky(dw: GSMapWorld, world: GSMapBspMesh, args: Dictionary) -> void:
 	if str(args.get("view", "")) == "overview" or world.manifest.get("spawns", []).is_empty():
 		# (a map with no spawns frames from outside too, whatever --view says)
 		# a map's fog is set for play inside it: from outside the map it hides the whole thing
@@ -117,7 +117,7 @@ func _overview_sky(dw: DotMapWorld, world: DotMapBspMesh, args: Dictionary) -> v
 
 ## The camera when none is given: at the first player spawn looking at the map centre (the small sky model is not part of the map), or when the
 ## map has none (or --view=overview) from above one corner of the bounding box, looking down at the centre.
-func _default_view(world: DotMapBspMesh, node: Node3D, view: String) -> Array:
+func _default_view(world: GSMapBspMesh, node: Node3D, view: String) -> Array:
 	var box := AABB()
 	var first := true
 	for mi in node.find_children("*", "MeshInstance3D", true, false):

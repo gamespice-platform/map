@@ -1,13 +1,13 @@
-class_name DotMapEntities
+class_name GSMapEntities
 extends RefCounted
 
 ## Everything a converted map says about its brush entities and logic, read from a manifest: movers, volumes, the link graph and the entities kept as plain data.
-## Start from [code]DotMapEntities.from_manifest(world.manifest)[/code], then [method mover_named], [member links].
+## Start from [code]GSMapEntities.from_manifest(world.manifest)[/code], then [method mover_named], [member links].
 ## A class the converter does not know arrives in [member generic] with every key it had, so a game can read its own entities.
 
-var movers: Array[DotMapMover] = []
-var volumes: Array[DotMapVolume] = []
-var links: DotMapLinks = null
+var movers: Array[GSMapMover] = []
+var volumes: Array[GSMapVolume] = []
+var links: GSMapLinks = null
 ## Entities kept as data: [code][{entity, classname, targetname, target, origin, treatment, keys}][/code].
 var generic: Array = []
 
@@ -16,40 +16,40 @@ var _by_model: Dictionary = {}
 
 
 ## Reads the [code]movers[/code], [code]volumes[/code], [code]links[/code] and [code]entities[/code] sections.
-static func from_manifest(doc: Dictionary) -> DotMapEntities:
-	var e := DotMapEntities.new()
+static func from_manifest(doc: Dictionary) -> GSMapEntities:
+	var e := GSMapEntities.new()
 	var names := {}
 	for rec: Dictionary in doc.get("movers", []):
-		var m := DotMapMover.from_record(rec)
+		var m := GSMapMover.from_record(rec)
 		e.movers.append(m)
 		e._by_entity[m.entity] = m
 		if m.model >= 0:
 			e._by_model[m.model] = m
 		names[m.entity] = m.targetname
 	for rec: Dictionary in doc.get("volumes", []):
-		var v := DotMapVolume.from_record(rec)
+		var v := GSMapVolume.from_record(rec)
 		e.volumes.append(v)
 		if v.entity >= 0:
 			names[v.entity] = v.targetname
 	e.generic = doc.get("entities", [])
 	for rec: Dictionary in e.generic:
 		names[int(rec["entity"])] = str(rec.get("targetname", ""))
-	e.links = DotMapLinks.from_records(doc.get("links", []), names)
+	e.links = GSMapLinks.from_records(doc.get("links", []), names)
 	return e
 
 
 ## The mover of an entity index, or null.
-func mover_of(entity: int) -> DotMapMover:
+func mover_of(entity: int) -> GSMapMover:
 	return _by_entity.get(entity)
 
 
 ## The mover that owns brush model [param model], or null.
-func mover_for_model(model: int) -> DotMapMover:
+func mover_for_model(model: int) -> GSMapMover:
 	return _by_model.get(model)
 
 
 ## The first mover with this targetname (case-insensitive), or null.
-func mover_named(name: String) -> DotMapMover:
+func mover_named(name: String) -> GSMapMover:
 	for m in movers:
 		if m.targetname.to_lower() == name.to_lower():
 			return m
@@ -57,8 +57,8 @@ func mover_named(name: String) -> DotMapMover:
 
 
 ## Volumes of one kind ("hurt", "multiple", ...).
-func volumes_of(kind: String) -> Array[DotMapVolume]:
-	var out: Array[DotMapVolume] = []
+func volumes_of(kind: String) -> Array[GSMapVolume]:
+	var out: Array[GSMapVolume] = []
 	for v in volumes:
 		if v.kind == kind:
 			out.append(v)
@@ -80,7 +80,7 @@ func unknown_classes() -> PackedStringArray:
 
 
 ## Generic entities whose class is not in [param ignore] and that nothing runs: the map's unconverted list, per class
-## ([code]{classname: count}[/code]). [param runnable] is the classes a game or [DotMapIO] does run (their records are skipped), so
+## ([code]{classname: count}[/code]). [param runnable] is the classes a game or [GSMapIO] does run (their records are skipped), so
 ## a coverage check is [code]unconverted(ignore, runnable).is_empty()[/code].
 func unconverted(ignore: PackedStringArray, runnable: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var out := {}
@@ -94,8 +94,8 @@ func unconverted(ignore: PackedStringArray, runnable: PackedStringArray = Packed
 	return out
 
 
-## Every command that drives a mover: its [method DotMapLinks.commands_for].
-func commands_for(mover: DotMapMover) -> Array:
+## Every command that drives a mover: its [method GSMapLinks.commands_for].
+func commands_for(mover: GSMapMover) -> Array:
 	return links.commands_for(mover.entity)
 
 

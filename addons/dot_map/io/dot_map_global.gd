@@ -1,7 +1,7 @@
-class_name DotMapGlobal
-extends DotMapEntity
+class_name GSMapGlobal
+extends GSMapEntity
 
-## env_global: a named on/off flag with a counter, shared through [member DotMapIO.globals] by every
+## env_global: a named on/off flag with a counter, shared through [member GSMapIO.globals] by every
 ## entity that names the same globalstate. The map reads it back with the counter outputs.
 
 

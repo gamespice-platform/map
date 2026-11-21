@@ -1,5 +1,5 @@
-class_name DotMapAuto
-extends DotMapEntity
+class_name GSMapAuto
+extends GSMapEntity
 
 ## logic_auto: fires its map-start outputs once, when the runtime starts.
 

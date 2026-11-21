@@ -1,7 +1,7 @@
 extends RefCounted
 
-## The texture-file half of [DotMapSurfaces] (its base script): finds a PBR set's files, loads them imported, pre-baked or decoded,
-## and halves masks and normals. [DotMapSurfaces] builds the materials on top.
+## The texture-file half of [GSMapSurfaces] (its base script): finds a PBR set's files, loads them imported, pre-baked or decoded,
+## and halves masks and normals. [GSMapSurfaces] builds the materials on top.
 
 var _textures: Dictionary = {}
 ## Longest side of a decoded texture file; larger ones are halved until they fit (0 keeps them). Store slices are imported, never touched.
@@ -19,7 +19,7 @@ var _set_roots: Dictionary = {}
 
 ## The suffix of the pre-baked texture this build loads (`dot-map-convert/tools/bake_textures.gd`), "" when it has no VRAM format to read.
 static func baked_variant() -> String:
-	return DotMapTextureBake.pick_variant(OS.has_feature, OS.get_environment("NOCOMP") != "")
+	return GSMapTextureBake.pick_variant(OS.has_feature, OS.get_environment("NOCOMP") != "")
 
 
 ## The pre-baked `<name>.<variant>.res` beside [param path] (already capped, mip-mapped and compressed, so no decode), or null when there is none, it is unreadable, predates the bake metadata, was baked from another file, or is not the size [member max_texture_size] and [member half_res_masks] want.
@@ -31,7 +31,7 @@ func _baked_texture(path: String) -> Texture2D:
 	if not FileAccess.file_exists(baked):
 		return null
 	var tex := ResourceLoader.load(baked, "ImageTexture") as Texture2D
-	if tex == null or not DotMapTextureBake.fits(tex, path, max_texture_size, variant):
+	if tex == null or not GSMapTextureBake.fits(tex, path, max_texture_size, variant):
 		return null
 	return tex
 
@@ -125,7 +125,7 @@ func _file_texture(path: String) -> Texture2D:
 	var img := Image.load_from_file(path)
 	if img == null:
 		return null
-	DotMapImagePrep.prepare_image(img, path, max_texture_size, half_res_masks, -1, half_res_normals)
+	GSMapImagePrep.prepare_image(img, path, max_texture_size, half_res_masks, -1, half_res_normals)
 	var tex := ImageTexture.create_from_image(img)
 	_textures[path] = tex
 	return tex
@@ -133,6 +133,6 @@ func _file_texture(path: String) -> Texture2D:
 
 ## [param tex] of a roughness, AO or normal map without its top mip level when [member half_res_masks] or [member half_res_normals] says so: an imported or baked map is already compressed, so the next level of its own chain is cut out, with no decode or recompress.
 func _masked(path: String, tex: Texture2D) -> Texture2D:
-	if tex == null or not DotMapImagePrep.halves(path.get_file().get_basename(), half_res_masks, half_res_normals):
+	if tex == null or not GSMapImagePrep.halves(path.get_file().get_basename(), half_res_masks, half_res_normals):
 		return tex
-	return DotMapImagePrep.without_top_mip(tex)
+	return GSMapImagePrep.without_top_mip(tex)

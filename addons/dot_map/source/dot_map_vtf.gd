@@ -1,8 +1,8 @@
-class_name DotMapVtf
+class_name GSMapVtf
 extends RefCounted
 
 ## Valve textures (VTF) and materials (VMT) read into a Godot [Image]: the stock textures a game's source-install reader takes
-## from the player's own Source game install. LOCAL ONLY, like `DotMapVpk`: what is read here is cached in the user
+## from the player's own Source game install. LOCAL ONLY, like `GSMapVpk`: what is read here is cached in the user
 ## folder and never shipped. The same rules as dot-map-convert's `dotbsp/vtf.py` and `reader.clean_material`.
 
 ## Bytes per pixel of the uncompressed formats read, by VTF format number.

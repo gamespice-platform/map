@@ -1,9 +1,9 @@
-class_name DotMapDoorStandIn
+class_name GSMapDoorStandIn
 extends RefCounted
 
 ## The drawn panel of a prop_door_rotating, which is a placed model with no brush: a node at the hinge, yawed
 ## by the entity's [code]angles[/code], with a box panel that lies along the entity's local +Y (source axes)
-## and a body of its own. [DotMapMoverNode] swings the node, so the panel and its collision turn with it.
+## and a body of its own. [GSMapMoverNode] swings the node, so the panel and its collision turn with it.
 
 ## Width, height, thickness in metres.
 const SIZE := Vector3(1.02, 2.13, 0.07)
@@ -11,7 +11,7 @@ const SIZE := Vector3(1.02, 2.13, 0.07)
 
 ## The node for [param mover] (a prop_door_rotating record) with [param yaw_degrees] from the
 ## entity's angles. [param size] overrides [constant SIZE]; [param layer] is the collision layer.
-static func build(mover: DotMapMover, yaw_degrees: float, size: Vector3 = SIZE, layer: int = 1) -> Node3D:
+static func build(mover: GSMapMover, yaw_degrees: float, size: Vector3 = SIZE, layer: int = 1) -> Node3D:
 	if not is_nan(mover.panel_yaw):
 		yaw_degrees = mover.panel_yaw
 		if mover.panel_width > 0.1:

@@ -1,7 +1,7 @@
 extends Node
 
-## [DotMapTextureBake] end to end on 20 real albedo maps copied from a map store: bake, load through
-## [DotMapSurfaces], compare, fall back. The originals are only read. With no store found (a fresh clone) the
+## [GSMapTextureBake] end to end on 20 real albedo maps copied from a map store: bake, load through
+## [GSMapSurfaces], compare, fall back. The originals are only read. With no store found (a fresh clone) the
 ## section is skipped and says so.
 
 const REAL := 15
@@ -21,7 +21,7 @@ var _completed := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	print("dot-map texture bake, end to end")
 	_test_variant_pick()
 	_test_real_textures()
@@ -80,24 +80,24 @@ func _mean_error(a: Image, b: Image) -> float:
 func _test_variant_pick() -> void:
 	_entered += 1
 	var feats := func(list: Array) -> Callable: return func(f: String) -> bool: return f in list
-	_check(DotMapTextureBake.pick_variant(feats.call(["s3tc", "bptc"])) == "s3tc", "a desktop GPU (s3tc, bptc) reads the s3tc bake")
-	_check(DotMapTextureBake.pick_variant(feats.call(["etc2", "astc"])) == "etc2", "a phone or browser GPU (etc2, astc) reads the etc2 bake")
-	_check(DotMapTextureBake.pick_variant(feats.call(["s3tc", "etc2"])) == "s3tc", "a GPU with both prefers s3tc")
-	_check(DotMapTextureBake.pick_variant(feats.call(["astc", "bptc"])).is_empty(), "a GPU with only astc or bptc has no bake and decodes the source")
-	_check(DotMapTextureBake.pick_variant(feats.call([])).is_empty(), "no GPU format (dedicated server, headless) picks nothing")
-	_check(DotMapTextureBake.pick_variant(feats.call(["s3tc"]), true).is_empty(), "NOCOMP forces no bake")
+	_check(GSMapTextureBake.pick_variant(feats.call(["s3tc", "bptc"])) == "s3tc", "a desktop GPU (s3tc, bptc) reads the s3tc bake")
+	_check(GSMapTextureBake.pick_variant(feats.call(["etc2", "astc"])) == "etc2", "a phone or browser GPU (etc2, astc) reads the etc2 bake")
+	_check(GSMapTextureBake.pick_variant(feats.call(["s3tc", "etc2"])) == "s3tc", "a GPU with both prefers s3tc")
+	_check(GSMapTextureBake.pick_variant(feats.call(["astc", "bptc"])).is_empty(), "a GPU with only astc or bptc has no bake and decodes the source")
+	_check(GSMapTextureBake.pick_variant(feats.call([])).is_empty(), "no GPU format (dedicated server, headless) picks nothing")
+	_check(GSMapTextureBake.pick_variant(feats.call(["s3tc"]), true).is_empty(), "NOCOMP forces no bake")
 	var tex := ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGB8))
-	tex.set_meta(DotMapTextureBake.META, {"size": 1, "md5": "", "w": 8, "h": 8, "max": 0, "variant": "etc2"})
-	_check(not DotMapTextureBake.fits(tex, "res://missing.webp", 0, "s3tc"), "a bake that records another variant is ignored")
-	tex.set_meta(DotMapTextureBake.META, {"size": 1, "md5": "", "w": 8, "h": 8, "max": 0})
-	_check(DotMapTextureBake.fits(tex, "res://missing.webp", 0, "s3tc"), "a bake from before the variant record still loads")
+	tex.set_meta(GSMapTextureBake.META, {"size": 1, "md5": "", "w": 8, "h": 8, "max": 0, "variant": "etc2"})
+	_check(not GSMapTextureBake.fits(tex, "res://missing.webp", 0, "s3tc"), "a bake that records another variant is ignored")
+	tex.set_meta(GSMapTextureBake.META, {"size": 1, "md5": "", "w": 8, "h": 8, "max": 0})
+	_check(GSMapTextureBake.fits(tex, "res://missing.webp", 0, "s3tc"), "a bake from before the variant record still loads")
 	_completed += 1
 
 
 func _test_real_textures() -> void:
 	_entered += 1
 	var store := _find_store()
-	var variant := DotMapSurfaces.baked_variant()
+	var variant := GSMapSurfaces.baked_variant()
 	if store.is_empty() or variant.is_empty():
 		print("  skipped: %s" % ("no map store on this machine" if store.is_empty() else "no VRAM format on this build"))
 		for i in REAL:
@@ -116,10 +116,10 @@ func _test_real_textures() -> void:
 			DirAccess.copy_absolute(src, dst)
 			copied.append(dst)
 	_check(copied.size() == SETS, "%d real albedo maps copied (%d)" % [SETS, copied.size()])
-	var stats := DotMapTextureBake.bake_store(SCRATCH, "", CAP)
+	var stats := GSMapTextureBake.bake_store(SCRATCH, "", CAP)
 	_check(stats["baked"] == SETS and stats["failed"] == 0, "all baked beside the copies (%s)" % str(stats))
 
-	var surfaces := DotMapSurfaces.new()
+	var surfaces := GSMapSurfaces.new()
 	surfaces.max_texture_size = CAP
 	var from_bake := true
 	var capped := true
@@ -136,7 +136,7 @@ func _test_real_textures() -> void:
 		var got := tex.get_image()
 		last_size = [got.get_width(), got.get_height(), got.get_format(), got.has_mipmaps()]
 		var want := Image.load_from_file(p)
-		DotMapImagePrep.prepare_image(want, p, CAP, false, DotMapTextureBake.VARIANTS[variant])
+		GSMapImagePrep.prepare_image(want, p, CAP, false, GSMapTextureBake.VARIANTS[variant])
 		exact = exact and got.get_format() == want.get_format() and got.get_mipmap_count() == want.get_mipmap_count() and got.get_data() == want.get_data()
 		got.decompress()
 		var err := _mean_error(got, _downscaled(p, CAP))
@@ -157,7 +157,7 @@ func _test_real_textures() -> void:
 func _test_bake_fallbacks(copied: PackedStringArray, variant: String) -> void:
 	var missing := copied[0]
 	DirAccess.remove_absolute("%s.%s.res" % [missing.get_basename(), variant])
-	var s2 := DotMapSurfaces.new()
+	var s2 := GSMapSurfaces.new()
 	s2.max_texture_size = CAP
 	var t_missing := s2._file_texture(missing)
 	_check(t_missing != null and t_missing.resource_path.is_empty() and maxi(t_missing.get_width(), t_missing.get_height()) == CAP, "a missing .res falls back to decoding the webp")
@@ -165,38 +165,38 @@ func _test_bake_fallbacks(copied: PackedStringArray, variant: String) -> void:
 	var f := FileAccess.open("%s.%s.res" % [corrupt.get_basename(), variant], FileAccess.WRITE)
 	f.store_string("not a resource, a stale or foreign format")
 	f.close()
-	var s3 := DotMapSurfaces.new()
+	var s3 := GSMapSurfaces.new()
 	s3.max_texture_size = CAP
 	var t_corrupt := s3._file_texture(corrupt)
 	_check(t_corrupt != null and t_corrupt.resource_path.is_empty() and maxi(t_corrupt.get_width(), t_corrupt.get_height()) == CAP, "an unreadable .res falls back to decoding the webp")
-	var s4 := DotMapSurfaces.new()
+	var s4 := GSMapSurfaces.new()
 	s4.max_texture_size = CAP / 2
 	var t_small := s4._file_texture(copied[2])
 	_check(t_small != null and t_small.resource_path.is_empty() and maxi(t_small.get_width(), t_small.get_height()) == CAP / 2, "a cap below the baked size decodes at the cap")
 
 	DirAccess.copy_absolute(copied[4], copied[3])
-	_check(not DotMapTextureBake.is_current(copied[3].get_basename(), copied[3], CAP), "a source changed under the same path is no longer current")
-	var s5 := DotMapSurfaces.new()
+	_check(not GSMapTextureBake.is_current(copied[3].get_basename(), copied[3], CAP), "a source changed under the same path is no longer current")
+	var s5 := GSMapSurfaces.new()
 	s5.max_texture_size = CAP
 	var t_stale := s5._file_texture(copied[3])
 	_check(t_stale != null and t_stale.resource_path.is_empty(), "a baked file of another source is not loaded")
-	var s6 := DotMapSurfaces.new()
+	var s6 := GSMapSurfaces.new()
 	s6.max_texture_size = 0
 	var t_uncapped := s6._file_texture(copied[5])
 	_check(t_uncapped != null and t_uncapped.resource_path.is_empty() and maxi(t_uncapped.get_width(), t_uncapped.get_height()) > CAP, "no cap asks for the source's size, so a lower-resolution bake is not used")
 	var bare := Image.create(CAP, CAP, true, Image.FORMAT_RGB8)
 	ResourceSaver.save(ImageTexture.create_from_image(bare), "%s.%s.res" % [copied[6].get_basename(), variant])
-	var s7 := DotMapSurfaces.new()
+	var s7 := GSMapSurfaces.new()
 	s7.max_texture_size = CAP
 	var t_old := s7._file_texture(copied[6])
 	_check(t_old != null and t_old.resource_path.is_empty(), "a baked file without the bake metadata (an older format) is not loaded")
 	DirAccess.remove_absolute("%s.etc2.res" % copied[7].get_basename())
-	var again := DotMapTextureBake.bake_store(SCRATCH, "", CAP)
+	var again := GSMapTextureBake.bake_store(SCRATCH, "", CAP)
 	_check(again["baked"] == 5 and again["skipped"] == SETS - 5 and again["failed"] == 0, "a re-bake redoes only the missing, unreadable, changed, bare and half-missing ones (%s)" % str(again))
 	var other := "etc2" if variant == "s3tc" else "s3tc"
 	var wrong := copied[8]
 	DirAccess.copy_absolute("%s.%s.res" % [wrong.get_basename(), other], "%s.%s.res" % [wrong.get_basename(), variant])
-	var s8 := DotMapSurfaces.new()
+	var s8 := GSMapSurfaces.new()
 	s8.max_texture_size = CAP
 	var t_wrong := s8._file_texture(wrong)
 	_check(t_wrong != null and t_wrong.resource_path.is_empty(), "the other variant's bake under this variant's name is ignored")

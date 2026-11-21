@@ -1,7 +1,7 @@
-class_name DotMapCommands
+class_name GSMapCommands
 extends RefCounted
 
-## `map`, `maps` and `mapinfo` on a GameSpice Server in one call: [code]DotMapCommands.install(self, session[, sync_host])[/code].
+## `map`, `maps` and `mapinfo` on a GameSpice Server in one call: [code]GSMapCommands.install(self, session[, sync_host])[/code].
 ## Duck-typed host (add_command or command) and context (reply, args), so no GameSpice Server class is named. `map` changes the world, not the game;
 ## there is no `nextmap` or `timeleft` because GameSpice Vote registers those over the same maps.
 
@@ -22,21 +22,21 @@ const CHAT := ["maps", "mapinfo", "rotations"]
 
 ## The server's maps.yml, for `sv_map_rotation` and `maps_rotations`. Optional: without one
 ## those two say there is no rotation file and `maps` lists every map unmarked.
-var rotation_file: DotMapRotationFile = null
+var rotation_file: GSMapRotationFile = null
 
-## `() -> DotMapRotationFile`, for a game that re-reads maps.yml and so replaces the object.
+## `() -> GSMapRotationFile`, for a game that re-reads maps.yml and so replaces the object.
 ## Takes precedence over [member rotation_file].
 var rotation_file_fn: Callable = Callable()
 
 ## Where the catalogue, the current map and the clock are read from.
-var session: DotMapSession = null
+var session: GSMapSession = null
 
-## What actually performs the change. A [DotMapSession], or a [DotMapSyncHost] in front of one when the
+## What actually performs the change. A [GSMapSession], or a [GSMapSyncHost] in front of one when the
 ## change has to reach clients rather than only the server's own process. Duck-typed on `change_to`, because
 ## those two are the same three methods and GameSpice Map must not care which is in front.
 var changer: Object = null
 
-## `(id: StringName) -> DotResult`, for a host whose change is its own method. Takes precedence over [member
+## `(id: StringName) -> GSResult`, for a host whose change is its own method. Takes precedence over [member
 ## changer]. game-playlot's `change_map` resets the props, the NPCs and the course before it touches the
 ## session, so handing the session straight to a command would change the world out from under all three.
 var change_fn: Callable = Callable()
@@ -78,9 +78,9 @@ var registered: PackedStringArray = PackedStringArray()
 
 
 static func install(
-	host: Object, p_session: DotMapSession, p_changer: Object = null
-) -> DotMapCommands:
-	var commands := DotMapCommands.new()
+	host: Object, p_session: GSMapSession, p_changer: Object = null
+) -> GSMapCommands:
+	var commands := GSMapCommands.new()
 	commands.session = p_session
 	commands.changer = p_changer if p_changer != null else p_session
 	commands.bind(host)
@@ -89,9 +89,9 @@ static func install(
 
 ## The same, for a host whose map change is its own method rather than an object.
 static func install_with(
-	host: Object, p_session: DotMapSession, p_change_fn: Callable
-) -> DotMapCommands:
-	var commands := DotMapCommands.new()
+	host: Object, p_session: GSMapSession, p_change_fn: Callable
+) -> GSMapCommands:
+	var commands := GSMapCommands.new()
 	commands.session = p_session
 	commands.changer = p_session
 	commands.change_fn = p_change_fn
@@ -101,24 +101,24 @@ static func install_with(
 
 ## The name help and hints show for a role: the primary, prefix included.
 func command_name(role: String) -> String:
-	return DotCommandNames.all_of(prefix, names, DEFAULTS, role)[0]
+	return GSCommandNames.all_of(prefix, names, DEFAULTS, role)[0]
 
 
 ## Every name a role answers to, the primary first.
 func command_names(role: String) -> PackedStringArray:
-	return DotCommandNames.all_of(prefix, names, DEFAULTS, role)
+	return GSCommandNames.all_of(prefix, names, DEFAULTS, role)
 
 
 ## What a player types in chat for a role.
 func typed(role: String) -> String:
-	return DotCommandNames.typed(chat_prefix, command_name(role))
+	return GSCommandNames.typed(chat_prefix, command_name(role))
 
 
 ## Registers everything on [param host].
-func bind(host: Object) -> DotResult:
+func bind(host: Object) -> GSResult:
 	if host == null or session == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "A host and a map session are both needed."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "A host and a map session are both needed."
 		)
 	if changer == null:
 		changer = session
@@ -126,7 +126,7 @@ func bind(host: Object) -> DotResult:
 	if spec_fn.is_valid():
 		var from_file: Variant = spec_fn.call()
 		if from_file is Dictionary:
-			DotCommandNames.apply(self, from_file)
+			GSCommandNames.apply(self, from_file)
 
 	var adder := ""
 	if host.has_method("add_command"):
@@ -134,10 +134,10 @@ func bind(host: Object) -> DotResult:
 	elif host.has_method("command"):
 		adder = "command"
 	else:
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"That host has no way to register a command.",
-			"expected a DotModule (add_command) or a DotConsole (command)"
+			"expected a GSModule (add_command) or a GSConsole (command)"
 		)
 
 	var table := {
@@ -152,7 +152,7 @@ func bind(host: Object) -> DotResult:
 		var entry: Array = table[role]
 
 		for full in command_names(str(role)):
-			if not DotCommandNames.available(host, full, registered, str(role), "map"):
+			if not GSCommandNames.available(host, full, registered, str(role), "map"):
 				skipped.append(full)
 				continue
 
@@ -163,8 +163,8 @@ func bind(host: Object) -> DotResult:
 
 			registered.append(full)
 
-	DotLog.info(CHANNEL, "commands registered", {"count": registered.size()})
-	return DotResult.success(registered)
+	GSLog.info(CHANNEL, "commands registered", {"count": registered.size()})
+	return GSResult.success(registered)
 
 
 ## Applies the usage, chat and completion hints a registered command supports; each is duck-typed.
@@ -202,7 +202,7 @@ func map_ids() -> PackedStringArray:
 	if session == null or session.catalogue == null:
 		return out
 	# Every ENABLED map, in rotation or not: `map <id>` loads either, and the completer and
-	# the list must say so. What the rotation plays is DotMapRotation.pool().
+	# the list must say so. What the rotation plays is GSMapRotation.pool().
 	for m in session.catalogue.maps:
 		if m.enabled and m.available_for_players(_players()):
 			out.append(String(m.id))
@@ -231,7 +231,7 @@ func _reply_lines(ctx: Object, lines: PackedStringArray) -> void:
 		_reply(ctx, l)
 
 
-func _reply_result(ctx: Object, result: DotResult, ok_text: String) -> void:
+func _reply_result(ctx: Object, result: GSResult, ok_text: String) -> void:
 	if result.ok:
 		_reply(ctx, ok_text)
 		return
@@ -262,14 +262,14 @@ func _cmd_map(ctx: Object) -> void:
 	_reply(ctx, "Changing to %s…" % args[0])
 
 	# AWAITED, and this is the line that would otherwise be wrong in the way this family has a name for:
-	# `DotMapSession.change_to` and `DotMapSyncHost.change_to` are both coroutines, so calling one without
-	# awaiting returns a `GDScriptFunctionState` at its first `await` -- which is not a `DotResult`, so the...
+	# `GSMapSession.change_to` and `GSMapSyncHost.change_to` are both coroutines, so calling one without
+	# awaiting returns a `GDScriptFunctionState` at its first `await` -- which is not a `GSResult`, so the...
 	var res: Variant = (
 		await change_fn.call(id) if change_fn.is_valid()
 		else await changer.call("change_to", id)
 	)
-	if res is DotResult:
-		var done := res as DotResult
+	if res is GSResult:
+		var done := res as GSResult
 		# The hint moves here rather than being dropped. An id that was not in the catalogue and could not be
 		# fetched either is the typo case after all, and the suggestion is worth exactly as much now as it was
 		# worth before the attempt -- it is only the REFUSAL that had to wait for the changer to have its say.
@@ -319,9 +319,9 @@ func _cmd_mapinfo(ctx: Object) -> void:
 	_reply_lines(ctx, session.describe_lines())
 
 
-func _file() -> DotMapRotationFile:
+func _file() -> GSMapRotationFile:
 	if rotation_file_fn.is_valid():
-		return rotation_file_fn.call() as DotMapRotationFile
+		return rotation_file_fn.call() as GSMapRotationFile
 	return rotation_file
 
 

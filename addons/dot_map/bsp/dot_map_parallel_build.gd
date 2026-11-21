@@ -1,4 +1,4 @@
-class_name DotMapParallelBuild
+class_name GSMapParallelBuild
 extends RefCounted
 ## The pure-CPU stages of loading a converted world, on the worker pool when [code]map_load_threads[/code] is not 0.
 ##
@@ -7,26 +7,26 @@ extends RefCounted
 ## Entries per worker in flight at once: the arrays of a whole map are never held together.
 const PER_WORKER := 4
 
-## Process-wide default for [member DotMapBspMesh.load_threads] and [member DotMapSurfaces.load_threads]; a game copies its cvar here once. 0 is off, -1 automatic ([method DotParallel.resolve_workers]).
+## Process-wide default for [member GSMapBspMesh.load_threads] and [member GSMapSurfaces.load_threads]; a game copies its cvar here once. 0 is off, -1 automatic ([method GSParallel.resolve_workers]).
 static var default_workers: int = 0
 
 
 ## How many items one fork carries for [param workers].
 static func batch_size(workers: int) -> int:
-	return maxi(DotParallel.resolve_workers(workers), 1) * PER_WORKER
+	return maxi(GSParallel.resolve_workers(workers), 1) * PER_WORKER
 
 
-# "world" below is a DotMapBspMesh, typed RefCounted: the mesh scripts name this file, so naming the mesh back
+# "world" below is a GSMapBspMesh, typed RefCounted: the mesh scripts name this file, so naming the mesh back
 # would keep both parsers alive.
 
-## [method DotMapBspMesh.surface_arrays] merged per list of records in [param lists]; slot i is lists[i]'s.
+## [method GSMapBspMesh.surface_arrays] merged per list of records in [param lists]; slot i is lists[i]'s.
 static func merged(world: RefCounted, lists: Array, workers: int) -> Array:
-	return DotParallel.run(func(i: int) -> Variant: return world._merged_arrays(lists[i]), lists.size(), &"map.mesh", workers)
+	return GSParallel.run(func(i: int) -> Variant: return world._merged_arrays(lists[i]), lists.size(), &"map.mesh", workers)
 
 
 ## Hull points of [param recs] minus [param origin], one [PackedVector3Array] per record.
 static func hull_points(world: RefCounted, recs: Array, origin: Vector3, workers: int) -> Array:
-	return DotParallel.run(func(i: int) -> Variant:
+	return GSParallel.run(func(i: int) -> Variant:
 		var p := int(recs[i]["point_offset"])
 		var pts: PackedVector3Array = world._blob.slice(p, p + 12 * int(recs[i]["point_count"])).to_vector3_array()
 		for k in pts.size():
@@ -36,7 +36,7 @@ static func hull_points(world: RefCounted, recs: Array, origin: Vector3, workers
 
 ## Triangle faces (three points per index) of [param recs] minus [param origin], one array per record.
 static func concave_faces(world: RefCounted, recs: Array, origin: Vector3, workers: int) -> Array:
-	return DotParallel.run(func(i: int) -> Variant:
+	return GSParallel.run(func(i: int) -> Variant:
 		var a: Array = world.surface_arrays(recs[i])
 		var verts: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
 		var index: PackedInt32Array = a[Mesh.ARRAY_INDEX]
@@ -53,14 +53,14 @@ static func textures(paths: PackedStringArray, workers: int, max_size: int = 0, 
 	var step := batch_size(workers)
 	for from in range(0, paths.size(), step):
 		var n := mini(step, paths.size() - from)
-		var images := DotParallel.run(func(i: int) -> Variant:
+		var images := GSParallel.run(func(i: int) -> Variant:
 			var img := Image.load_from_file(paths[from + i])
 			if img != null:
-				DotMapImagePrep.shrink_image(img, paths[from + i], max_size, half_masks, half_normals)
+				GSMapImagePrep.shrink_image(img, paths[from + i], max_size, half_masks, half_normals)
 			return img, n, &"map.textures", workers)
 		for i in n:
 			if images[i] != null:
-				DotMapImagePrep.compress_image(images[i])
+				GSMapImagePrep.compress_image(images[i])
 				out[paths[from + i]] = ImageTexture.create_from_image(images[i])
 	return out
 
@@ -73,14 +73,14 @@ static func textures_async(paths: PackedStringArray, workers: int, max_size: int
 	var slice_from := Time.get_ticks_msec()
 	for from in range(0, paths.size(), step):
 		var n := mini(step, paths.size() - from)
-		var images := DotParallel.run(func(i: int) -> Variant:
+		var images := GSParallel.run(func(i: int) -> Variant:
 			var img := Image.load_from_file(paths[from + i])
 			if img != null:
-				DotMapImagePrep.shrink_image(img, paths[from + i], max_size, half_masks, half_normals)
+				GSMapImagePrep.shrink_image(img, paths[from + i], max_size, half_masks, half_normals)
 			return img, n, &"map.textures", workers)
 		for i in n:
 			if images[i] != null:
-				DotMapImagePrep.compress_image(images[i])
+				GSMapImagePrep.compress_image(images[i])
 				out[paths[from + i]] = ImageTexture.create_from_image(images[i])
 		if tree != null and Time.get_ticks_msec() - slice_from >= slice_ms:
 			await tree.process_frame

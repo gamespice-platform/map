@@ -19,39 +19,39 @@ func _body(id: int, pos: Vector3, kind: String = "player", name: String = "") ->
 
 
 ## Runs [param ticks] rounds of advance then step; [param bodies] is a Callable(tick) -> Array.
-func _run_ticks(io: DotMapIO, vols: DotMapVolumes, ticks: int, bodies: Callable) -> void:
+func _run_ticks(io: GSMapIO, vols: GSMapVolumes, ticks: int, bodies: Callable) -> void:
 	for i in ticks:
 		io.advance(1)
 		vols.step(bodies.call(io.now))
 
 
 func _office_world(doc: Dictionary) -> Array:
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	io.rate = 60
 	io.rng_seed = 1
 	io.record_history = true
 	_check(io.load_document(doc).ok, "the Office document loads")
-	var ents := DotMapEntities.from_manifest({"volumes": [
+	var ents := GSMapEntities.from_manifest({"volumes": [
 		_vol(128, "hurt", "trigger_hurt", Vector3(4, 0, 0), Vector3(8, 4, 8), {"targetname": "Obstacle2_Hurt"}),
 		_vol(130, "multiple", "trigger_multiple", Vector3(0, 0, 0), Vector3(8, 4, 8), {"targetname": "Obstacle2_trigger", "wait": 1.0}),
 	]})
-	return [io, DotMapVolumes.build(ents, io)]
+	return [io, GSMapVolumes.build(ents, io)]
 
 
 func _test_office_timing(doc: Dictionary) -> void:
 	_section("Office: the lava room's hurt timing from the map's own outputs (a player standing in it)")
 	var w := _office_world(doc)
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var hits: Array = []
 	io.damage_fn = func(_b: Variant, amount: float, _kind: String, attacker: Variant) -> void:
-		hits.append([io.now, amount, (attacker as DotMapEntity).targetname])
+		hits.append([io.now, amount, (attacker as GSMapEntity).targetname])
 	io.start()
 	var pos := [Vector3(2, 0, 4)]
 	var provider := func(_t: int) -> Array: return [_body(1, pos[0], "player", "p1")]
 	_run_ticks(io, vols, 1, provider)
 	var t0 := io.now
-	var hurt := io.find("Obstacle2_Hurt")[0] as DotMapEntity
+	var hurt := io.find("Obstacle2_Hurt")[0] as GSMapEntity
 	_check(t0 == 1 and not hurt.enabled and hits.is_empty(), "map start: the hurt volume is off and a player inside it is not hurt")
 	var trig_hits := 0
 	for h: Dictionary in io.history:
@@ -75,8 +75,8 @@ func _test_office_timing(doc: Dictionary) -> void:
 func _test_office_second_entry(doc: Dictionary) -> void:
 	_section("Office: leaving is safe, the trigger re-arms at 6 s, and entering again undoes the hurt volume")
 	var w := _office_world(doc)
-	var io: DotMapIO = w[0]
-	var vols: DotMapVolumes = w[1]
+	var io: GSMapIO = w[0]
+	var vols: GSMapVolumes = w[1]
 	var hits: Array = []
 	io.damage_fn = func(_b: Variant, amount: float, _k: String, _a: Variant) -> void: hits.append([io.now, amount])
 	io.start()
@@ -89,8 +89,8 @@ func _test_office_second_entry(doc: Dictionary) -> void:
 	pos[0] = Vector3(50, 0, 50)
 	_run_ticks(io, vols, 90, provider)
 	_check(hits.size() == 1 and io.now == 271, "he steps out at once: no more hits")
-	var hurt := io.find("Obstacle2_Hurt")[0] as DotMapEntity
-	var trig := io.find("Obstacle2_trigger")[0] as DotMapEntity
+	var hurt := io.find("Obstacle2_Hurt")[0] as GSMapEntity
+	var trig := io.find("Obstacle2_trigger")[0] as GSMapEntity
 	_check(hurt.enabled and not trig.enabled, "the hurt volume stays on until the next entry; the trigger is still disarmed")
 	_run_ticks(io, vols, 89, provider)
 	_check(not trig.enabled, "one tick before 6 s still disarmed")
@@ -121,16 +121,16 @@ func _test_jail_glass_cell() -> void:
 	vols.append({"kind": "teleport", "target": "top"})
 	vols.append({"kind": "teleport", "target": "top"})
 	vols.append({"kind": "teleport", "target": "top"})
-	var cell := DotMapOneWayGlass.cell_of({"destinations": dests, "volumes": vols})
+	var cell := GSMapOneWayGlass.cell_of({"destinations": dests, "volumes": vols})
 	_check(not cell.is_empty(), "the low destination three pits aim at is the jail cell")
 	var centre: Vector3 = cell["centre"]
 	_check(centre.distance_to(Vector3(1, -39, 0.5)) < 0.01, "its centre averages the destinations within 5 m, a metre up: %s" % [centre])
-	_check(DotMapOneWayGlass.sees_solid(centre + Vector3(2, 0, 0), centre, 6.0), "a camera inside the cell sees the glass solid")
-	_check(not DotMapOneWayGlass.sees_solid(centre + Vector3(20, 0, 0), centre, 6.0), "a camera outside sees through it")
-	var ramp := DotMapOneWayGlass.cell_of({"destinations": {"a": {"at": [0, 0, 0]}, "t": {"at": [0, 5, 0]}}, "volumes": vols.slice(0, 3).map(func(v): return {"kind": "teleport", "target": "a"}) + [{"kind": "teleport", "target": "t"}]})
+	_check(GSMapOneWayGlass.sees_solid(centre + Vector3(2, 0, 0), centre, 6.0), "a camera inside the cell sees the glass solid")
+	_check(not GSMapOneWayGlass.sees_solid(centre + Vector3(20, 0, 0), centre, 6.0), "a camera outside sees through it")
+	var ramp := GSMapOneWayGlass.cell_of({"destinations": {"a": {"at": [0, 0, 0]}, "t": {"at": [0, 5, 0]}}, "volumes": vols.slice(0, 3).map(func(v): return {"kind": "teleport", "target": "a"}) + [{"kind": "teleport", "target": "t"}]})
 	_check(ramp.is_empty(), "a destination less than 10 m under the top is a ramp, not a cell")
-	_check(DotMapOneWayGlass.cell_of({}).is_empty(), "a manifest without teleports has no cell")
-	var m := DotMapOneWayGlass.material(&"glass", [0.5, 0.6, 0.7, 0.4], centre, 6.0)
+	_check(GSMapOneWayGlass.cell_of({}).is_empty(), "a manifest without teleports has no cell")
+	var m := GSMapOneWayGlass.material(&"glass", [0.5, 0.6, 0.7, 0.4], centre, 6.0)
 	_check(m != null and m.get_shader_parameter("cell_centre") == centre, "the glass material carries the cell centre")
 	_check(m.get_shader_parameter("cell_radius") == 6.0, "and the radius")
 	_done()
@@ -151,7 +151,7 @@ func _test_jail_glass_rays() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var space := body.get_world_3d().direct_space_state
-	var sight := DotMapGlassSight.new(Vector3.ZERO, 3.0, layer)
+	var sight := GSMapGlassSight.new(Vector3.ZERO, 3.0, layer)
 	var inside := Vector3(0, 0, 0)
 	var outside := Vector3(10, 0, 0)
 	_check(sight.blocks(space, inside, outside), "a ray from inside the cell is stopped by the glass")
@@ -163,7 +163,7 @@ func _test_jail_glass_rays() -> void:
 	_check(los.call(outside, inside), "a bot outside sees in")
 	_check(sight.shot_mask(inside, 1) == (1 | layer), "a shot from inside counts the glass layer")
 	_check(sight.shot_mask(outside, 1 | layer) == 1, "a shot from outside never does")
-	var shared := DotMapGlassSight.new(Vector3.ZERO, 3.0, 1)
+	var shared := GSMapGlassSight.new(Vector3.ZERO, 3.0, 1)
 	shared.world_mask = 1
 	_check(shared.shot_mask(outside, 1) == 1, "a glass bit shared with the world is never stripped from an outside shot")
 	_check(shared.problem() != "" and sight.problem() == "", "a shared glass layer is reported, an own one is not")
@@ -178,6 +178,6 @@ func _test_jail_glass_rays() -> void:
 	_check(sight.shot_mask(inside, 1) == 1, "sv_glass_block_shots 0 lets a shot out")
 	_check(not sight.set_cvar("sv_other", "1"), "a foreign cvar name is refused")
 	_check(sight.cvar_specs().size() == 2, "two cvars are offered")
-	_check(not DotMapGlassSight.new(Vector3.ZERO, 3.0, 0).blocks(space, inside, outside), "with no glass layer nothing blocks")
+	_check(not GSMapGlassSight.new(Vector3.ZERO, 3.0, 0).blocks(space, inside, outside), "with no glass layer nothing blocks")
 	body.free()
 	_done()

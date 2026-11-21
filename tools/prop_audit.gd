@@ -27,10 +27,10 @@ func _init() -> void:
 		for entry in found:
 			var id: String = entry[0]
 			var prefix: String = entry[1]
-			var res := DotMapBspMesh.load_prefix(prefix)
+			var res := GSMapBspMesh.load_prefix(prefix)
 			if not res.ok:
 				continue
-			var w: DotMapBspMesh = res.value
+			var w: GSMapBspMesh = res.value
 			var props := w.build_props()
 			props.free()
 			maps += 1

@@ -1,5 +1,5 @@
-class_name DotMapBranch
-extends DotMapEntity
+class_name GSMapBranch
+extends GSMapEntity
 
 ## logic_branch: a boolean; Test fires OnTrue or OnFalse.
 

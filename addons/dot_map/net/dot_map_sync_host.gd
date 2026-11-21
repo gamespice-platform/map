@@ -1,5 +1,5 @@
 @tool
-class_name DotMapSyncHost
+class_name GSMapSyncHost
 extends Node
 
 ## Changes the map for everybody, not only this process: announce, wait for each peer's download, swap, then tell all to load.
@@ -29,15 +29,15 @@ signal sync_progress(ready_count: int, total: int)
 signal peer_timed_out(peer_id: int)
 
 ## The map is live here and every peer has been told to show it.
-signal change_finished(map: DotMapDef)
+signal change_finished(map: GSMapDef)
 
 ## The change was abandoned. The session is still on the map it was running.
-signal change_failed(map: DotMapDef, reason: String)
+signal change_failed(map: GSMapDef, reason: String)
 
 @export_group("Wiring")
 
 ## The session this drives. Required.
-@export var session_ref: DotNodeRef = null
+@export var session_ref: GSNodeRef = null
 
 @export_group("Waiting")
 
@@ -58,7 +58,7 @@ signal change_failed(map: DotMapDef, reason: String)
 @export_range(0.05, 2.0, 0.05) var poll_interval_sec: float = 0.25
 
 ## The session this drives, assigned directly when there is no [member session_ref].
-var session: DotMapSession = null
+var session: GSMapSession = null
 
 ## Sends one payload to one peer. Set by the host. One peer, never a broadcast address. A [code]send(payload,
 ## 0)[/code] convention is how this family last shipped a private per-player message to every client at once,
@@ -82,7 +82,7 @@ var _joined_mid_change: PackedInt64Array = PackedInt64Array()
 ## peer_id -> "id@version" the peer was last told to load. So a ready is answered once.
 var _told_to_load: Dictionary = {}
 
-var _pending: DotMapDef = null
+var _pending: GSMapDef = null
 ## peer_id -> "id@version" the peer last said it had.
 var _ready_keys: Dictionary = {}
 ## peer_id -> 0..1
@@ -97,7 +97,7 @@ func _ready() -> void:
 	if session == null and session_ref != null:
 		var resolved := session_ref.resolve(self)
 		if resolved.ok:
-			session = resolved.value as DotMapSession
+			session = resolved.value as GSMapSession
 
 
 ## Registers a peer that must follow map changes. Sends nothing on its own; [method admit_peer] is the one-
@@ -110,7 +110,7 @@ func add_peer(peer_id: int) -> void:
 
 	if phase != Phase.IDLE:
 		_joined_mid_change.append(peer_id)
-		DotLog.debug(CHANNEL, "peer joined during a change; it follows once it settles", {
+		GSLog.debug(CHANNEL, "peer joined during a change; it follows once it settles", {
 			"peer": peer_id
 		})
 
@@ -144,57 +144,57 @@ func remove_peer(peer_id: int) -> void:
 func join_payload() -> Dictionary:
 	if session == null or session.current == null:
 		return {}
-	return DotMapMessage.announce(session.current)
+	return GSMapMessage.announce(session.current)
 
 
 ## Changes the map for the host and every peer. Returns when the new map is live here and every peer has been
 ## told to show it, or with a failure that leaves the current map running.
-func change_to(id: StringName) -> DotResult:
+func change_to(id: StringName) -> GSResult:
 	if session == null:
-		return DotResult.fail(DotError.CODE_STATE, "No map session.")
+		return GSResult.fail(GSError.CODE_STATE, "No map session.")
 
 	if session.catalogue == null:
-		return DotResult.fail(DotError.CODE_STATE, "No catalogue has been loaded.")
+		return GSResult.fail(GSError.CODE_STATE, "No catalogue has been loaded.")
 
 	var map := session.catalogue.get_map(id)
 
 	if map == null:
-		return DotResult.fail(
-			DotError.CODE_IO, "No such map in the catalogue.", String(id)
+		return GSResult.fail(
+			GSError.CODE_IO, "No such map in the catalogue.", String(id)
 		)
 
 	return await change_to_map(map)
 
 
 ## Changes to the next map the session's rotation offers.
-func change_to_next(players: int = 0) -> DotResult:
+func change_to_next(players: int = 0) -> GSResult:
 	if session == null or session.rotation == null:
-		return DotResult.fail(DotError.CODE_STATE, "No rotation.")
+		return GSResult.fail(GSError.CODE_STATE, "No rotation.")
 
 	var next := session.rotation.choose(players)
 
 	if next == null:
-		return DotResult.fail(
-			DotError.CODE_STATE, "The rotation has nothing to offer."
+		return GSResult.fail(
+			GSError.CODE_STATE, "The rotation has nothing to offer."
 		)
 
 	return await change_to_map(next)
 
 
 ## Refuses a change that cannot start (no session, a change running, an invalid map); otherwise records it and counts the peers it waits on.
-func _begin_change(map: DotMapDef) -> DotResult:
+func _begin_change(map: GSMapDef) -> GSResult:
 	if session == null:
-		return DotResult.fail(DotError.CODE_STATE, "No map session.")
+		return GSResult.fail(GSError.CODE_STATE, "No map session.")
 
 	if map == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No map.")
+		return GSResult.fail(GSError.CODE_INVALID, "No map.")
 
 	if phase != Phase.IDLE:
-		# Refused rather than queued, for the reason DotMapSession gives about two
+		# Refused rather than queued, for the reason GSMapSession gives about two
 		# overlapping changes: the second one's await resumes into a world the first
 		# has already rebuilt.
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"A map change is already in progress.",
 			String(_pending.id) if _pending != null else ""
 		)
@@ -209,14 +209,14 @@ func _begin_change(map: DotMapDef) -> DotResult:
 	_progress.clear()
 	_participants = peers.duplicate()
 
-	DotLog.info(CHANNEL, "changing map", {
+	GSLog.info(CHANNEL, "changing map", {
 		"to": String(map.id), "version": map.version, "peers": peers.size()
 	})
-	return DotResult.success()
+	return GSResult.success()
 
 
 ## Announces, waits for the peers, swaps the host's own world, then tells everyone to load.
-func change_to_map(map: DotMapDef) -> DotResult:
+func change_to_map(map: GSMapDef) -> GSResult:
 	var begun := _begin_change(map)
 	if not begun.ok:
 		return begun
@@ -224,7 +224,7 @@ func change_to_map(map: DotMapDef) -> DotResult:
 	# Announced before any fetch: the peers have the furthest to go, so the host's own fetch
 	# overlaps theirs. A map is only a world, unlike a game change, so a host that then fails
 	# costs the peers a download they reuse when the map comes round.
-	_broadcast(DotMapMessage.announce(map))
+	_broadcast(GSMapMessage.announce(map))
 
 	if not _participants.is_empty():
 		var proceed: bool = await _wait_for_peers(map)
@@ -232,19 +232,19 @@ func change_to_map(map: DotMapDef) -> DotResult:
 		if not proceed:
 			# `swap_without_stragglers` is off and somebody did not make it. Nothing has been torn down, so this is a
 			# change that did not happen rather than a half-done one — the same property [method
-			# DotMapSession.change_to_map] gets from loading before it frees.
+			# GSMapSession.change_to_map] gets from loading before it frees.
 			var why := "Not every peer could get the map in time."
-			_broadcast(DotMapMessage.abort(map.id, why))
+			_broadcast(GSMapMessage.abort(map.id, why))
 			_settle()
 			change_failed.emit(map, why)
-			return DotResult.fail(DotError.CODE_TIMEOUT, why, String(map.id))
+			return GSResult.fail(GSError.CODE_TIMEOUT, why, String(map.id))
 
 	phase = Phase.SWAPPING
 
-	var changed: DotResult = await session.change_to_map(map)
+	var changed: GSResult = await session.change_to_map(map)
 
 	if not changed.ok:
-		_broadcast(DotMapMessage.abort(map.id, changed.error.message))
+		_broadcast(GSMapMessage.abort(map.id, changed.error.message))
 		_settle()
 		change_failed.emit(map, changed.error.message)
 		return changed
@@ -255,7 +255,7 @@ func change_to_map(map: DotMapDef) -> DotResult:
 	var key := _key_of(map)
 	for peer in _live_participants():
 		_told_to_load[int(peer)] = key
-	_broadcast(DotMapMessage.load_now(map.id, map.version))
+	_broadcast(GSMapMessage.load_now(map.id, map.version))
 
 	_settle()
 
@@ -265,7 +265,7 @@ func change_to_map(map: DotMapDef) -> DotResult:
 
 
 ## Waits for every peer to report the new map. Returns whether to go ahead. The return value is the point.
-func _wait_for_peers(map: DotMapDef) -> bool:
+func _wait_for_peers(map: GSMapDef) -> bool:
 	phase = Phase.SYNCING
 	_deadline_ms = Time.get_ticks_msec() + int(sync_timeout_sec * 1000.0)
 
@@ -289,7 +289,7 @@ func _wait_for_peers(map: DotMapDef) -> bool:
 		sync_progress.emit(ready_count, waiting_on.size())
 
 		if ready_count >= waiting_on.size() and swap_when_all_ready:
-			DotLog.info(CHANNEL, "all peers have the map", {"peers": ready_count})
+			GSLog.info(CHANNEL, "all peers have the map", {"peers": ready_count})
 			return true
 
 		if Time.get_ticks_msec() >= _deadline_ms:
@@ -299,7 +299,7 @@ func _wait_for_peers(map: DotMapDef) -> bool:
 				if str(_ready_keys.get(peer, "")) != wanted:
 					stragglers.append(peer)
 
-			DotLog.warn(CHANNEL, "map content sync timed out", {
+			GSLog.warn(CHANNEL, "map content sync timed out", {
 				"ready": ready_count, "waiting": stragglers.size()
 			})
 
@@ -317,21 +317,21 @@ func _wait_for_peers(map: DotMapDef) -> bool:
 ## Feeds one payload from one peer in. Returns whether it was a map message. A host sharing a channel with
 ## its own traffic uses that to decide whether to keep looking.
 func handle(peer_id: int, payload: Dictionary) -> bool:
-	if not DotMapMessage.is_map_message(payload):
+	if not GSMapMessage.is_map_message(payload):
 		return false
 
-	match DotMapMessage.kind_of(payload):
-		DotMapMessage.KIND_READY:
+	match GSMapMessage.kind_of(payload):
+		GSMapMessage.KIND_READY:
 			var key := "%s@%s" % [
 				str(payload.get("map", "")), str(payload.get("version", ""))
 			]
 			_ready_keys[peer_id] = key
 			_progress[peer_id] = 1.0
-			DotLog.debug(CHANNEL, "peer is ready", {"peer": peer_id, "map": key})
+			GSLog.debug(CHANNEL, "peer is ready", {"peer": peer_id, "map": key})
 			_load_if_joining(peer_id, key)
 			return true
 
-		DotMapMessage.KIND_PROGRESS:
+		GSMapMessage.KIND_PROGRESS:
 			var fraction := clampf(float(payload.get("fraction", 0.0)), 0.0, 1.0)
 			_progress[peer_id] = fraction
 			peer_progress.emit(peer_id, fraction)
@@ -340,8 +340,8 @@ func handle(peer_id: int, payload: Dictionary) -> bool:
 	# An announce or a load arriving here is a peer talking like a host. Reported
 	# rather than acted on: it is either a wiring mistake or a client trying to change
 	# everybody's map, and both are worth seeing in a log.
-	DotLog.warn(CHANNEL, "a peer sent a host-only message", {
-		"peer": peer_id, "kind": String(DotMapMessage.kind_of(payload))
+	GSLog.warn(CHANNEL, "a peer sent a host-only message", {
+		"peer": peer_id, "kind": String(GSMapMessage.kind_of(payload))
 	})
 	return true
 
@@ -358,10 +358,10 @@ func _load_if_joining(peer_id: int, key: String) -> void:
 		return
 
 	_told_to_load[peer_id] = key
-	DotLog.debug(CHANNEL, "a joining peer has the map; telling it to load", {
+	GSLog.debug(CHANNEL, "a joining peer has the map; telling it to load", {
 		"peer": peer_id, "map": key
 	})
-	_send_to(peer_id, DotMapMessage.load_now(current.id, current.version))
+	_send_to(peer_id, GSMapMessage.load_now(current.id, current.version))
 
 
 ## A change finished or was abandoned: back to idle, and announce to the joiners. Whichever way it ended. An
@@ -401,7 +401,7 @@ func _live_participants() -> PackedInt64Array:
 ## to it; it gets the post-change join instead (see [method _settle]).
 func _broadcast(payload: Dictionary) -> void:
 	if not send_fn.is_valid():
-		DotLog.warn(CHANNEL, "no send_fn; peers will not hear about this change")
+		GSLog.warn(CHANNEL, "no send_fn; peers will not hear about this change")
 		return
 
 	for peer in _live_participants():
@@ -410,12 +410,12 @@ func _broadcast(payload: Dictionary) -> void:
 
 func _send_to(peer_id: int, payload: Dictionary) -> void:
 	if not send_fn.is_valid():
-		DotLog.warn(CHANNEL, "no send_fn; a joining peer will not hear which map this is")
+		GSLog.warn(CHANNEL, "no send_fn; a joining peer will not hear which map this is")
 		return
 	send_fn.call(peer_id, payload)
 
 
-static func _key_of(map: DotMapDef) -> String:
+static func _key_of(map: GSMapDef) -> String:
 	return "%s@%s" % [String(map.id), map.version]
 
 

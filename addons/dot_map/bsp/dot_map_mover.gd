@@ -1,4 +1,4 @@
-class_name DotMapMover
+class_name GSMapMover
 extends RefCounted
 
 ## A brush entity that moves, from the converter's mover record: duck-typed data a game animates. It owns no
@@ -58,8 +58,8 @@ var opened_by: Array = []
 
 
 ## Builds from a record of the manifest's [code]movers[/code].
-static func from_record(rec: Dictionary) -> DotMapMover:
-	var m := DotMapMover.new()
+static func from_record(rec: Dictionary) -> GSMapMover:
+	var m := GSMapMover.new()
 	m.record = rec
 	m.entity = int(rec.get("entity", -1))
 	m.model = int(rec["model"]) if rec.get("model") != null else -1

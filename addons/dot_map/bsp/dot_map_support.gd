@@ -1,4 +1,4 @@
-class_name DotMapSupport
+class_name GSMapSupport
 extends StaticBody3D
 
 ## A breakable that holds something up (the importer's `holds` on a manifest breakable): a frame, a pillar or
@@ -26,14 +26,14 @@ var _broken := false
 ## Supports for each record of [param records]: [code]{bounds: [x0,y0,z0,x1,y1,z1], health, holds, model}[/code] (metres,
 ## Godot axes; a manifest breakable with `holds`, or the game document's copy). [param hold_offset] is added to every
 ## `holds` index. The bodies sit on [param layer] and collide with nothing.
-static func build_all(records: Array, layer: int, is_authoritative: bool, hold_offset: int = 0) -> Array[DotMapSupport]:
-	var out: Array[DotMapSupport] = []
+static func build_all(records: Array, layer: int, is_authoritative: bool, hold_offset: int = 0) -> Array[GSMapSupport]:
+	var out: Array[GSMapSupport] = []
 	for raw: Variant in records:
 		var rec: Dictionary = raw
 		var b: Array = rec.get("bounds", [])
 		if b.size() != 6:
 			continue
-		var s := DotMapSupport.new()
+		var s := GSMapSupport.new()
 		s.name = "Support%d" % out.size()
 		s.index = out.size()
 		s.health = maxf(float(rec.get("health", 20.0)), 1.0)
@@ -91,9 +91,9 @@ func _go(at: Vector3) -> void:
 ## metres), hurt by [param amount]; the index of it, or -1.
 ## [param wall_distance] (the distance to the first wall, or INF) keeps a shot behind a wall out.
 static func shoot(supports: Array, from: Vector3, direction: Vector3, reach: float, amount: float, wall_distance: float = INF) -> int:
-	var best: DotMapSupport = null
+	var best: GSMapSupport = null
 	var best_t := minf(reach, wall_distance)
-	for s: DotMapSupport in supports:
+	for s: GSMapSupport in supports:
 		if s._broken:
 			continue
 		var t := 0.0

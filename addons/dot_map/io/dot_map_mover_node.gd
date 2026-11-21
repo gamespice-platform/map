@@ -1,8 +1,8 @@
-class_name DotMapMoverNode
-extends DotMapEntity
+class_name GSMapMoverNode
+extends GSMapEntity
 
 ## Doors, lifts, buttons, spinners and trains as entities of the I/O runtime, driving the converter's
-## [DotMapMover] record from inputs. Motion is a function of the tick.
+## [GSMapMover] record from inputs. Motion is a function of the tick.
 
 ## Ticks a body may stay inside a moving mover before it counts as blocked.
 const BLOCK_TICKS := 3
@@ -11,7 +11,7 @@ const TANK_TURN_M := 1.0
 ## Seconds between a blocked body's hits.
 const BLOCK_DAMAGE_PERIOD := 0.25
 
-var mover: DotMapMover = null
+var mover: GSMapMover = null
 ## The solid the mover pushes with at rest: its frame in the world and half extents (metres).
 var hit_frame := Transform3D.IDENTITY
 var hit_half := Vector3.ZERO
@@ -43,7 +43,7 @@ var _shown := -1.0e30
 
 
 ## Gives the entity its record; the starting pose and a train's path are read from it.
-func set_mover(m: DotMapMover) -> void:
+func set_mover(m: GSMapMover) -> void:
 	mover = m
 	animated = true
 	locked = m.locked
@@ -55,10 +55,10 @@ func set_mover(m: DotMapMover) -> void:
 		_side = m.spawn_side * signf(m.degrees)
 	_in = false
 	if m.record.has("mins") and m.record.has("maxs"):
-		var lo := DotMapMover._vec(m.record["mins"])
-		var hi := DotMapMover._vec(m.record["maxs"])
+		var lo := GSMapMover._vec(m.record["mins"])
+		var hi := GSMapMover._vec(m.record["maxs"])
 		set_hit_box(Transform3D(Basis.IDENTITY, (lo + hi) * 0.5), (hi - lo) * 0.5)
-	if m.kind == DotMapMover.KIND_PATH:
+	if m.kind == GSMapMover.KIND_PATH:
 		_build_path()
 	elif m.is_spinner():
 		_v = m.spin_rate() if m.start_open else 0.0
@@ -133,7 +133,7 @@ func path_point(s: float) -> Vector3:
 
 ## True for a [code]func_tanktrain[/code]: it turns to face its path as it runs; a track train keeps its orientation.
 func turns_with_path() -> bool:
-	return mover != null and mover.kind == DotMapMover.KIND_PATH and mover.classname == "func_tanktrain"
+	return mover != null and mover.kind == GSMapMover.KIND_PATH and mover.classname == "func_tanktrain"
 
 
 ## A tank train's heading (radians about up) at [param s] metres along its path, relative to its heading at the start.
@@ -170,7 +170,7 @@ func _seg_heading(i: int, n: int) -> float:
 func on_map_spawn(io: RefCounted) -> void:
 	if mover == null:
 		return
-	if mover.kind == DotMapMover.KIND_PATH and float(mover.record.get("start_speed", 0.0)) > 0.0:
+	if mover.kind == GSMapMover.KIND_PATH and float(mover.record.get("start_speed", 0.0)) > 0.0:
 		_drive(io, 1.0, float(mover.record["start_speed"]))
 	_view(io)
 
@@ -179,11 +179,11 @@ func _input(io: RefCounted, name: String, param: String, activator: Variant, _ca
 	if mover == null:
 		return false
 	match mover.kind:
-		DotMapMover.KIND_SPIN:
+		GSMapMover.KIND_SPIN:
 			return _spin_input(io, name, param)
-		DotMapMover.KIND_PATH:
+		GSMapMover.KIND_PATH:
 			return _path_input(io, name, param, activator)
-		DotMapMover.KIND_BUTTON, DotMapMover.KIND_HINGE_BUTTON:
+		GSMapMover.KIND_BUTTON, GSMapMover.KIND_HINGE_BUTTON:
 			if name == "press":
 				_press(io, activator)
 				return true
@@ -224,7 +224,7 @@ func use_state() -> StringName:
 		return &""
 	if locked:
 		return &"locked"
-	if mover.kind in [DotMapMover.KIND_BUTTON, DotMapMover.KIND_HINGE_BUTTON] and _in and not mover.toggle:
+	if mover.kind in [GSMapMover.KIND_BUTTON, GSMapMover.KIND_HINGE_BUTTON] and _in and not mover.toggle:
 		return &"pressed"
 	return &"ready"
 
@@ -238,7 +238,7 @@ func touched(io: RefCounted, activator: Variant, use: bool) -> bool:
 	if locked:
 		fire(io, "OnUseLocked" if mover.kind.ends_with("button") else "OnLockedUse", activator)
 		return true
-	if mover.kind in [DotMapMover.KIND_BUTTON, DotMapMover.KIND_HINGE_BUTTON]:
+	if mover.kind in [GSMapMover.KIND_BUTTON, GSMapMover.KIND_HINGE_BUTTON]:
 		_press(io, activator)
 	elif _to < 1.0 or mover.toggle or mover.wait < 0.0:
 		accept(io, "Toggle", "", activator, null)
@@ -250,7 +250,7 @@ func shot(io: RefCounted, amount: float, by: Variant) -> bool:
 	if mover == null or not alive or amount <= 0.0:
 		return false
 	fire(io, "OnDamaged", by)
-	if mover.kind in [DotMapMover.KIND_BUTTON, DotMapMover.KIND_HINGE_BUTTON] and has_spawnflag(512) and not locked:
+	if mover.kind in [GSMapMover.KIND_BUTTON, GSMapMover.KIND_HINGE_BUTTON] and has_spawnflag(512) and not locked:
 		_press(io, by)
 	return true
 
@@ -313,7 +313,7 @@ func _set_locked(io: RefCounted, on: bool) -> void:
 func _set_speed(io: RefCounted, units_per_second: float) -> void:
 	if units_per_second <= 0.0 or mover == null:
 		return
-	var full := absf(mover.degrees) if mover.kind in [DotMapMover.KIND_HINGE, DotMapMover.KIND_HINGE_BUTTON] else mover.distance
+	var full := absf(mover.degrees) if mover.kind in [GSMapMover.KIND_HINGE, GSMapMover.KIND_HINGE_BUTTON] else mover.distance
 	var per_second := units_per_second if full == absf(mover.degrees) else units_per_second * 0.0254
 	if full <= 0.0:
 		return
@@ -391,7 +391,7 @@ func _build_path() -> void:
 	var total := 0.0
 	var prev := Vector3.ZERO
 	for i in cs.size():
-		var p := DotMapMover._vec((cs[i] as Dictionary).get("at"))
+		var p := GSMapMover._vec((cs[i] as Dictionary).get("at"))
 		_corners.append(p)
 		if i > 0:
 			total += prev.distance_to(p)
@@ -486,7 +486,7 @@ func _passed(io: RefCounted, k: int, activator: Variant) -> void:
 	var corner: Dictionary = mover.path()[k % n]
 	_a0 = path_at(io.now, io.rate)
 	_t0 = io.now
-	for e: DotMapEntity in io.find(str(corner.get("name", ""))):
+	for e: GSMapEntity in io.find(str(corner.get("name", ""))):
 		e.fire(io, "OnPass", self)
 		break
 	var at_end := not _ring and ((_v > 0.0 and k == n - 1) or (_v < 0.0 and k == 0))
@@ -538,7 +538,7 @@ func _apply(_io: RefCounted, key_: String, value: Variant, _tick: int) -> bool:
 func _bound() -> void:
 	if node != null:
 		_base = node.transform
-		if mover != null and mover.kind == DotMapMover.KIND_PATH and _corners.size() > 0:
+		if mover != null and mover.kind == GSMapMover.KIND_PATH and _corners.size() > 0:
 			_base = Transform3D(_base.basis, _base.origin - _corners[0])
 
 
@@ -547,9 +547,9 @@ func pose_delta(tick: int, rate: int) -> Transform3D:
 	if mover == null:
 		return Transform3D.IDENTITY
 	match mover.kind:
-		DotMapMover.KIND_SPIN:
+		GSMapMover.KIND_SPIN:
 			return _about(mover.origin, Basis(mover.axis.normalized(), angle_at(tick, rate)))
-		DotMapMover.KIND_PATH:
+		GSMapMover.KIND_PATH:
 			var c0: Vector3 = _corners[0] if _corners.size() > 0 else Vector3.ZERO
 			var sp := path_at(tick, rate)
 			if turns_with_path():
@@ -559,7 +559,7 @@ func pose_delta(tick: int, rate: int) -> Transform3D:
 			if not mover.is_animatable():
 				return Transform3D.IDENTITY
 			var t := mover.transform_at(fraction_at(tick, rate), _side)
-			if mover.kind in [DotMapMover.KIND_HINGE, DotMapMover.KIND_HINGE_BUTTON]:
+			if mover.kind in [GSMapMover.KIND_HINGE, GSMapMover.KIND_HINGE_BUTTON]:
 				return _about(mover.origin, t.basis)
 			return Transform3D(Basis.IDENTITY, t.origin)
 
@@ -569,7 +569,7 @@ static func _about(pivot: Vector3, b: Basis) -> Transform3D:
 
 
 ## Pushes the bodies in the mover's way and deals with the ones it cannot move. [param bodies]
-## are [DotMapVolumes] body dictionaries (feet [code]position[/code], [code]height[/code], optional [code]radius[/code]).
+## are [GSMapVolumes] body dictionaries (feet [code]position[/code], [code]height[/code], optional [code]radius[/code]).
 func push_bodies(io: RefCounted, bodies: Array) -> void:
 	if mover == null or not alive or not mover.solid or hit_half == Vector3.ZERO:
 		return
@@ -638,8 +638,8 @@ func _blocked(io: RefCounted, info: Dictionary, n: int) -> void:
 		return
 	var opening := _to >= 1.0
 	fire(io, "OnBlockedOpening" if opening else "OnBlockedClosing", info.get("body"))
-	if mover.kind in [DotMapMover.KIND_SLIDE, DotMapMover.KIND_HINGE, DotMapMover.KIND_PLAT] and mover.wait >= 0.0 \
-			and mover.kind != DotMapMover.KIND_SPIN:
+	if mover.kind in [GSMapMover.KIND_SLIDE, GSMapMover.KIND_HINGE, GSMapMover.KIND_PLAT] and mover.wait >= 0.0 \
+			and mover.kind != GSMapMover.KIND_SPIN:
 		_move_to(io, 0.0 if opening else 1.0)
 
 
@@ -653,10 +653,10 @@ func _view(io: RefCounted) -> void:
 	var f: float
 	var pose: Transform3D
 	match mover.kind:
-		DotMapMover.KIND_SPIN:
+		GSMapMover.KIND_SPIN:
 			f = angle_at(io.now, io.rate)
 			pose = Transform3D(Basis(mover.axis.normalized(), f) * _base.basis, _base.origin)
-		DotMapMover.KIND_PATH:
+		GSMapMover.KIND_PATH:
 			f = path_at(io.now, io.rate)
 			if turns_with_path():
 				var c0: Vector3 = _corners[0]

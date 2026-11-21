@@ -1,5 +1,5 @@
-class_name DotMapPlayerEquip
-extends DotMapEntity
+class_name GSMapPlayerEquip
+extends GSMapEntity
 
 ## game_player_equip: gives a player the weapons and items its keys list (every key but the engine's own, whose value is the ammunition count).
 ## The game owns inventories, so this only says what and to whom through the [code]equip[/code] event: [code]items[/code] (class to count), [code]to[/code] ("activator" or "all"),

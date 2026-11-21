@@ -1,5 +1,5 @@
-class_name DotMapToggleBrush
-extends DotMapEntity
+class_name GSMapToggleBrush
+extends GSMapEntity
 
 ## func_brush, func_wall_toggle and func_illusionary: a brush that is shown or hidden, and solid
 ## or not, by Enable/Disable/Toggle. [member alpha] and [member color] are state for the game.

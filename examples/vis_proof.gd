@@ -1,21 +1,21 @@
 extends Node3D
 
-## Measures and compares DotMapVisibility on a real converted map, on a real GPU: draw calls, primitives and
+## Measures and compares GSMapVisibility on a real converted map, on a real GPU: draw calls, primitives and
 ## frame time with vis_mode off / pvs / occluders / both from characteristic spots, and every frame against
 ## the `off` frame pixel for pixel from random spots (a pixel that differs is a hole or a pop-in).
 
 const MODES := ["off", "pvs", "occluders", "both"]
 
 var _args := {}
-var _world: DotMapBspMesh
-var _dw: DotMapWorld
-var _vis: DotMapVisibility
+var _world: GSMapBspMesh
+var _dw: GSMapWorld
+var _vis: GSMapVisibility
 var _cam: Camera3D
 var _out := "user://vis_proof"
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		_args[kv[0]] = kv[1] if kv.size() > 1 else "1"
@@ -27,13 +27,13 @@ func _ready() -> void:
 
 func _run() -> void:
 	var prefix := str(_args.get("world", ""))
-	var res := DotMapBspMesh.load_prefix(prefix)
+	var res := GSMapBspMesh.load_prefix(prefix)
 	if not res.ok:
 		printerr("cannot load ", prefix)
 		return
 	_world = res.value
-	var surfaces := DotMapSurfaces.new()
-	var built := DotMapWorld.build(_world, {"material_for": surfaces.world_material_for(_world, prefix.get_base_dir())})
+	var surfaces := GSMapSurfaces.new()
+	var built := GSMapWorld.build(_world, {"material_for": surfaces.world_material_for(_world, prefix.get_base_dir())})
 	_dw = built.value
 	add_child(_dw)
 	if _world.build_environment() == null:
@@ -42,10 +42,10 @@ func _run() -> void:
 		we.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 		we.environment.ambient_light_color = Color(0.8, 0.8, 0.85)
 		add_child(we)
-	_vis = DotMapVisibility.new()
+	_vis = GSMapVisibility.new()
 	_vis.chunk_view_distance = 0.0   # the fog's far cut is not what is under test
 	_vis.camera_ref = null
-	_vis.shadows = DotMapVisibility.Shadows.ALL if _args.has("keepshadows") else (DotMapVisibility.Shadows.NONE if _args.has("noshadows") else DotMapVisibility.Shadows.REACHING)
+	_vis.shadows = GSMapVisibility.Shadows.ALL if _args.has("keepshadows") else (GSMapVisibility.Shadows.NONE if _args.has("noshadows") else GSMapVisibility.Shadows.REACHING)
 	add_child(_vis)
 	var set_up := _vis.setup(_world, _dw.visual)
 	if not set_up.ok:
@@ -147,8 +147,8 @@ func _pick_spots(metric_n: int, diff_n: int) -> Dictionary:
 		var sc := _vis.shown_count()
 		found.append({"pos": eye, "look": look, "open": float(sc.x) / maxf(1.0, sc.y), "reach": best_d})
 	body.queue_free()
-	_vis.mode = DotMapVisibility.Mode.OFF
-	_vis.set_mode(DotMapVisibility.Mode.OFF)
+	_vis.mode = GSMapVisibility.Mode.OFF
+	_vis.set_mode(GSMapVisibility.Mode.OFF)
 	found.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["open"] < b["open"])
 	var metric: Array[Dictionary] = []
 	if found.size() >= metric_n:
@@ -166,7 +166,7 @@ func _pick_spots(metric_n: int, diff_n: int) -> Dictionary:
 func _place(s: Dictionary, mode: String) -> void:
 	_cam.global_position = s["pos"]
 	_cam.look_at(s["pos"] + s["look"] + Vector3.DOWN * 0.05)
-	_vis.set_mode(DotMapVisibility.parse_mode(mode))
+	_vis.set_mode(GSMapVisibility.parse_mode(mode))
 	_vis._last_pos = Vector3.INF
 	_vis._dirty = true
 

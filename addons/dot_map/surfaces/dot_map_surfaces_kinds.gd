@@ -1,6 +1,6 @@
 extends "dot_map_surfaces_files.gd"
 
-## The kinds, tunables, plain materials and colour helpers of [DotMapSurfaces] (its base script); the world-material pipeline is built on top in [DotMapSurfaces].
+## The kinds, tunables, plain materials and colour helpers of [GSMapSurfaces] (its base script); the world-material pipeline is built on top in [GSMapSurfaces].
 
 const CHANNEL := "dot_map.surfaces"
 
@@ -112,7 +112,7 @@ var water_material: Material = null
 var on_step: Callable = Callable()
 const SLOW_MATERIAL_USEC := 8000
 ## Workers that decode the world's texture files ahead of the material pass ([code]map_load_threads[/code]): 0 inline, -1 automatic.
-var load_threads: int = DotMapParallelBuild.default_workers
+var load_threads: int = GSMapParallelBuild.default_workers
 ## Draws a map that carries its author's baked lighting with it (the lightmapped shader, unshaded);
 ## off draws every map with [method try_material]'s lit materials.
 var use_lightmap: bool = true
@@ -164,21 +164,21 @@ func has_kind(kind: StringName) -> bool:
 
 ## The material for [param kind], or a failure naming the problem ([code]invalid[/code] for a
 ## kind nobody knows, [code]io[/code] for a texture that did not load).
-func try_material(kind: StringName, tint: Color = Color.WHITE) -> DotResult:
+func try_material(kind: StringName, tint: Color = Color.WHITE) -> GSResult:
 	var k := resolve(kind)
 	if k == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "unknown surface kind '%s'" % kind)
+		return GSResult.fail(GSError.CODE_INVALID, "unknown surface kind '%s'" % kind)
 	var key := "%s|%s" % [k, tint.to_html()]
 	if _cache.has(key):
-		return DotResult.success(_cache[key])
+		return GSResult.success(_cache[key])
 
 	var spec: Dictionary = KINDS[k]
 	var albedo := _load("%s/%s/albedo.jpg" % [root, k])
 	var normal := _load("%s/%s/normal.jpg" % [root, k])
 	var rough := _load("%s/%s/roughness.jpg" % [root, k])
 	if albedo == null or normal == null or rough == null:
-		return DotResult.fail(
-			DotError.CODE_IO, "surface '%s': a texture did not load from %s" % [k, root]
+		return GSResult.fail(
+			GSError.CODE_IO, "surface '%s': a texture did not load from %s" % [k, root]
 		)
 
 	var m := StandardMaterial3D.new()
@@ -199,7 +199,7 @@ func try_material(kind: StringName, tint: Color = Color.WHITE) -> DotResult:
 	m.uv1_scale = Vector3(s, s, s)
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_cache[key] = m
-	return DotResult.success(m)
+	return GSResult.success(m)
 
 
 ## The material for [param kind], and always a material: a kind that is unknown or whose
@@ -211,7 +211,7 @@ func material(kind: StringName, tint: Color = Color.WHITE) -> StandardMaterial3D
 		return res.value
 	if not _warned.has(kind):
 		_warned[kind] = true
-		DotLog.warn(CHANNEL, "%s; drawing flat grey" % res.error.message)
+		GSLog.warn(CHANNEL, "%s; drawing flat grey" % res.error.message)
 	var key := "fallback|%s" % tint.to_html()
 	if not _cache.has(key):
 		var m := StandardMaterial3D.new()
@@ -324,7 +324,7 @@ func _load(path: String) -> Texture2D:
 		path = _from_fallback(path)
 		if path.is_empty():
 			return null
-	if not (shrink_textures_headless and DotPlatform.is_headless()):
+	if not (shrink_textures_headless and GSPlatform.is_headless()):
 		return load(path) as Texture2D
 	if _small.has(path):
 		return _small[path] as Texture2D

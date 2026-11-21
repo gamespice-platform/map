@@ -1,26 +1,26 @@
-class_name DotMapWorld
+class_name GSMapWorld
 extends Node3D
 
-## A converted map's whole world from one call: [code]DotMapWorld.build(prefix, callables, options)[/code] gives the drawn mesh with its glass, the collision hulls, the I/O runtime, every entity class, volumes, effects, sounds, per-map settings and state replication; call [code]world.step(bodies)[/code] each tick.
+## A converted map's whole world from one call: [code]GSMapWorld.build(prefix, callables, options)[/code] gives the drawn mesh with its glass, the collision hulls, the I/O runtime, every entity class, volumes, effects, sounds, per-map settings and state replication; call [code]world.step(bodies)[/code] each tick.
 ## The game plugs its callables in once ([code]damage_fn, move_fn, event_fn, effect_fn, send_fn[/code]).
 ## Nothing here names GameSpice Player Controller: ladders and water reach it through [code]ladder_fn[/code] and [code]swim_fn[/code], which get an [code]Array[AABB][/code].
 
 const CHANNEL := "map.world"
 const HOOKS := ["damage_fn", "move_fn", "event_fn", "effect_fn", "actor_fn", "propdata_fn", "player_fn"]
 
-var mesh: DotMapBspMesh
-var io: DotMapIO
-var volumes: DotMapVolumes
+var mesh: GSMapBspMesh
+var io: GSMapIO
+var volumes: GSMapVolumes
 ## The host's state broadcaster (null on a client).
-var sync: DotMapStateSync
+var sync: GSMapStateSync
 ## Per-map settings; null when the options named none.
-var config: DotMapConfig
-var config_result: DotResult = null
-## The drawn tree from [method DotMapBspMesh.build_node]; collision bodies sit under each model's node.
+var config: GSMapConfig
+var config_result: GSResult = null
+## The drawn tree from [method GSMapBspMesh.build_node]; collision bodies sit under each model's node.
 var visual: Node3D
-var glass: Array[DotMapGlass] = []
+var glass: Array[GSMapGlass] = []
 ## Drives the ambient from the bake; null until [method light_with] finds a lightmapped world.
-var lit: DotMapLitWorld = null
+var lit: GSMapLitWorld = null
 ## The drawn stand-in of each prop_door_rotating.
 var doors: Array[Node3D] = []
 var sounds: Node3D
@@ -28,7 +28,7 @@ var map_id := ""
 ## The world model is the caller's: not drawn, no collision, so only brush entities are built.
 var movers_only := false
 
-var _slice: DotFrameSlice = null
+var _slice: GSFrameSlice = null
 var ladder_fn := Callable()
 var swim_fn := Callable()
 ## The game's effect callable, called after the world has started or stopped a sound stand-in.
@@ -46,21 +46,21 @@ var _touched: Dictionary = {}
 
 
 ## Builds the world of the mesh at [param prefix] (the [code].json]/[code].bin[/code] pair) or from an
-## already loaded [DotMapBspMesh]. [param hooks]: [code]damage_fn, move_fn, event_fn, effect_fn, actor_fn,
+## already loaded [GSMapBspMesh]. [param hooks]: [code]damage_fn, move_fn, event_fn, effect_fn, actor_fn,
 ## propdata_fn, player_fn, send_fn, ladder_fn, swim_fn, material_for[/code] (callables).
-static func build(source: Variant, hooks: Dictionary = {}, options: Dictionary = {}) -> DotResult:
-	var m: DotMapBspMesh
-	if source is DotMapBspMesh:
+static func build(source: Variant, hooks: Dictionary = {}, options: Dictionary = {}) -> GSResult:
+	var m: GSMapBspMesh
+	if source is GSMapBspMesh:
 		m = source
 	else:
-		var loaded := DotMapBspMesh.load_prefix(str(source))
+		var loaded := GSMapBspMesh.load_prefix(str(source))
 		if not loaded.ok:
 			return loaded.wrap("building a map world")
 		m = loaded.value
 	var doc_res := _find_document(m, options)
 	if not doc_res.ok:
 		return doc_res.wrap("building a map world")
-	var w := DotMapWorld.new()
+	var w := GSMapWorld.new()
 	w.mesh = m
 	w.map_id = str(options.get("map_id", m.manifest.get("name", "")))
 	w.movers_only = bool(options.get("movers_only", false))
@@ -69,33 +69,33 @@ static func build(source: Variant, hooks: Dictionary = {}, options: Dictionary =
 	if not res.ok:
 		w.free()
 		return res.wrap("building a map world")
-	return DotResult.success(w)
+	return GSResult.success(w)
 
 
 ## [method build] that pauses on [param slice] while the meshes and collision are built, for a map change behind a loading cover. The world is the same; only the frames it takes differ.
-static func build_async(source: Variant, hooks: Dictionary, options: Dictionary, slice: DotFrameSlice) -> DotResult:
-	var m: DotMapBspMesh
-	if source is DotMapBspMesh:
+static func build_async(source: Variant, hooks: Dictionary, options: Dictionary, slice: GSFrameSlice) -> GSResult:
+	var m: GSMapBspMesh
+	if source is GSMapBspMesh:
 		m = source
 	else:
-		var loaded := DotMapBspMesh.load_prefix(str(source))
+		var loaded := GSMapBspMesh.load_prefix(str(source))
 		if not loaded.ok:
 			return loaded.wrap("building a map world")
 		m = loaded.value
 	var doc_res := _find_document(m, options)
 	if not doc_res.ok:
 		return doc_res.wrap("building a map world")
-	var w := DotMapWorld.new()
+	var w := GSMapWorld.new()
 	w.mesh = m
 	w.map_id = str(options.get("map_id", m.manifest.get("name", "")))
 	w.movers_only = bool(options.get("movers_only", false))
 	w.name = "World_" + w.map_id.validate_node_name()
 	w._slice = slice
-	var res: DotResult = await w._assemble_async(doc_res.value, hooks, options)
+	var res: GSResult = await w._assemble_async(doc_res.value, hooks, options)
 	if not res.ok:
 		w.free()
 		return res.wrap("building a map world")
-	return DotResult.success(w)
+	return GSResult.success(w)
 
 
 ## Advances the logic one tick, then steps the volumes with [param bodies] (host only: a client's
@@ -112,16 +112,16 @@ func step(bodies: Array = []) -> void:
 		_push_boxes()
 
 
-## Lights the actors from the author's bake: the ambient at the camera drives [param environment] ([DotMapLitWorld]), and [param lamps] (the lights the bake already holds) are freed. Returns null for a world without a lightmap. Call once the game's environment exists.
-func light_with(environment: Environment, lamps: Array = [], sun: DirectionalLight3D = null) -> DotMapLitWorld:
-	lit = DotMapLitWorld.attach(self, mesh, environment, lamps, true, visual)
+## Lights the actors from the author's bake: the ambient at the camera drives [param environment] ([GSMapLitWorld]), and [param lamps] (the lights the bake already holds) are freed. Returns null for a world without a lightmap. Call once the game's environment exists.
+func light_with(environment: Environment, lamps: Array = [], sun: DirectionalLight3D = null) -> GSMapLitWorld:
+	lit = GSMapLitWorld.attach(self, mesh, environment, lamps, true, visual)
 	if lit != null:
 		lit.sun = sun
 	return lit
 
 
 ## A bullet along [param from] to [param to] against the map's own breakables, buttons and doors: the first
-## body on the ray (on [param mask]) that belongs to one takes [param amount] through [method DotMapIO.hurt].
+## body on the ray (on [param mask]) that belongs to one takes [param amount] through [method GSMapIO.hurt].
 ## Returns the entity index it hurt, or -1.
 func shoot(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3, amount: float, by: Variant = null,
 		mask: int = 0xFFFFFFFF, limit: float = -1.0) -> int:
@@ -134,8 +134,8 @@ func shoot(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3, amount:
 	var node: Node = hit["collider"] as Node
 	var model := -1
 	while node != null and node != self:
-		if node is DotMapGlass:
-			model = (node as DotMapGlass).model
+		if node is GSMapGlass:
+			model = (node as GSMapGlass).model
 			break
 		if node.has_meta(&"model"):
 			model = int(node.get_meta(&"model"))
@@ -143,8 +143,8 @@ func shoot(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3, amount:
 		node = node.get_parent()
 	if model <= 0:
 		return -1
-	for e: DotMapEntity in io.entities:
-		if (e is DotMapBreakable or e is DotMapMoverNode) and e.key("model") == "*%d" % model:
+	for e: GSMapEntity in io.entities:
+		if (e is GSMapBreakable or e is GSMapMoverNode) and e.key("model") == "*%d" % model:
 			io.hurt(e.index, amount, hit["position"] as Vector3, by)
 			return e.index
 	return -1
@@ -162,8 +162,8 @@ func remove_peer(peer: Variant) -> void:
 
 
 ## A client takes one [code]io_state[/code] or [code]io_snapshot[/code] message from the host.
-func apply_state(msg: Dictionary) -> DotResult:
-	return DotMapStateSync.new().apply(io, msg)
+func apply_state(msg: Dictionary) -> GSResult:
+	return GSMapStateSync.new().apply(io, msg)
 
 
 ## The boxes of every active ladder brush, for GameSpice Player Controller's ladder mode.
@@ -178,7 +178,7 @@ func water_boxes() -> Array[AABB]:
 ## The map's start points: every [code]info_player_*[/code] as [code]{classname, targetname, origin (metres), yaw (degrees, source axes), enabled (false when the map starts it disabled)}[/code].
 func spawn_points() -> Array:
 	var out: Array = []
-	for e: DotMapEntity in io.entities:
+	for e: GSMapEntity in io.entities:
 		if e.classname.begins_with("info_player"):
 			var ang := e.key("angles").split(" ")
 			out.append({"classname": e.classname, "targetname": e.targetname, "origin": e.origin(io), "enabled": e.enabled,
@@ -197,9 +197,9 @@ func _exit_tree() -> void:
 		config.restore()
 
 
-static func _find_document(m: DotMapBspMesh, options: Dictionary) -> DotResult:
+static func _find_document(m: GSMapBspMesh, options: Dictionary) -> GSResult:
 	if options.get("doc") is Dictionary:
-		return DotResult.success(options["doc"])
+		return GSResult.success(options["doc"])
 	var paths: Array[String] = []
 	if options.has("doc_path"):
 		paths.append(str(options["doc_path"]))
@@ -216,13 +216,13 @@ static func _find_document(m: DotMapBspMesh, options: Dictionary) -> DotResult:
 			continue
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(p))
 		if parsed is Dictionary:
-			return DotResult.success(parsed)
-		return DotResult.fail(DotError.CODE_PARSE, "source document is not a JSON object", p)
-	return DotResult.fail(DotError.CODE_IO, "no source document for the map's logic",
+			return GSResult.success(parsed)
+		return GSResult.fail(GSError.CODE_PARSE, "source document is not a JSON object", p)
+	return GSResult.fail(GSError.CODE_IO, "no source document for the map's logic",
 			"tried: " + ", ".join(paths))
 
 
-func _assemble(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> DotResult:
+func _assemble(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> GSResult:
 	var head := _assemble_head(doc, hooks, options)
 	if not head.ok:
 		return head
@@ -234,7 +234,7 @@ func _assemble(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> DotRe
 	return _assemble_tail(c["ents"], hooks, options, layers)
 
 
-func _assemble_async(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> DotResult:
+func _assemble_async(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> GSResult:
 	var head := _assemble_head(doc, hooks, options)
 	if not head.ok:
 		return head
@@ -246,9 +246,9 @@ func _assemble_async(doc: Dictionary, hooks: Dictionary, options: Dictionary) ->
 	return _assemble_tail(c["ents"], hooks, options, layers)
 
 
-func _assemble_head(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> DotResult:
+func _assemble_head(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> GSResult:
 	var units: Dictionary = mesh.manifest.get("units", {})
-	io = DotMapIO.new()
+	io = GSMapIO.new()
 	io.rate = int(options.get("rate", 60))
 	io.rng_seed = int(options.get("seed", 0))
 	io.authoritative = bool(options.get("authoritative", true))
@@ -263,21 +263,21 @@ func _assemble_head(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> 
 	swim_fn = hooks.get("swim_fn", Callable()) if hooks.get("swim_fn") is Callable else Callable()
 	var cat := io.load_catalogue()
 	if not cat.ok:
-		DotLog.warn(CHANNEL, "no class catalogue, coverage cannot tell typos from engine inputs", {"error": cat.error})
+		GSLog.warn(CHANNEL, "no class catalogue, coverage cannot tell typos from engine inputs", {"error": cat.error})
 	var loaded := io.load_document(doc)
 	if not loaded.ok:
 		return loaded
-	var ents := DotMapEntities.from_manifest(mesh.manifest)
+	var ents := GSMapEntities.from_manifest(mesh.manifest)
 	var draw := bool(options.get("draw", DisplayServer.get_name() != "headless"))
 	var mat_for: Callable = hooks.get("material_for", Callable()) if hooks.get("material_for") is Callable else Callable()
 	if draw and not mat_for.is_valid():
-		var surfaces: DotMapSurfaces = options.get("surfaces") if options.get("surfaces") is DotMapSurfaces else DotMapSurfaces.new()
+		var surfaces: GSMapSurfaces = options.get("surfaces") if options.get("surfaces") is GSMapSurfaces else GSMapSurfaces.new()
 		surfaces.use_lightmap = bool(options.get("lightmap", true))
 		mat_for = surfaces.world_material_for(mesh, mesh.source_path.get_base_dir())
-	return DotResult.success({"ents": ents, "draw": draw, "mat_for": mat_for})
+	return GSResult.success({"ents": ents, "draw": draw, "mat_for": mat_for})
 
 
-func _assemble_mid(_ents: DotMapEntities, options: Dictionary) -> Dictionary:
+func _assemble_mid(_ents: GSMapEntities, options: Dictionary) -> Dictionary:
 	add_child(visual)
 	var layers: Dictionary = options.get("layers", {})
 	if bool(options.get("environment", true)):
@@ -297,34 +297,34 @@ func _assemble_mid(_ents: DotMapEntities, options: Dictionary) -> Dictionary:
 	return layers
 
 
-func _assemble_tail(ents: DotMapEntities, hooks: Dictionary, options: Dictionary, layers: Dictionary) -> DotResult:
+func _assemble_tail(ents: GSMapEntities, hooks: Dictionary, options: Dictionary, layers: Dictionary) -> GSResult:
 	io.bind_movers(ents.movers)
 	io.bind_breakables(mesh.breakables())
 	io.attach_sounds(mesh.sounds_data().get("ambient", []))
-	volumes = DotMapVolumes.build(ents, io, mesh.manifest.get("destinations", {}))
+	volumes = GSMapVolumes.build(ents, io, mesh.manifest.get("destinations", {}))
 	io.bind_world(visual)
 	_build_doors(ents, hooks, layers)
 	io.state_changed.connect(_on_state)
 	if io.authoritative:
 		if hooks.get("send_fn") is Callable:
-			sync = DotMapStateSync.new()
+			sync = GSMapStateSync.new()
 			sync.attach_host(io, hooks["send_fn"])
 		_apply_config(options.get("config", {}))
 		io.start()
 	_push_boxes()
-	DotLog.info(CHANNEL, "map world built", {"map": map_id, "entities": io.entities.size(),
+	GSLog.info(CHANNEL, "map world built", {"map": map_id, "entities": io.entities.size(),
 			"volumes": volumes.nodes.size(), "glass": glass.size()})
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
 ## A drawn panel and body for each prop_door_rotating (no brush model); [code]door_fn(mover, yaw) -> Node3D[/code]
 ## in the hooks replaces the stand-in with the game's own model.
-func _build_doors(ents: DotMapEntities, hooks: Dictionary, layers: Dictionary) -> void:
-	for m: DotMapMover in ents.movers:
+func _build_doors(ents: GSMapEntities, hooks: Dictionary, layers: Dictionary) -> void:
+	for m: GSMapMover in ents.movers:
 		if m.model >= 0 or m.classname.to_lower() != "prop_door_rotating":
 			continue
-		var e: DotMapEntity = io.entity_of(m.entity)
-		if not e is DotMapMoverNode:
+		var e: GSMapEntity = io.entity_of(m.entity)
+		if not e is GSMapMoverNode:
 			continue
 		var ang := e.key("angles").split_floats(" ", false)
 		var yaw := float(ang[1]) if ang.size() > 1 else 0.0
@@ -335,21 +335,21 @@ func _build_doors(ents: DotMapEntities, hooks: Dictionary, layers: Dictionary) -
 		if hooks.get("door_fn") is Callable:
 			door = _hung_model((hooks["door_fn"] as Callable).call(m, entity_yaw), m, entity_yaw)
 		if door == null:
-			door = DotMapDoorStandIn.build(m, yaw, DotMapDoorStandIn.SIZE, int(layers.get("solid", 1)))
+			door = GSMapDoorStandIn.build(m, yaw, GSMapDoorStandIn.SIZE, int(layers.get("solid", 1)))
 		visual.add_child(door)
-		var width := m.panel_width if not is_nan(m.panel_yaw) and m.panel_width > 0.1 else DotMapDoorStandIn.SIZE.x
-		var half := Vector3(DotMapDoorStandIn.SIZE.z, DotMapDoorStandIn.SIZE.y, width) * 0.5
+		var width := m.panel_width if not is_nan(m.panel_yaw) and m.panel_width > 0.1 else GSMapDoorStandIn.SIZE.x
+		var half := Vector3(GSMapDoorStandIn.SIZE.z, GSMapDoorStandIn.SIZE.y, width) * 0.5
 		var yaw_basis := Basis(Vector3.UP, deg_to_rad(yaw))
-		(e as DotMapMoverNode).set_hit_box(Transform3D(yaw_basis, m.origin + yaw_basis * Vector3(0.0, half.y, -half.z)), half)
+		(e as GSMapMoverNode).set_hit_box(Transform3D(yaw_basis, m.origin + yaw_basis * Vector3(0.0, half.y, -half.z)), half)
 		e.bind_node(door)
 		e.tick_view(io)
 		doors.append(door)
 
 
 ## A game's model is built with its origin where the model's is (mid-panel on a door hung off an authored
-## hinge) and the entity's yaw, but [DotMapMoverNode] swings the node about its own origin, which must be the
-## hinge. So it goes under a pivot on the hinge, [member DotMapMover.panel_offset] along the panel.
-func _hung_model(model: Node3D, m: DotMapMover, entity_yaw: float) -> Node3D:
+## hinge) and the entity's yaw, but [GSMapMoverNode] swings the node about its own origin, which must be the
+## hinge. So it goes under a pivot on the hinge, [member GSMapMover.panel_offset] along the panel.
+func _hung_model(model: Node3D, m: GSMapMover, entity_yaw: float) -> Node3D:
 	if model == null or is_nan(m.panel_yaw) or m.panel_offset <= 0.0:
 		return model
 	var pivot := Node3D.new()
@@ -365,7 +365,7 @@ func _hung_model(model: Node3D, m: DotMapMover, entity_yaw: float) -> Node3D:
 func _apply_config(opts: Dictionary) -> void:
 	if opts.is_empty():
 		return
-	config = DotMapConfig.new()
+	config = GSMapConfig.new()
 	config.game = str(opts.get("game", ""))
 	config.config_dir = str(opts.get("config_dir", ""))
 	config.defaults = (mesh.manifest.get("settings", {}) as Dictionary).duplicate()
@@ -392,14 +392,14 @@ func _collision_context() -> Dictionary:
 		if c.has_meta(&"model"):
 			by_model[int(c.get_meta(&"model"))] = c
 	var physboxes := {}
-	for e: DotMapEntity in io.entities:
-		if e is DotMapPhysbox and e.key("model").begins_with("*"):
+	for e: GSMapEntity in io.entities:
+		if e is GSMapPhysbox and e.key("model").begins_with("*"):
 			physboxes[int(e.key("model").substr(1))] = e
 	return {"broken": broken, "by_model": by_model, "physboxes": physboxes}
 
 
 ## The (model, kind) pairs that get a body, in build order.
-func _collision_units(ents: DotMapEntities, ctx: Dictionary) -> Array:
+func _collision_units(ents: GSMapEntities, ctx: Dictionary) -> Array:
 	var units := []
 	for model in mesh.models():
 		if ctx["broken"].has(model) or not ctx["by_model"].has(model):
@@ -407,20 +407,20 @@ func _collision_units(ents: DotMapEntities, ctx: Dictionary) -> Array:
 		var mv := ents.mover_for_model(model)
 		if mv != null and not mv.solid:
 			continue
-		if movers_only and (model == DotMapBspMesh.WORLD or mv == null):
+		if movers_only and (model == GSMapBspMesh.WORLD or mv == null):
 			continue
 		for kind in ["solid", "clip", "glass", "fence"]:
-			units.append([model, kind, model != DotMapBspMesh.WORLD and mv != null])
+			units.append([model, kind, model != GSMapBspMesh.WORLD and mv != null])
 	return units
 
 
-func _build_collision(ents: DotMapEntities, layers: Dictionary) -> void:
+func _build_collision(ents: GSMapEntities, layers: Dictionary) -> void:
 	var ctx := _collision_context()
 	for u: Array in _collision_units(ents, ctx):
 		_collide(ctx, u[0], u[1], u[2], layers)
 
 
-func _build_collision_async(ents: DotMapEntities, layers: Dictionary) -> void:
+func _build_collision_async(ents: GSMapEntities, layers: Dictionary) -> void:
 	var ctx := _collision_context()
 	for u: Array in _collision_units(ents, ctx):
 		_collide(ctx, u[0], u[1], u[2], layers)
@@ -438,7 +438,7 @@ func _collide(ctx: Dictionary, model: int, kind: String, moving: bool, layers: D
 		concave = mesh.concave_shapes(model)
 	if shapes.is_empty() and concave.is_empty():
 		return
-	var phys: DotMapPhysbox = physboxes.get(model) if kind == "solid" else null
+	var phys: GSMapPhysbox = physboxes.get(model) if kind == "solid" else null
 	var body: PhysicsBody3D
 	if phys != null:
 		body = RigidBody3D.new()
@@ -474,7 +474,7 @@ func _collide(ctx: Dictionary, model: int, kind: String, moving: bool, layers: D
 
 
 ## The drawn meshes of a func_physbox ride its rigid body; its mass follows the hulls' size.
-func _make_physbox(phys: DotMapPhysbox, rb: RigidBody3D, model_node: Node3D) -> void:
+func _make_physbox(phys: GSMapPhysbox, rb: RigidBody3D, model_node: Node3D) -> void:
 	var volume := 0.0
 	for c in rb.get_children():
 		if c is CollisionShape3D and (c as CollisionShape3D).shape is ConvexPolygonShape3D:
@@ -490,7 +490,7 @@ func _make_physbox(phys: DotMapPhysbox, rb: RigidBody3D, model_node: Node3D) -> 
 	phys.bind_body(rb, io.authoritative)
 
 
-func _on_state(e: DotMapEntity, key: String, _value: Variant, _tick: int) -> void:
+func _on_state(e: GSMapEntity, key: String, _value: Variant, _tick: int) -> void:
 	if key == "enabled" or key == "alive":
 		_boxes_dirty = true
 
@@ -503,7 +503,7 @@ func _push_boxes() -> void:
 
 
 ## Plays and stops the sound stand-ins itself, then tells the game's own callable.
-func _effect(kind: String, e: DotMapEntity, on: bool) -> void:
+func _effect(kind: String, e: GSMapEntity, on: bool) -> void:
 	if kind == "sound" and sounds != null:
 		var tn := e.targetname
 		var nm := (tn if not tn.is_empty() else "amb_%d" % e.index).validate_node_name()
@@ -520,8 +520,8 @@ func _effect(kind: String, e: DotMapEntity, on: bool) -> void:
 func _touch_doors(bodies: Array) -> void:
 	if not _door_boxes_read:
 		_door_boxes_read = true
-		for ent: DotMapEntity in io.entities:
-			var e := ent as DotMapMoverNode
+		for ent: GSMapEntity in io.entities:
+			var e := ent as GSMapMoverNode
 			if e == null or e.mover == null or not e.mover.touch or e.hit_half == Vector3.ZERO:
 				continue
 			var box := AABB(e.hit_frame.origin, Vector3.ZERO)

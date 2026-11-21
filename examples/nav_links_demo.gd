@@ -1,6 +1,6 @@
 extends Node
 
-## [DotMapNavLinks] on a synthetic entity set: a button through a relay to a door, a shot button to a
+## [GSMapNavLinks] on a synthetic entity set: a button through a relay to a door, a shot button to a
 ## disabled teleport, a walk-in pad to a door, and a closer that must not count.
 
 const CHECKS := 24
@@ -14,12 +14,12 @@ var _completed := 0
 
 
 class FakeWorld extends RefCounted:
-	var io: DotMapIO
-	var volumes: DotMapVolumes
+	var io: GSMapIO
+	var volumes: GSMapVolumes
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -61,11 +61,11 @@ func _rec(index: int, cls: String, tname: String, outs: Array = [], pairs: Array
 	return {"index": index, "classname": cls, "targetname": tname, "parentname": "", "pairs": pairs, "outputs": outputs}
 
 
-func _mover(entity: int, kind: String, cls: String, extra: Dictionary = {}) -> DotMapMover:
+func _mover(entity: int, kind: String, cls: String, extra: Dictionary = {}) -> GSMapMover:
 	var d := {"entity": entity, "model": entity, "kind": kind, "classname": cls, "direction": [0, 1, 0], "distance": 2.0,
 			"travel_time": 1.0, "origin": [0, 0, 0], "axis": [0, 1, 0], "degrees": 90.0}
 	d.merge(extra, true)
-	return DotMapMover.from_record(d)
+	return GSMapMover.from_record(d)
 
 
 func _vol(entity: int, kind: String, cls: String, lo: Vector3, hi: Vector3, extra: Dictionary = {}) -> Dictionary:
@@ -77,7 +77,7 @@ func _vol(entity: int, kind: String, cls: String, lo: Vector3, hi: Vector3, extr
 
 
 func _build() -> FakeWorld:
-	var io := DotMapIO.new()
+	var io := GSMapIO.new()
 	var records: Array = [
 		_rec(0, "func_button", "btn", [["OnPressed", "rel", "Trigger"]]),
 		_rec(1, "logic_relay", "rel", [["OnTrigger", "door", "Open"]]),
@@ -97,7 +97,7 @@ func _build() -> FakeWorld:
 			_mover(9, "slide", "func_door", {"start_open": true})])
 	io.start()
 	for i in [0, 2, 3, 6, 7, 8, 9]:
-		var e := io.entity_of(i) as DotMapMoverNode
+		var e := io.entity_of(i) as GSMapMoverNode
 		e.hit_half = Vector3(1, 1, 0.2)
 		e.hit_frame = Transform3D(Basis.IDENTITY, Vector3(i * 10.0, 1, 0))
 	io.destinations = {"dest": {"at": [5.0, 6.0, 7.0]}}
@@ -105,7 +105,7 @@ func _build() -> FakeWorld:
 			_vol(4, "teleport", "trigger_teleport", Vector3(40, 0, 0), Vector3(42, 2, 2), {"targetname": "tp", "target": "dest", "disabled": true})]
 	var w := FakeWorld.new()
 	w.io = io
-	w.volumes = DotMapVolumes.build(DotMapEntities.from_manifest({"volumes": vols}), io)
+	w.volumes = GSMapVolumes.build(GSMapEntities.from_manifest({"volumes": vols}), io)
 	return w
 
 
@@ -118,9 +118,9 @@ func _find(list: Array, entity: int) -> Dictionary:
 
 func _test_doors(world: FakeWorld) -> void:
 	_section("doors: who opens each, and what does not count")
-	var out := DotMapNavLinks.read(world)
+	var out := GSMapNavLinks.read(world)
 	var doors: Array = out["doors"]
-	_check(int(out["format"]) == DotMapNavLinks.FORMAT, "the format is named")
+	_check(int(out["format"]) == GSMapNavLinks.FORMAT, "the format is named")
 	var door := _find(doors, 2)
 	_check(not door.is_empty(), "a shut slide door is listed")
 	var by: Array = door.get("opened_by", [])
@@ -142,7 +142,7 @@ func _test_doors(world: FakeWorld) -> void:
 
 func _test_teleports(world: FakeWorld) -> void:
 	_section("teleports: a disabled one lists the shot that enables it")
-	var out := DotMapNavLinks.read(world)
+	var out := GSMapNavLinks.read(world)
 	var tps: Array = out["teleports"]
 	_check(tps.size() == 1, "one teleport")
 	var tp: Dictionary = tps[0] if not tps.is_empty() else {}
@@ -159,10 +159,10 @@ func _test_teleports(world: FakeWorld) -> void:
 func _test_chain_and_empty() -> void:
 	_section("chain and a null world")
 	var w := _build()
-	var path := DotMapNavLinks.chain(w.io, 0, 2)
+	var path := GSMapNavLinks.chain(w.io, 0, 2)
 	_check(Array(path) == [0, 1, 2], "chain prints button, relay, door")
-	_check(DotMapNavLinks.chain(w.io, 7, 2).is_empty(), "a Close never reaches")
-	var none := DotMapNavLinks.read(null)
+	_check(GSMapNavLinks.chain(w.io, 7, 2).is_empty(), "a Close never reaches")
+	var none := GSMapNavLinks.read(null)
 	_check((none["doors"] as Array).is_empty() and (none["teleports"] as Array).is_empty(), "no world, no links")
 	_done()
 

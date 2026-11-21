@@ -78,14 +78,14 @@ func _test_prop_batch() -> void:
 	_prop(props, big, Transform3D(Basis(Vector3.UP, 0.3), Vector3(300, 0, 20)))
 	_prop(props, big, Transform3D(Basis.IDENTITY.scaled(Vector3(2, 2, 2)), Vector3(304, 0, 20)))
 	var copies := props.get_children().slice(-2).map(func(c: Node) -> Dictionary: return {"mi": c.get_child(0), "xf": (c as Node3D).transform})
-	var expect_placed := DotMapPropBatch.instance_transforms(copies, (copies[0]["xf"] * (copies[0]["mi"] as MeshInstance3D).get_aabb()).merge(
+	var expect_placed := GSMapPropBatch.instance_transforms(copies, (copies[0]["xf"] * (copies[0]["mi"] as MeshInstance3D).get_aabb()).merge(
 			copies[1]["xf"] * (copies[1]["mi"] as MeshInstance3D).get_aabb()).get_center())
 	var far := _prop(props, small, Transform3D(Basis.IDENTITY, Vector3(200, 0, 0)))
 	(far.get_child(0) as MeshInstance3D).visibility_range_end = 40.0
 	var scripted := _prop(props, small, Transform3D(Basis.IDENTITY, Vector3(2, 0, 2)))
 	scripted.add_to_group(&"breakable")
 	var before := _triangles(props)
-	var b := DotMapPropBatch.new()
+	var b := GSMapPropBatch.new()
 	b.max_tris = 1000
 	var n := b.batch(props)
 	for mmi: Node in props.find_children("*", "MultiMeshInstance3D", true, false):
@@ -104,14 +104,14 @@ func _test_prop_batch() -> void:
 	_check(is_instance_valid(mixed) and mixed.get_child_count() == 1 and (mixed.get_child(0) as MeshInstance3D).mesh == big,
 			"a prop's large mesh keeps its node while its small part is baked")
 	_check(b.multimeshes == 1 and b.instanced_meshes == 2, "two copies of a large mesh in one cell are one multimesh: %d of %d" % [b.multimeshes, b.instanced_meshes])
-	var none := DotMapPropBatch.new()
+	var none := GSMapPropBatch.new()
 	none.max_tris = 0
 	_check(none.batch(props) == 0, "a max_tris of 0 bakes nothing")
 	props.free()
 	_done()
 
 
-func _test_chunk_merge(world: DotMapBspMesh) -> void:
+func _test_chunk_merge(world: GSMapBspMesh) -> void:
 	_section("chunk merging: a small map keeps its cells, a merged one draws the same triangles in fewer chunks")
 	_check(world.chunk_merge == 0 and world.auto_merge(0) == 1, "by default the fixture's two chunks are left alone")
 	var whole := world.build_node(func(_r: Dictionary) -> Material: return null)

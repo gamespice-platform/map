@@ -6,24 +6,24 @@ extends Node3D
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	var res := DotMapBspMesh.load_prefix(str(args.get("world", "")))
+	var res := GSMapBspMesh.load_prefix(str(args.get("world", "")))
 	if not res.ok:
 		printerr("cannot load: ", res.error)
 		get_tree().quit(2)
 		return
-	var world: DotMapBspMesh = res.value
-	var mat_for := DotMapSurfaces.new().world_material_for(world, str(args["world"]).get_base_dir())
-	var built := DotMapWorld.build(world, {"material_for": mat_for})
+	var world: GSMapBspMesh = res.value
+	var mat_for := GSMapSurfaces.new().world_material_for(world, str(args["world"]).get_base_dir())
+	var built := GSMapWorld.build(world, {"material_for": mat_for})
 	if not built.ok:
 		printerr("cannot build the world: ", built.error)
 		get_tree().quit(3)
 		return
-	var dw: DotMapWorld = built.value
+	var dw: GSMapWorld = built.value
 	add_child(dw)
 	var we := WorldEnvironment.new()
 	we.environment = Environment.new()
@@ -34,11 +34,11 @@ func _ready() -> void:
 	add_child(we)
 	var entity := int(args.get("entity", -1))
 	var door: Node3D = dw.visual.find_child("Door_%d" % entity, true, false)
-	var mover: DotMapMover = null
-	for m: DotMapMover in DotMapEntities.from_manifest(world.manifest).movers:
+	var mover: GSMapMover = null
+	for m: GSMapMover in GSMapEntities.from_manifest(world.manifest).movers:
 		if m.entity == entity:
 			mover = m
-	var e := dw.io.entity_of(entity) as DotMapMoverNode
+	var e := dw.io.entity_of(entity) as GSMapMoverNode
 	if door == null or mover == null or e == null:
 		printerr("no door for entity %d" % entity)
 		get_tree().quit(4)

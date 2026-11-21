@@ -1,6 +1,6 @@
-class_name DotMapSoundDriver
+class_name GSMapSoundDriver
 extends Node
-## Drives the players [method DotMapBspMesh.build_sounds] made from a map's [code]sound_fade[/code] and [code]sound_spin[/code] events.
+## Drives the players [method GSMapBspMesh.build_sounds] made from a map's [code]sound_fade[/code] and [code]sound_spin[/code] events.
 
 const MAX_SECONDS := 60.0
 const MIN_GAIN := 0.001

@@ -1,8 +1,8 @@
-class_name DotMapDocDrop
+class_name GSMapDocDrop
 extends RefCounted
 
 ## The acceptor for a game whose maps are DOCUMENTS (a JSON file of the game's own kind: spawns, nav, safe areas) rather than
-## converted mesh folders. Hand [method accept] to [method DotMapDropIntake.add_acceptor]: it finds the documents in a dropped
+## converted mesh folders. Hand [method accept] to [method GSMapDropIntake.add_acceptor]: it finds the documents in a dropped
 ## [code].json[/code], a folder (searched [param depth] folders down) or a [code].zip[/code] (read in place, nothing unpacked), and
 ## gives each to the game's [param take] callable, which checks it, stores it and joins the catalogue. The result is the
 ## [code]{added, errors}[/code] the intake wants, and [method lines] says it as "Added <title> (local)" / "Not a map: <reason>".
@@ -13,7 +13,7 @@ const CHANNEL := "dot_map.doc_drop"
 ## The key a document names its kind by.
 const KIND_KEY := "kind"
 
-## Appended to a title a menu or a toast prints; the same tag as [constant DotMapLocalMaps.TAG].
+## Appended to a title a menu or a toast prints; the same tag as [constant GSMapLocalMaps.TAG].
 const TAG := " (local)"
 
 ## A document in a zip larger than this many bytes is refused, not read; 0 is no limit.
@@ -61,12 +61,12 @@ static func documents_in(path: String, kinds: PackedStringArray, depth: int) -> 
 static func write_doc(into: String, id: String, text: String) -> String:
 	var made := DirAccess.make_dir_recursive_absolute(into)
 	if made != OK:
-		DotLog.warn(CHANNEL, "cannot make %s (%s)" % [into, error_string(made)])
+		GSLog.warn(CHANNEL, "cannot make %s (%s)" % [into, error_string(made)])
 		return ""
 	var target := into.path_join(id + ".json")
 	var out := FileAccess.open(target, FileAccess.WRITE)
 	if out == null:
-		DotLog.warn(CHANNEL, "cannot write %s (%s)" % [target, error_string(FileAccess.get_open_error())])
+		GSLog.warn(CHANNEL, "cannot write %s (%s)" % [target, error_string(FileAccess.get_open_error())])
 		return ""
 	out.store_string(text)
 	out.close()
@@ -125,7 +125,7 @@ static func _from_zip(zip_path: String, kinds: PackedStringArray, docs: Array[Di
 	var zip := ZIPReader.new()
 	if zip.open(zip_path) != OK:
 		if not quiet:
-			errors.append("%s: %s" % [shown, DotMapLocalMaps.ZIP_UNREADABLE])
+			errors.append("%s: %s" % [shown, GSMapLocalMaps.ZIP_UNREADABLE])
 		return
 	var names := zip.get_files()
 	names.sort()

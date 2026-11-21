@@ -1,4 +1,4 @@
-class_name DotMapLinks
+class_name GSMapLinks
 extends RefCounted
 
 ## The output to input graph between a converted map's entities (a button opens a door, a
@@ -12,8 +12,8 @@ var _names: Dictionary = {}
 
 ## Builds from the manifest's [code]links[/code] and the entity names it knows
 ## ([code]{entity index: targetname}[/code]); names are optional and only used by [method named].
-static func from_records(records: Array, names: Dictionary = {}) -> DotMapLinks:
-	var g := DotMapLinks.new()
+static func from_records(records: Array, names: Dictionary = {}) -> GSMapLinks:
+	var g := GSMapLinks.new()
 	g._links = records
 	g._names = names
 	for rec: Dictionary in records:

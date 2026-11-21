@@ -1,6 +1,6 @@
 extends "mesh_core.gd"
 
-## The scene-node half of [DotMapBspMesh]: a drawn model as a node tree of mesh instances and shadow proxies.
+## The scene-node half of [GSMapBspMesh]: a drawn model as a node tree of mesh instances and shadow proxies.
 
 
 ## Every drawn model as a node tree: a [code]world[/code] child with a [MeshInstance3D] per chunk and a [Node3D] per
@@ -18,7 +18,7 @@ func build_node(material_for: Callable = Callable(), draw: bool = true, movers_o
 
 
 ## [method build_node] that pauses on [param slice] between batches of surfaces and between models.
-func build_node_async(material_for: Callable, draw: bool, movers_only: bool, slice: DotFrameSlice) -> Node3D:
+func build_node_async(material_for: Callable, draw: bool, movers_only: bool, slice: GSFrameSlice) -> Node3D:
 	var root := Node3D.new()
 	root.name = "BspMesh"
 	for model in models():
@@ -51,7 +51,7 @@ func _add_model_meshes(parent: Node3D, model: int, built: Array[Dictionary]) -> 
 		_add_one_mesh(parent, model, g)
 
 
-func _add_model_meshes_async(parent: Node3D, model: int, built: Array[Dictionary], slice: DotFrameSlice) -> void:
+func _add_model_meshes_async(parent: Node3D, model: int, built: Array[Dictionary], slice: GSFrameSlice) -> void:
 	for g: Dictionary in built:
 		_add_one_mesh(parent, model, g)
 		if slice.due():

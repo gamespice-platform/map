@@ -1,5 +1,5 @@
-class_name DotMapGameUi
-extends DotMapEntity
+class_name GSMapGameUi
+extends GSMapEntity
 
 ## game_ui: Activate hands one player's controls to the map.
 

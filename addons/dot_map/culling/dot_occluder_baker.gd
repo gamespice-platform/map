@@ -1,4 +1,4 @@
-class_name DotOccluderBaker
+class_name GSOccluderBaker
 extends RefCounted
 
 ## Bakes occluders from a scene's static meshes: large flat faces (walls, floors, ceilings) become quads of
@@ -26,7 +26,7 @@ var stats := {"meshes": 0, "faces": 0, "quads": 0}
 
 
 ## Bakes [param root]'s meshes into one OccluderInstance3D child. Fails when no face is large enough.
-func bake(root: Node3D) -> DotResult:
+func bake(root: Node3D) -> GSResult:
 	var old := root.get_node_or_null(NODE_NAME)
 	if old != null:
 		root.remove_child(old)
@@ -41,7 +41,7 @@ func bake(root: Node3D) -> DotResult:
 		quads.resize(max_quads)
 	stats["quads"] = quads.size()
 	if quads.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "no face is large enough to occlude", str(root.name))
+		return GSResult.fail(GSError.CODE_INVALID, "no face is large enough to occlude", str(root.name))
 	var verts := PackedVector3Array()
 	var index := PackedInt32Array()
 	for q in quads:
@@ -55,7 +55,7 @@ func bake(root: Node3D) -> DotResult:
 	inst.occluder = occ
 	root.add_child(inst)
 	inst.owner = root if root.owner == null else root.owner
-	return DotResult.success(inst)
+	return GSResult.success(inst)
 
 
 func _walk(n: Node, root: Node3D, to_root: Transform3D, quads: Array[Dictionary]) -> void:

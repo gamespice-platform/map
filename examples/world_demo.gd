@@ -1,6 +1,6 @@
 extends Node
 
-## DotMapWorld on the real converted Office and Dan's course: one call builds the world from the mesh
+## GSMapWorld on the real converted Office and Dan's course: one call builds the world from the mesh
 ## manifest and the stored source document, and Office's timed hurt room behaves per its own links. Without
 ## the converted worlds (or the store holding their source documents) it prints SKIP and exits 0.
 
@@ -16,7 +16,7 @@ var _dir := ""
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_dir = ProjectSettings.globalize_path("res://").path_join("../mg-wipeout-maps/worlds")
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--worlds="):
@@ -60,17 +60,17 @@ func _check(ok: bool, what: String) -> void:
 		_failures.append(what)
 
 
-func _build(name: String, hooks: Dictionary = {}, options: Dictionary = {}) -> DotMapWorld:
-	var res := DotMapWorld.build(_dir.path_join(name), hooks, options)
+func _build(name: String, hooks: Dictionary = {}, options: Dictionary = {}) -> GSMapWorld:
+	var res := GSMapWorld.build(_dir.path_join(name), hooks, options)
 	_check(res.ok, "%s builds (%s)" % [name, res.error if not res.ok else ""])
 	if not res.ok:
 		return null
-	var w: DotMapWorld = res.value
+	var w: GSMapWorld = res.value
 	add_child(w)
 	return w
 
 
-func _volume(w: DotMapWorld, tname: String) -> DotMapVolume:
+func _volume(w: GSMapWorld, tname: String) -> GSMapVolume:
 	for n in w.volumes.nodes:
 		if n.volume.targetname == tname:
 			return n.volume
@@ -100,7 +100,7 @@ func _test_office_build() -> void:
 	_check(w.io.entities.size() > 400, "the stored document's entities run: %d" % w.io.entities.size())
 	_check(w.volumes.nodes.size() == 93, "93 volumes joined to their entities: %d" % w.volumes.nodes.size())
 	_check(ladders[0] == 10 and swims[0] == 8, "ladder_fn got 10 boxes and swim_fn 8: %s %s" % [ladders[0], swims[0]])
-	_check(w.io.entity_of(128) is DotMapHurt and w.io.entity_of(130) is DotMapTrigger, "classes are registered")
+	_check(w.io.entity_of(128) is GSMapHurt and w.io.entity_of(130) is GSMapTrigger, "classes are registered")
 	w.queue_free()
 	await get_tree().process_frame
 	_completed += 1
@@ -111,7 +111,7 @@ func _test_office_hurt_room() -> void:
 	var hits: Array = []
 	var w := _build("wo_office_course", {
 		"damage_fn": func(_b: Variant, amount: float, kind: String, attacker: Variant) -> void:
-			hits.append([w_now(), amount, (attacker as DotMapEntity).targetname]),
+			hits.append([w_now(), amount, (attacker as GSMapEntity).targetname]),
 	}, {"environment": false, "props": false, "sounds": false, "seed": 7})
 	if w == null:
 		_completed += 1
@@ -156,7 +156,7 @@ func _test_office_hurt_room() -> void:
 	_completed += 1
 
 
-var _now_source: DotMapWorld = null
+var _now_source: GSMapWorld = null
 
 
 func w_now() -> int:
@@ -182,8 +182,8 @@ func _test_replication() -> void:
 	_check(sent.size() > 1, "state changes went out: %d messages" % sent.size())
 	for s in sent:
 		client.apply_state(s[1])
-	var hurt_h := host.io.find("Obstacle2_Hurt")[0] as DotMapEntity
-	var hurt_c := client.io.find("Obstacle2_Hurt")[0] as DotMapEntity
+	var hurt_h := host.io.find("Obstacle2_Hurt")[0] as GSMapEntity
+	var hurt_c := client.io.find("Obstacle2_Hurt")[0] as GSMapEntity
 	_check(hurt_h.enabled and hurt_c.enabled, "the client's hurt volume is enabled with the host's")
 	client.step()
 	_check(client.io.pending() == 0, "a client queues no logic of its own")
@@ -204,8 +204,8 @@ func _test_dans() -> void:
 	_check(ladders[0] > 0, "its ladders reach the hook: %d" % ladders[0])
 	_check(w.volumes.nodes.size() == 54, "54 volumes: %d" % w.volumes.nodes.size())
 	_check(not w.spawn_points().is_empty(), "start points are listed")
-	var bad := DotMapWorld.build(_dir.path_join("no_such_world"))
-	_check(not bad.ok and bad.code() == DotError.CODE_IO, "a missing mesh is a CODE_IO failure, not a crash")
+	var bad := GSMapWorld.build(_dir.path_join("no_such_world"))
+	_check(not bad.ok and bad.code() == GSError.CODE_IO, "a missing mesh is a CODE_IO failure, not a crash")
 	w.queue_free()
 	await get_tree().process_frame
 	_completed += 1
@@ -213,12 +213,12 @@ func _test_dans() -> void:
 
 func _test_manifest_settings() -> void:
 	_section("the manifest's settings are the weakest config layer, behind the game's whitelist")
-	var loaded := DotMapBspMesh.load_prefix(_dir.path_join("wo_office_course"))
+	var loaded := GSMapBspMesh.load_prefix(_dir.path_join("wo_office_course"))
 	_check(loaded.ok, "the mesh loads")
 	if not loaded.ok:
 		_completed += 1
 		return
-	var m: DotMapBspMesh = loaded.value
+	var m: GSMapBspMesh = loaded.value
 	m.manifest["settings"] = {"sv_airaccelerate": 150, "sv_evil": 1}
 	var applied := {}
 	var setter := func(k: String, v: Variant) -> bool:
@@ -228,10 +228,10 @@ func _test_manifest_settings() -> void:
 		return 0
 	var cfg := {"allow": {"sv_airaccelerate": {}, "sv_gravity": {}}, "defaults": {"sv_gravity": 700},
 			"get_fn": getter, "set_fn": setter}
-	var res := DotMapWorld.build(m, {}, {"config": cfg, "environment": false, "props": false, "sounds": false})
+	var res := GSMapWorld.build(m, {}, {"config": cfg, "environment": false, "props": false, "sounds": false})
 	_check(res.ok, "the world builds with a config")
 	if res.ok:
-		var w: DotMapWorld = res.value
+		var w: GSMapWorld = res.value
 		add_child(w)
 		_check(applied.get("sv_airaccelerate") == 150.0, "the map's own cvar is applied once the game allows it: %s" % [applied])
 		_check(applied.get("sv_gravity") == 700.0, "the options' defaults sit beside it")

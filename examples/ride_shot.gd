@@ -1,6 +1,6 @@
 extends Node3D
 
-## Frames of a body riding a converted map's mover (scenario ride) or shoved by it (push): the real DotMapIO rules, a capsule
+## Frames of a body riding a converted map's mover (scenario ride) or shoved by it (push): the real GSMapIO rules, a capsule
 ## standing in for the player. Run under a display (tools/ride_shot.sh). godot --path . res://examples/ride_shot.tscn --
 ## --world=<prefix> --entity=<index> --scenario=ride|push --out=<png prefix> [--frames=8] [--span=1.0]
 
@@ -9,23 +9,23 @@ const HEIGHT := 1.8
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var prefix := String(args.get("world", ""))
-	var res := DotMapBspMesh.load_prefix(prefix)
+	var res := GSMapBspMesh.load_prefix(prefix)
 	if not res.ok:
 		printerr("cannot load: ", res.error)
 		get_tree().quit(2)
 		return
-	var built := DotMapWorld.build(res.value, {"material_for": DotMapSurfaces.new().world_material_for(res.value, prefix.get_base_dir())})
+	var built := GSMapWorld.build(res.value, {"material_for": GSMapSurfaces.new().world_material_for(res.value, prefix.get_base_dir())})
 	if not built.ok:
 		printerr("cannot build: ", built.error)
 		get_tree().quit(3)
 		return
-	var dw: DotMapWorld = built.value
+	var dw: GSMapWorld = built.value
 	add_child(dw)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, 30, 0)
@@ -41,7 +41,7 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var index := int(args.get("entity", 0))
-	var mover := dw.io.entity_of(index) as DotMapMoverNode
+	var mover := dw.io.entity_of(index) as GSMapMoverNode
 	var box := _box_of(dw, mover)
 	var scenario := String(args.get("scenario", "ride"))
 	var feet := Vector3(box.get_center().x, box.end.y + 0.02, box.get_center().z)
@@ -79,7 +79,7 @@ func _ready() -> void:
 	get_tree().quit(0)
 
 
-func _box_of(dw: DotMapWorld, mover: DotMapMoverNode) -> AABB:
+func _box_of(dw: GSMapWorld, mover: GSMapMoverNode) -> AABB:
 	var box := AABB()
 	var first := true
 	for holder in dw.visual.get_children():

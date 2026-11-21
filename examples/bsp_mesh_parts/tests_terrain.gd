@@ -8,12 +8,12 @@ const TERRAIN := "res://examples/bsp_mesh/terrain_fixture.json"
 func _test_terrain() -> void:
 	_section("terrain reads as the converter wrote it (dot-map-convert/tests/test_terrain.py)")
 	var fx: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TERRAIN))
-	var res := DotMapTerrain.from_dict(fx["terrain"])
+	var res := GSMapTerrain.from_dict(fx["terrain"])
 	_check(res.ok, "the terrain fixture reads: %s" % ("" if res.ok else str(res)))
 	if not res.ok:
 		_done()
 		return
-	var t: DotMapTerrain = res.value
+	var t: GSMapTerrain = res.value
 	var bad := PackedStringArray()
 	for p: Array in fx["probes"]:
 		var h := t.height_at(p[0], p[1])
@@ -47,19 +47,19 @@ func _test_terrain() -> void:
 			"collision is the field alone unless the skirt is asked for")
 	var plain: Dictionary = fx["terrain"].duplicate()
 	plain.erase("skirt")
-	_check(DotMapTerrain.from_dict(plain).value.skirt_faces().is_empty(), "a field written without a skirt draws none")
+	_check(GSMapTerrain.from_dict(plain).value.skirt_faces().is_empty(), "a field written without a skirt draws none")
 	var newer: Dictionary = fx["terrain"].duplicate()
-	newer["format"] = DotMapTerrain.FORMAT + 1
-	_check(DotMapTerrain.from_dict(newer).code() == DotError.CODE_VERSION, "a newer format is refused as a version error")
+	newer["format"] = GSMapTerrain.FORMAT + 1
+	_check(GSMapTerrain.from_dict(newer).code() == GSError.CODE_VERSION, "a newer format is refused as a version error")
 	var broken: Dictionary = fx["terrain"].duplicate()
 	broken["bytes"] = 1
-	_check(DotMapTerrain.from_dict(broken).code() == DotError.CODE_PARSE, "a wrong size is refused as a parse error")
-	_check_terrain_mesh(DotMapTerrain.from_dict(fx["terrain"]).value)
+	_check(GSMapTerrain.from_dict(broken).code() == GSError.CODE_PARSE, "a wrong size is refused as a parse error")
+	_check_terrain_mesh(GSMapTerrain.from_dict(fx["terrain"]).value)
 	_done()
 
 
 ## build_mesh() builds packed arrays directly; it must match the SurfaceTool reference it replaced.
-func _check_terrain_mesh(tr: DotMapTerrain) -> void:
+func _check_terrain_mesh(tr: GSMapTerrain) -> void:
 	var built := tr.build_mesh()
 	var arr_got: Array = built.surface_get_arrays(0)
 	var ref_st := SurfaceTool.new()

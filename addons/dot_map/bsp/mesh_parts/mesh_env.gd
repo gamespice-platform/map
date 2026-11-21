@@ -1,6 +1,6 @@
 extends "mesh_solids.gd"
 
-## The breakables, licence, sky, environment and sound part of [DotMapBspMesh]; the props are
+## The breakables, licence, sky, environment and sound part of [GSMapBspMesh]; the props are
 ## [code]mesh_props.gd[/code].
 
 ## Where [method build_sounds] and [method build_props] look for a stand-in by id when the
@@ -16,10 +16,10 @@ func breakables() -> Array:
 	return manifest.get("breakables", [])
 
 
-## A [DotMapGlass] for each breakable glass model of [param root] (a [method build_node] result): its hulls
+## A [GSMapGlass] for each breakable glass model of [param root] (a [method build_node] result): its hulls
 ## as the body on [param collision_layer], the model's node as what it hides.
-func build_breakables(root: Node3D, collision_layer: int = 1, authoritative: bool = true) -> Array[DotMapGlass]:
-	var out: Array[DotMapGlass] = []
+func build_breakables(root: Node3D, collision_layer: int = 1, authoritative: bool = true) -> Array[GSMapGlass]:
+	var out: Array[GSMapGlass] = []
 	for rec: Dictionary in breakables():
 		if rec.get("glass") == null or str(rec.get("glass")).is_empty() or rec.get("model") == null:
 			continue
@@ -28,7 +28,7 @@ func build_breakables(root: Node3D, collision_layer: int = 1, authoritative: boo
 		for c in root.get_children():
 			if c.has_meta(&"model") and int(c.get_meta(&"model")) == model:
 				visual = c as Node3D
-		var pane := DotMapGlass.new()
+		var pane := GSMapGlass.new()
 		pane.name = "breakable_%d" % model
 		pane.model = model
 		pane.kind = StringName(str(rec["glass"]))
@@ -97,7 +97,7 @@ static func sky_kind(sky_name: String) -> StringName:
 
 
 ## A [PanoramaSkyMaterial] for a sky name from [param root], or null for a night, space or unnamed sky.
-## For a game that lights its own map: `environment.sky.sky_material = DotMapBspMesh.sky_material_for(name)`.
+## For a game that lights its own map: `environment.sky.sky_material = GSMapBspMesh.sky_material_for(name)`.
 static func sky_material_for(sky_name: String, root: String = "res://addons/dot_map/sky") -> PanoramaSkyMaterial:
 	var kind := sky_kind(sky_name)
 	var path := root.path_join("%s.jpg" % kind)

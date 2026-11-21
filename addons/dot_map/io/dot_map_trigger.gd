@@ -1,5 +1,5 @@
-class_name DotMapTrigger
-extends DotMapEntity
+class_name GSMapTrigger
+extends GSMapEntity
 
 ## trigger_multiple and trigger_once as logic: a body entering fires OnStartTouch, then OnTrigger when
 ## enabled, then waits [code]wait[/code] seconds (once: never again). A body that stays in fires OnTrigger

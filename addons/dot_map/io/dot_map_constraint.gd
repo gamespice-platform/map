@@ -1,5 +1,5 @@
-class_name DotMapConstraint
-extends DotMapEntity
+class_name GSMapConstraint
+extends GSMapEntity
 
 ## phys_ballsocket, phys_hinge, phys_constraint, phys_lengthconstraint, phys_slideconstraint: Break fires OnBreak once,
 ## sends a [code]constraint_break[/code] event and, when a [Joint3D] is bound, lets its bodies go. No other input.

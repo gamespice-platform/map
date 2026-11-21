@@ -1,8 +1,8 @@
-class_name DotMapCommand
+class_name GSMapCommand
 extends RefCounted
 
 ## What a map may ask the server to do. A map's command entity never runs anything: its text is split into
-## single commands and each is judged here, then recorded by [DotMapIO].
+## single commands and each is judged here, then recorded by [GSMapIO].
 
 ## A first word that is never allowed.
 const NEVER := ["quit", "exit", "exec", "alias", "bind", "unbind", "connect", "disconnect", "map", "changelevel",

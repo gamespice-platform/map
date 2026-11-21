@@ -35,11 +35,11 @@ world bounds, and no more than 1% of its BSP hulls absent.
 | `volume_parented` | unsupported | 120 | 468 | a volume parented to something that moves without a mover record (a prop_dynamic, a physics object): the volume stays where it was compiled |
 | `volume_key_unread` | unsupported | 37 | 205 | a gameplay key on a volume the runtime does not apply |
 | `target_dangling` | source | 332 | 2979 | an output target no entity carries (the original does nothing there either) |
-| `volume_follows` | handled | 277 | 1717 | a volume parented to a door, lift, train or spinner (through parents that do not move): DotMapVolumeNode carries it with the mover chain, SetParent included |
+| `volume_follows` | handled | 277 | 1717 | a volume parented to a door, lift, train or spinner (through parents that do not move): GSMapVolumeNode carries it with the mover chain, SetParent included |
 | `filter_dangling` | source | 184 | 1056 | a filtername no entity carries (the engine admits everyone) |
 | `parent_dangling` | source | 54 | 238 | a parentname no entity carries |
 | `teleport_dangling` | source | 21 | 40 | a trigger_teleport target no entity carries (the engine does nothing) |
-| `teleport_target_dynamic` | handled | 14 | 76 | a trigger_teleport whose target logic changes at run time (AddOutput target / SetRemoteDestination); DotMapTeleport re-aims it as the engine does |
+| `teleport_target_dynamic` | handled | 14 | 76 | a trigger_teleport whose target logic changes at run time (AddOutput target / SetRemoteDestination); GSMapTeleport re-aims it as the engine does |
 
 ### Entity classes
 
@@ -1190,10 +1190,10 @@ Maps packing sounds: 0; packing sound scripts or soundscapes: 0
 | `volume_key_unread` | unsupported | 6 | 63 | a gameplay key on a volume the runtime does not apply |
 | `filter_dangling` | source | 104 | 946 | a filtername no entity carries (the engine admits everyone) |
 | `target_dangling` | source | 48 | 185 | an output target no entity carries (the original does nothing there either) |
-| `volume_follows` | handled | 28 | 337 | a volume parented to a door, lift, train or spinner (through parents that do not move): DotMapVolumeNode carries it with the mover chain, SetParent included |
+| `volume_follows` | handled | 28 | 337 | a volume parented to a door, lift, train or spinner (through parents that do not move): GSMapVolumeNode carries it with the mover chain, SetParent included |
 | `teleport_dangling` | source | 17 | 209 | a trigger_teleport target no entity carries (the engine does nothing) |
 | `parent_dangling` | source | 8 | 42 | a parentname no entity carries |
-| `teleport_target_dynamic` | handled | 2 | 22 | a trigger_teleport whose target logic changes at run time (AddOutput target / SetRemoteDestination); DotMapTeleport re-aims it as the engine does |
+| `teleport_target_dynamic` | handled | 2 | 22 | a trigger_teleport whose target logic changes at run time (AddOutput target / SetRemoteDestination); GSMapTeleport re-aims it as the engine does |
 
 ### Entity classes
 

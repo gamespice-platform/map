@@ -1,5 +1,5 @@
-class_name DotMapCounter
-extends DotMapEntity
+class_name GSMapCounter
+extends GSMapEntity
 
 ## math_counter: a number with optional bounds; OutValue fires on every change, OnHitMax and
 ## OnHitMin when a bound is reached.

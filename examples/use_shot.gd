@@ -5,24 +5,24 @@ extends Node3D
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var prefix := ProjectSettings.globalize_path(str(args.get("world", "res://shotworld/surf_forbidden_ways_2nd/surf_forbidden_ways_2nd")))
-	var res := DotMapBspMesh.load_prefix(prefix)
+	var res := GSMapBspMesh.load_prefix(prefix)
 	if not res.ok:
 		printerr("cannot load: ", res.error)
 		get_tree().quit(2)
 		return
-	var mat_for := DotMapSurfaces.new().world_material_for(res.value, prefix.get_base_dir())
-	var built := DotMapWorld.build(res.value, {"material_for": mat_for})
+	var mat_for := GSMapSurfaces.new().world_material_for(res.value, prefix.get_base_dir())
+	var built := GSMapWorld.build(res.value, {"material_for": mat_for})
 	if not built.ok:
 		printerr("cannot build: ", built.error)
 		get_tree().quit(3)
 		return
-	var dw: DotMapWorld = built.value
+	var dw: GSMapWorld = built.value
 	add_child(dw)
 	var we := WorldEnvironment.new()
 	we.environment = Environment.new()
@@ -31,7 +31,7 @@ func _ready() -> void:
 	add_child(we)
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var prompt := DotMapUsePrompt.new()
+	var prompt := GSMapUsePrompt.new()
 	prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	prompt.position += Vector2(-120, 60)
 	prompt.size = Vector2(240, 30)
@@ -42,8 +42,8 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var index := int(args.get("button", 39))
-	var button := dw.io.entity_of(index) as DotMapMoverNode
-	var use := DotMapUse.new(dw)
+	var button := dw.io.entity_of(index) as GSMapMoverNode
+	var use := GSMapUse.new(dw)
 	var space := dw.get_world_3d().direct_space_state
 	var box := AABB()
 	var first := true

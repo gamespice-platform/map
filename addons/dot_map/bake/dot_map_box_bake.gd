@@ -1,15 +1,15 @@
-class_name DotMapBoxBake
+class_name GSMapBoxBake
 extends RefCounted
 
 ## Baked light for a map a game draws from boxes in code: the half of GameSpice Lighting's
-## [code]DotLightBake[/code] every box-document game repeats.
+## [code]GSLightBake[/code] every box-document game repeats.
 
 const CHANNEL := "dot.map.box_bake"
 
 ## Bump when what a bake means changes here (the bake scene's lamps, emission and sky): every fingerprint includes it.
 const VERSION := 1
 
-## GameSpice Lighting's API level that has [code]DotLightBake[/code] and [code]DotLightmapSheet[/code].
+## GameSpice Lighting's API level that has [code]GSLightBake[/code] and [code]GSLightmapSheet[/code].
 const MIN_LEVEL := 5
 
 const BAKE_SCRIPT := "res://addons/dot_lighting/bake/dot_light_bake.gd"
@@ -25,7 +25,7 @@ const DEFAULTS := {"quality": LightmapGI.BAKE_QUALITY_MEDIUM, "bounces": 3, "tex
 
 ## Whether this host's GameSpice Lighting can lay a bake.
 static func can_bake() -> bool:
-	return DotAddonApi.build_level("dot_lighting") >= MIN_LEVEL and ResourceLoader.exists(BAKE_SCRIPT) and ResourceLoader.exists(SHEET_SCRIPT)
+	return GSAddonApi.build_level("dot_lighting") >= MIN_LEVEL and ResourceLoader.exists(BAKE_SCRIPT) and ResourceLoader.exists(SHEET_SCRIPT)
 
 
 ## A fresh UV2 sheet for one batch, or null where this host cannot bake.
@@ -122,16 +122,16 @@ static func bake_scene(drawn: Node3D, lighting: Node3D, fp: String, out_path: St
 ## Runtime: lays the bake at [param path] over [param host], if it was made from [param fp]. On success the baked meshes lose their metal
 ## (a lightmap holds diffuse light only; baked, a metallic surface drew nearly black), [param lamps] turn static (the lightmap lights the
 ## boxes; they still light everything that moves) and the result carries the [LightmapGI].
-static func attach(host: Node3D, path: String, fp: String, lamps: Array = []) -> DotResult:
+static func attach(host: Node3D, path: String, fp: String, lamps: Array = []) -> GSResult:
 	if not can_bake() or fp == "":
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "this host cannot lay a bake")
-	var res: DotResult = (load(BAKE_SCRIPT) as GDScript).call(&"attach", host, path, fp)
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "this host cannot lay a bake")
+	var res: GSResult = (load(BAKE_SCRIPT) as GDScript).call(&"attach", host, path, fp)
 	if not res.ok:
 		return res
 	for lamp: Light3D in lamps:
 		lamp.light_bake_mode = Light3D.BAKE_STATIC
 	_dull_metal(host)
-	DotLog.debug(CHANNEL, "a map is drawn with its baked light", {"path": path})
+	GSLog.debug(CHANNEL, "a map is drawn with its baked light", {"path": path})
 	return res
 
 

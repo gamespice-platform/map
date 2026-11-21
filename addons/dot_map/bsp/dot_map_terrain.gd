@@ -1,4 +1,4 @@
-class_name DotMapTerrain
+class_name GSMapTerrain
 extends RefCounted
 ## A converted map's displacement ground as a heightfield (dot-map-convert/dotbsp/terrain.py writes it): one
 ## triangle shape to collide with, a mesh to draw, and the points an AI graph walks.
@@ -25,14 +25,14 @@ var skirt_y: float = NAN
 
 
 ## Reads [param d] (the converter's dictionary). Fails on a newer format or damaged data.
-static func from_dict(d: Dictionary) -> DotResult:
+static func from_dict(d: Dictionary) -> GSResult:
 	if int(d.get("format", 0)) > FORMAT:
-		return DotResult.fail(DotError.CODE_VERSION, "terrain format %s is newer than %d" % [d.get("format"), FORMAT])
+		return GSResult.fail(GSError.CODE_VERSION, "terrain format %s is newer than %d" % [d.get("format"), FORMAT])
 	var size: Array = d.get("size", [])
 	var org: Array = d.get("origin", [])
 	if size.size() != 2 or org.size() != 2:
-		return DotResult.fail(DotError.CODE_PARSE, "terrain has no size or origin")
-	var t := DotMapTerrain.new()
+		return GSResult.fail(GSError.CODE_PARSE, "terrain has no size or origin")
+	var t := GSMapTerrain.new()
 	t.nx = int(size[0])
 	t.nz = int(size[1])
 	t.cell = float(d.get("cell", 0.0))
@@ -43,14 +43,14 @@ static func from_dict(d: Dictionary) -> DotResult:
 		t.skirt_y = float(d["skirt"])
 	var n := t.nx * t.nz
 	if t.nx < 2 or t.nz < 2 or n > MAX_SAMPLES or t.cell <= 0.0:
-		return DotResult.fail(DotError.CODE_PARSE, "terrain grid %dx%d of %s m is not usable" % [t.nx, t.nz, t.cell])
+		return GSResult.fail(GSError.CODE_PARSE, "terrain grid %dx%d of %s m is not usable" % [t.nx, t.nz, t.cell])
 	var raw_size := int(d.get("bytes", 0))
 	var mask_bytes := (n + 7) / 8
 	if raw_size < mask_bytes or raw_size > mask_bytes + n * 2:
-		return DotResult.fail(DotError.CODE_PARSE, "terrain says it is %d bytes" % raw_size)
+		return GSResult.fail(GSError.CODE_PARSE, "terrain says it is %d bytes" % raw_size)
 	var raw := Marshalls.base64_to_raw(str(d.get("data", ""))).decompress(raw_size, FileAccess.COMPRESSION_DEFLATE)
 	if raw.size() != raw_size:
-		return DotResult.fail(DotError.CODE_PARSE, "terrain data would not decompress")
+		return GSResult.fail(GSError.CODE_PARSE, "terrain data would not decompress")
 	var base := float(d.get("base", 0.0))
 	var step := float(d.get("step", 0.05))
 	var q := PackedInt32Array()
@@ -64,7 +64,7 @@ static func from_dict(d: Dictionary) -> DotResult:
 			t.heights[k] = NAN
 			continue
 		if off + 2 > raw.size():
-			return DotResult.fail(DotError.CODE_PARSE, "terrain data is short")
+			return GSResult.fail(GSError.CODE_PARSE, "terrain data is short")
 		var v := raw.decode_s16(off) + _predict(q, known, t.nx, k)
 		off += 2
 		q[k] = v
@@ -73,11 +73,11 @@ static func from_dict(d: Dictionary) -> DotResult:
 	if d.has("walk"):
 		var wm := Marshalls.base64_to_raw(str(d["walk"])).decompress(mask_bytes, FileAccess.COMPRESSION_DEFLATE)
 		if wm.size() != mask_bytes:
-			return DotResult.fail(DotError.CODE_PARSE, "terrain walk mask would not decompress")
+			return GSResult.fail(GSError.CODE_PARSE, "terrain walk mask would not decompress")
 		t.walk.resize(n)
 		for k in n:
 			t.walk[k] = (wm[k >> 3] >> (k & 7)) & 1
-	return DotResult.success(t)
+	return GSResult.success(t)
 
 
 static func _predict(q: PackedInt32Array, known: PackedByteArray, width: int, k: int) -> int:

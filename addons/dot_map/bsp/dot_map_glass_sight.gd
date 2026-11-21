@@ -1,8 +1,8 @@
-class_name DotMapGlassSight
+class_name GSMapGlassSight
 extends RefCounted
 
 ## The jail glass rule for gameplay queries: a ray that starts inside the cell is stopped by the glass, one that starts outside passes.
-## [DotMapOneWayGlass] only draws it; this applies it to sight and hitscan: a query within [member radius] of the cell centre counts the glass layer as solid.
+## [GSMapOneWayGlass] only draws it; this applies it to sight and hitscan: a query within [member radius] of the cell centre counts the glass layer as solid.
 ## Defaults: bots and shooters inside cannot see or hit out ([member block_sight], [member block_shots]); spectator and dev cameras never ask.
 
 const _SPECS := [
@@ -10,12 +10,12 @@ const _SPECS := [
 	["sv_glass_block_shots", "block_shots", "1: a hitscan shot fired from inside the jail cell is stopped by its glass; 0: passes"],
 ]
 
-## Cell centre and radius, as [method DotMapOneWayGlass.cell_of] returns them.
+## Cell centre and radius, as [method GSMapOneWayGlass.cell_of] returns them.
 var centre := Vector3.ZERO
 var radius := 6.0
 ## Extra metres beyond [member radius] where glass still belongs to the cell (as the shader's margin).
 var margin := 2.0
-## Collision layer bit mask the glass hulls are on ([method DotMapBspMesh.split_legacy_hulls]).
+## Collision layer bit mask the glass hulls are on ([method GSMapBspMesh.split_legacy_hulls]).
 var glass_mask := 0
 ## Layer bits of everything else a shot must hit (world, clip, props). A glass bit shared with these is never stripped from an outside shot.
 ## The BSP world defaults the glass hulls to layer 1, so a game must give glass its own bit via the `layers` option and check [method problem].
@@ -33,8 +33,8 @@ func _init(cell_centre: Vector3 = Vector3.ZERO, cell_radius: float = 6.0, glass_
 ## Splits a map's legacy hulls and, when it has a jail cell, returns the rule for it (null otherwise); clip and fence hulls move to [param clip_mask], glass to [param glass_bit].
 ## Thin horizontal glass goes to a sibling body also on [param floor_mask], because a downward ray must still find the floor; bodies keep `hull_kind` so [method is_exempt] spares them a layer reset.
 ## The rule's [member world_mask] is [param world_mask]; check [method problem].
-static func install(mesh: Object, body: StaticBody3D, clip_mask: int, glass_bit: int, floor_mask: int, world_mask: int) -> DotMapGlassSight:
-	var cell: Dictionary = DotMapOneWayGlass.cell_of(mesh.manifest)
+static func install(mesh: Object, body: StaticBody3D, clip_mask: int, glass_bit: int, floor_mask: int, world_mask: int) -> GSMapGlassSight:
+	var cell: Dictionary = GSMapOneWayGlass.cell_of(mesh.manifest)
 	var layers := {"clip": clip_mask, "fence": clip_mask}
 	if not cell.is_empty():
 		layers["glass"] = clip_mask | glass_bit
@@ -63,7 +63,7 @@ static func install(mesh: Object, body: StaticBody3D, clip_mask: int, glass_bit:
 			glass_body.get_parent().add_child(floors)
 		else:
 			floors.free()
-	var rules := DotMapGlassSight.new(cell["centre"], float(cell["radius"]), glass_bit)
+	var rules := GSMapGlassSight.new(cell["centre"], float(cell["radius"]), glass_bit)
 	rules.world_mask = world_mask
 	return rules
 
@@ -76,7 +76,7 @@ static func is_exempt(node: Node) -> bool:
 
 ## Whether a query starting at [param from] is inside the cell.
 func from_inside(from: Vector3) -> bool:
-	return DotMapOneWayGlass.sees_solid(from, centre, radius)
+	return GSMapOneWayGlass.sees_solid(from, centre, radius)
 
 
 ## The mask for a hitscan from [param from]: [param mask] plus the glass layer from inside (when shots are blocked), minus it elsewhere.

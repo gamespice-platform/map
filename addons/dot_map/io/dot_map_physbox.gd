@@ -1,7 +1,7 @@
-class_name DotMapPhysbox
-extends DotMapBreakable
+class_name GSMapPhysbox
+extends GSMapBreakable
 
-## func_physbox: a brush that is a physics object. [DotMapWorld] gives its model a [RigidBody3D] (convex
+## func_physbox: a brush that is a physics object. [GSMapWorld] gives its model a [RigidBody3D] (convex
 ## hulls, the drawn meshes riding on it) and binds it with [method bind_body]; the authority simulates it and
 ## a client keeps it frozen.
 

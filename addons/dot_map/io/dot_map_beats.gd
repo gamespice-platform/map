@@ -1,5 +1,5 @@
-class_name DotMapBeats
-extends DotMapEntity
+class_name GSMapBeats
+extends GSMapEntity
 
 ## logic_beats: a map's music-beat cue as a plain beat signal, so no track has to ship. With a tempo it fires
 ## OnBeat and the [code]beat[/code] event on the map's own tick (bar, beat in the bar, downbeat); without one

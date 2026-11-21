@@ -1,23 +1,23 @@
 # Threaded map loading (`map_load_threads`)
 
-Off by default and never on the web. `0` is today's behaviour, `N` is N workers on the engine's pool, `-1` is automatic (processor count less one, at most 8): the meaning dot-core's `DotParallel.resolve_workers` gives every threading cvar. `DotParallel.available()` decides, so the web, a build without threads and a one-core machine run inline whatever the cvar says.
+Off by default and never on the web. `0` is today's behaviour, `N` is N workers on the engine's pool, `-1` is automatic (processor count less one, at most 8): the meaning dot-core's `GSParallel.resolve_workers` gives every threading cvar. `GSParallel.available()` decides, so the web, a build without threads and a one-core machine run inline whatever the cvar says.
 
 ## What runs on workers
 
-Only pure functions of frozen data, in `DotMapParallelBuild`, in batches of four tasks per worker so a whole map's arrays are never held at once (peak memory does not scale with the worker count):
+Only pure functions of frozen data, in `GSMapParallelBuild`, in batches of four tasks per worker so a whole map's arrays are never held at once (peak memory does not scale with the worker count):
 
 | Stage | Task | Made on the main thread |
 | --- | --- | --- |
-| `DotMapBspMesh.build_meshes` | `_merged_arrays` of one material's records (slices, UV2/colour padding, index offsets) | `ArrayMesh.add_surface_from_arrays`, materials |
+| `GSMapBspMesh.build_meshes` | `_merged_arrays` of one material's records (slices, UV2/colour padding, index offsets) | `ArrayMesh.add_surface_from_arrays`, materials |
 | `hull_shapes` | the points of one hull minus the model origin | `ConvexPolygonShape3D` |
 | `concave_shapes` | the face array of one displacement surface | `ConcavePolygonShape3D` |
-| `DotMapSurfaces.world_material_for` | `Image.load_from_file` and `generate_mipmaps` of every texture file the surfaces use | `ImageTexture`, materials |
+| `GSMapSurfaces.world_material_for` | `Image.load_from_file` and `generate_mipmaps` of every texture file the surfaces use | `ImageTexture`, materials |
 
 Imported textures (`res://` with an import) are requested with `ResourceLoader.load_threaded_request` and collected before the material pass. The scene tree, meshes, shapes, materials and props are never touched off the main thread, and results are applied in index order, so the output is identical for every worker count (`examples/map_threads_selftest.tscn` compares hashes of the mesh arrays, hull points, faces and decoded pixels for 0, 1, 2, 4 and automatic).
 
 ## Binding it
 
-GameSpice Map has no console, so a game copies its cvar in once, before loading: `DotMapParallelBuild.default_workers = console.get_int("map_load_threads")`. A single world or surfaces object takes its own `load_threads`.
+GameSpice Map has no console, so a game copies its cvar in once, before loading: `GSMapParallelBuild.default_workers = console.get_int("map_load_threads")`. A single world or surfaces object takes its own `load_threads`.
 
 ## Where the time goes
 
@@ -25,10 +25,10 @@ Measured on two converted survival maps (about 1 800 surfaces, 4 000 to 6 600 hu
 
 ## Pre-baked textures and the sliced prefetch
 
-A raw store file costs about 11 to 13 ms to decode (webp 11.1, png 10.7, jpg 4.8 for a 1k map; measured on 50 ze_biohazard_manor textures) plus 3.4 ms to mip-map and compress, 15 ms in all; loading the same image pre-baked is 0.18 ms. `dot-map-convert/tools/bake_textures.gd -- <store dir> [--out=<dir>] [--max=2048]` (`DotMapTextureBake`) writes `<name>.s3tc.res` and `<name>.etc2.res` beside each `albedo|normal|roughness|ao` file; `DotMapSurfaces` takes the one for the build's VRAM format when it is not larger than `max_texture_size`, else decodes as before. A baked file is about 0.9 MB against 0.23 MB for the webp, so ship it inside a compressed pack, not as a new download. Never published by the tool; baked files are engine-version specific like an import.
+A raw store file costs about 11 to 13 ms to decode (webp 11.1, png 10.7, jpg 4.8 for a 1k map; measured on 50 ze_biohazard_manor textures) plus 3.4 ms to mip-map and compress, 15 ms in all; loading the same image pre-baked is 0.18 ms. `dot-map-convert/tools/bake_textures.gd -- <store dir> [--out=<dir>] [--max=2048]` (`GSMapTextureBake`) writes `<name>.s3tc.res` and `<name>.etc2.res` beside each `albedo|normal|roughness|ao` file; `GSMapSurfaces` takes the one for the build's VRAM format when it is not larger than `max_texture_size`, else decodes as before. A baked file is about 0.9 MB against 0.23 MB for the webp, so ship it inside a compressed pack, not as a new download. Never published by the tool; baked files are engine-version specific like an import.
 
-`DotMapSurfaces.prefetch(world, dir)` is a coroutine: it decodes in worker batches and yields a frame every 8 ms, so GameSpice Cloud's fetch callbacks and the loading cover run during the decode. `await` it before `world_material_for`, which then finds every texture cached; without the call the prefetch blocks the main thread as before.
+`GSMapSurfaces.prefetch(world, dir)` is a coroutine: it decodes in worker batches and yields a frame every 8 ms, so GameSpice Cloud's fetch callbacks and the loading cover run during the decode. `await` it before `world_material_for`, which then finds every texture cached; without the call the prefetch blocks the main thread as before.
 
 ## The pack read off the main thread
 
-`DotMapBspMesh.load_prefix_async(prefix)` is `load_prefix` with the file reads, JSON parse, SHA-256 and gunzip (the 125 ms above) in one task on the worker pool, the calling coroutine awaiting frames until it ends; the checks and the `DotMapBspMesh` are then made on the main thread and cached as `load_prefix` does. It does not wait for `map_load_threads`, because one task on an otherwise idle pool contends with nothing; only `DotParallel.available()` false (the web) reads inline. With it, `DotMapSurfaces.world_material_for_async` and `DotMapDrawnWorld.attach_async`, a client's map load spreads over frames of about its slice budget: cp-orange-x3 in game-arena's `tools/map_load_frames.tscn` (headless, so no GPU upload, on the slow build VM) went from the 233 ms frame the staging02 bench showed to a worst of 25 ms at a 10 ms budget. What is left over budget is `build_props` (one step, 25 ms there) and a single surface's material (up to 12 ms).
+`GSMapBspMesh.load_prefix_async(prefix)` is `load_prefix` with the file reads, JSON parse, SHA-256 and gunzip (the 125 ms above) in one task on the worker pool, the calling coroutine awaiting frames until it ends; the checks and the `GSMapBspMesh` are then made on the main thread and cached as `load_prefix` does. It does not wait for `map_load_threads`, because one task on an otherwise idle pool contends with nothing; only `GSParallel.available()` false (the web) reads inline. With it, `GSMapSurfaces.world_material_for_async` and `GSMapDrawnWorld.attach_async`, a client's map load spreads over frames of about its slice budget: cp-orange-x3 in game-arena's `tools/map_load_frames.tscn` (headless, so no GPU upload, on the slow build VM) went from the 233 ms frame the staging02 bench showed to a worst of 25 ms at a 10 ms budget. What is left over budget is `build_props` (one step, 25 ms there) and a single surface's material (up to 12 ms).

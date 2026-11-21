@@ -9,29 +9,29 @@ var _rows := {}
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	DotMapBspMesh.model_texture_max = int(args.get("cap", 0))
-	DotMapBspMesh.model_half_masks = not args.has("fullmodelmasks")
-	DotMapBspMesh.model_half_normals = not args.has("fullmodelnormals")
-	var res := DotMapBspMesh.load_prefix(str(args.get("world", "")))
+	GSMapBspMesh.model_texture_max = int(args.get("cap", 0))
+	GSMapBspMesh.model_half_masks = not args.has("fullmodelmasks")
+	GSMapBspMesh.model_half_normals = not args.has("fullmodelnormals")
+	var res := GSMapBspMesh.load_prefix(str(args.get("world", "")))
 	if not res.ok:
 		printerr("cannot load: ", res.error)
 		get_tree().quit(2)
 		return
-	var world: DotMapBspMesh = res.value
+	var world: GSMapBspMesh = res.value
 	if args.has("nomodels"):
 		world.model_library = "/nonexistent"
 	var t0 := Time.get_ticks_msec()
-	var surfaces := DotMapSurfaces.new()
+	var surfaces := GSMapSurfaces.new()
 	if args.has("half"):
 		surfaces.half_res_masks = args["half"] != "0"
 	if args.has("fullnormals"):
 		surfaces.half_res_normals = false
-	var built := DotMapWorld.build(world, {"material_for": surfaces.world_material_for(world, str(args["world"]).get_base_dir())})
+	var built := GSMapWorld.build(world, {"material_for": surfaces.world_material_for(world, str(args["world"]).get_base_dir())})
 	if not built.ok:
 		printerr("cannot build: ", built.error)
 		get_tree().quit(3)

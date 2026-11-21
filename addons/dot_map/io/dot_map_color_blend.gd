@@ -1,5 +1,5 @@
-class_name DotMapColorBlend
-extends DotMapEntity
+class_name GSMapColorBlend
+extends GSMapEntity
 
 ## math_colorblend: InValue between inmin and inmax mixes colormin to colormax and fires OutColor.
 

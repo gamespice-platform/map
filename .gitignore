@@ -26,5 +26,5 @@ __pycache__/
 # Git worktrees some sessions put inside the checkout.
 /wt-*/
 
-# Local maps copied in by hand (DotMapLocalMaps); never committed.
+# Local maps copied in by hand (GSMapLocalMaps); never committed.
 addons/maps/

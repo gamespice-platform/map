@@ -1,4 +1,4 @@
-class_name DotMapBrush
+class_name GSMapBrush
 extends RefCounted
 
 ## Map-building solids as data: a spec in, a mesh and collision out, e.g. [code]{"kind": "stairs", "size": [4, 3, 6], "params": {"steps": 6}}[/code]. Kinds: box, wedge (ramp), stairs, cylinder, cone, spike, arch, quarter_pipe, slab_holes.
@@ -31,37 +31,37 @@ static func has_kind(kind: String) -> bool:
 
 
 ## Checks a spec without building it. The failure says what is wrong and carries
-## [constant DotError.CODE_INVALID].
-static func validate(spec: Dictionary) -> DotResult:
+## [constant GSError.CODE_INVALID].
+static func validate(spec: Dictionary) -> GSResult:
 	var kind := resolve(str(spec.get("kind", "")))
 	if not KINDS.has(kind):
-		return DotResult.fail(DotError.CODE_INVALID, "unknown brush kind '%s'" % kind, ", ".join(KINDS))
+		return GSResult.fail(GSError.CODE_INVALID, "unknown brush kind '%s'" % kind, ", ".join(KINDS))
 	var size_v: Variant = spec.get("size", null)
 	if not (size_v is Array or size_v is Vector3) or (size_v is Array and (size_v as Array).size() != 3):
-		return DotResult.fail(DotError.CODE_INVALID, "brush size must be [x, y, z]")
+		return GSResult.fail(GSError.CODE_INVALID, "brush size must be [x, y, z]")
 	var size := size_of(spec)
 	if size.x < MIN_SIZE or size.y < MIN_SIZE or size.z < MIN_SIZE or not size.is_finite():
-		return DotResult.fail(DotError.CODE_INVALID, "brush size %s is under %s m" % [size, MIN_SIZE])
+		return GSResult.fail(GSError.CODE_INVALID, "brush size %s is under %s m" % [size, MIN_SIZE])
 	var params: Variant = spec.get("params", {})
 	if not params is Dictionary:
-		return DotResult.fail(DotError.CODE_INVALID, "params must be a dictionary")
+		return GSResult.fail(GSError.CODE_INVALID, "params must be a dictionary")
 	var p: Dictionary = params
 	if int(p.get("steps", 1)) < 1 or int(p.get("steps", 1)) > MAX_STEPS:
-		return DotResult.fail(DotError.CODE_INVALID, "steps must be 1 to %d" % MAX_STEPS)
+		return GSResult.fail(GSError.CODE_INVALID, "steps must be 1 to %d" % MAX_STEPS)
 	if int(p.get("segments", 8)) < 3 or int(p.get("segments", 8)) > MAX_SEGMENTS:
-		return DotResult.fail(DotError.CODE_INVALID, "segments must be 3 to %d" % MAX_SEGMENTS)
+		return GSResult.fail(GSError.CODE_INVALID, "segments must be 3 to %d" % MAX_SEGMENTS)
 	if float(spec.get("uv_metres", 1.0)) <= 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "uv_metres must be above zero")
+		return GSResult.fail(GSError.CODE_INVALID, "uv_metres must be above zero")
 	if kind == "slab_holes":
 		var holes: Variant = p.get("holes", [])
 		if not holes is Array:
-			return DotResult.fail(DotError.CODE_INVALID, "holes must be a list of [x, z, width, depth]")
+			return GSResult.fail(GSError.CODE_INVALID, "holes must be a list of [x, z, width, depth]")
 		for h: Variant in holes:
 			if not h is Array or (h as Array).size() != 4:
-				return DotResult.fail(DotError.CODE_INVALID, "a hole is [x, z, width, depth]")
+				return GSResult.fail(GSError.CODE_INVALID, "a hole is [x, z, width, depth]")
 		if (holes as Array).size() > 8:
-			return DotResult.fail(DotError.CODE_INVALID, "at most 8 holes")
-	return DotResult.success(spec)
+			return GSResult.fail(GSError.CODE_INVALID, "at most 8 holes")
+	return GSResult.success(spec)
 
 
 static func size_of(spec: Dictionary) -> Vector3:

@@ -1,6 +1,6 @@
 extends "io_world_base.gd"
 
-## Toggle brushes, breakables, movers and their replication on [DotMapIO] (work package 6).
+## Toggle brushes, breakables, movers and their replication on [GSMapIO] (work package 6).
 
 const CHECKS := 213
 const SECTIONS := 17
@@ -8,7 +8,7 @@ const TUNNEL := "res://examples/bsp_mesh/zm_4way_tunnel.entities.json"
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -74,7 +74,7 @@ func _test_toggle_brush() -> void:
 	_check(is_equal_approx(mesh.transparency, 1.0 - 64.0 / 255.0), "Alpha shows as the meshes' transparency: %s" % mesh.transparency)
 	io.send("wall", "Alpha", "128")
 	io.send("wall", "Enable")
-	_check(n1.visible and _solid(n1) and (io.entity_of(0) as DotMapToggleBrush).alpha == 128, "Enable brings it back, Alpha is state")
+	_check(n1.visible and _solid(n1) and (io.entity_of(0) as GSMapToggleBrush).alpha == 128, "Enable brings it back, Alpha is state")
 	io.send("ever", "Disable")
 	_check(not n4.visible and _solid(n4), "solidity 2 stays solid while hidden")
 	io.send("ever", "Kill")
@@ -99,12 +99,12 @@ func _test_keys_read() -> void:
 	])
 	var heard: Array = []
 	io.event_fn = func(kind: String, data: Dictionary) -> void: heard.append([kind, data])
-	io.effect_fn = func(_kind: String, _e: DotMapEntity, _on: bool) -> void: pass
+	io.effect_fn = func(_kind: String, _e: GSMapEntity, _on: bool) -> void: pass
 	io.start()
 	_check(io.hurt(0, 10.0) and io.hurt(1, 10.0), "both breakables break")
 	var drops := heard.filter(func(h: Array) -> bool: return h[0] == "spawn_object")
 	_check(drops.size() == 1 and int((drops[0][1] as Dictionary)["object"]) == 3, "only the one with spawnobject drops, object 3: %s" % [drops])
-	var hum := io.entity_of(2) as DotMapSound
+	var hum := io.entity_of(2) as GSMapSound
 	_check(hum.fade_in == 2.0 and hum.fade_out == 3.0 and hum.spin_up == 1.5, "fade and spin times are read")
 	_check(hum.pitch_start == 60.0 and absf(hum.volume_start - 0.2) < 0.001, "start pitch and volume are read")
 	hum.stand_in = "hum"
@@ -136,22 +136,22 @@ func _test_breakable() -> void:
 		_rec(8, "logic_relay", "r", [], [["OnTrigger", "plain", "Break", "", 1.0]]),
 	])
 	var seen: Array = []
-	io.effect_fn = func(kind: String, e: DotMapEntity, on: bool) -> void: seen.append([kind, e.targetname, on])
+	io.effect_fn = func(kind: String, e: GSMapEntity, on: bool) -> void: seen.append([kind, e.targetname, on])
 	io.propdata_fn = func(model: String) -> Dictionary: return {"health": 40.0, "material": "metal"} if model.ends_with("oildrum001.mdl") else {}
 	io.start()
-	var crate := io.entity_of(0) as DotMapBreakable
+	var crate := io.entity_of(0) as GSMapBreakable
 	_check(not io.hurt(0, 10.0) and crate.health == 20.0, "10 damage leaves 20 of 30")
 	_check(io.hurt(0, 25.0) and crate.broken, "the next hit breaks it")
-	_check((io.entity_of(1) as DotMapCounter).value == 11.0, "OnHealthChanged (+10) then OnBreak (+1) ran their links: %s" % (io.entity_of(1) as DotMapCounter).value)
+	_check((io.entity_of(1) as GSMapCounter).value == 11.0, "OnHealthChanged (+10) then OnBreak (+1) ran their links: %s" % (io.entity_of(1) as GSMapCounter).value)
 	_check(not crate.alive and seen == [["break", "crate", true]], "a broken entity is gone and the effect callable heard of it: %s" % [seen])
 	_check(not io.hurt(2, 100.0), "a breakable with no health in the map takes no damage")
 	io.send("r", "Trigger")
 	io.advance(20)
-	_check((io.entity_of(2) as DotMapBreakable).broken, "but Break still breaks it, here from a timed link")
-	_check(not io.hurt(3, 100.0) and not (io.entity_of(3) as DotMapBreakable).broken, "spawnflag 1 breaks only on trigger")
+	_check((io.entity_of(2) as GSMapBreakable).broken, "but Break still breaks it, here from a timed link")
+	_check(not io.hurt(3, 100.0) and not (io.entity_of(3) as GSMapBreakable).broken, "spawnflag 1 breaks only on trigger")
 	_check(io.hurt(4, 1.0), "a breakable_surf with no health breaks on one point")
 	_check(not io.hurt(5, 9.0) and io.hurt(5, 50.0), "minhealthdmg ignores light hits")
-	var barrel := io.entity_of(6) as DotMapBreakable
+	var barrel := io.entity_of(6) as GSMapBreakable
 	_check(barrel.health == 40.0 and barrel.material == "metal", "a prop takes its health and material from the game's propdata")
 	_check(not io.hurt(7, 50.0), "material 7 (unbreakable glass) takes no damage")
 	io.send("barrel", "SetHealth", "5")
@@ -160,10 +160,10 @@ func _test_breakable() -> void:
 	var client := _io([_rec(0, "func_breakable", "crate", [["health", "30"]])])
 	client.authoritative = false
 	_check(not client.hurt(0, 99.0), "a client's damage does nothing")
-	# glass: the converter's DotMapGlass is driven through the entity
+	# glass: the converter's GSMapGlass is driven through the entity
 	var io2 := _io([_rec(0, "func_breakable_surf", "window", [["model", "*9"]])])
 	var visual := _model_node(9)
-	var pane := DotMapGlass.new()
+	var pane := GSMapGlass.new()
 	pane.model = 9
 	pane.visual = visual
 	pane.collision_layer = 1
@@ -186,7 +186,7 @@ func _test_door() -> void:
 			_rec(1, "math_counter", "log", [["max", "100000"]])])
 	io.bind_movers([_door_rec(0)])
 	io.start()
-	var d := io.entity_of(0) as DotMapMoverNode
+	var d := io.entity_of(0) as GSMapMoverNode
 	_check(d.fraction_at(0, 20) == 0.0, "closed at the start")
 	io.send("door", "Open")
 	io.advance(20)
@@ -194,7 +194,7 @@ func _test_door() -> void:
 	io.advance(20)
 	_check(d.fraction_at(io.now, 20) == 1.0, "fully open at 2 s")
 	_check(_ticks(io, "door", "motion", [0.0, 1.0, 0, 2.0]) == [0], "the motion record says where and when it started")
-	var log := io.entity_of(1) as DotMapCounter
+	var log := io.entity_of(1) as GSMapCounter
 	_check(log.value == 11.0, "OnOpen then OnFullyOpen fired: %s" % log.value)
 	io.advance(59)
 	_check(d.fraction_at(io.now, 20) == 1.0, "it holds for the 3 s wait (tick 99)")
@@ -216,7 +216,7 @@ func _test_door() -> void:
 	io.send("door", "Open")
 	io.advance(15)
 	_check(is_equal_approx(d.fraction_at(io.now, 20), 0.25 + 0.75 * 15.0 / 30.0), "a faster speed (1 m/s over 2 m: 1.5 s from closed) takes 15 ticks for half of the remaining way")
-	_check(DotMapMover.from_record({"kind": "slide", "distance": 4.0, "direction": [0, 1, 0]}).transform_at(0.5).origin == Vector3(0, 2, 0), "the record's own pose function is what the node is set from")
+	_check(GSMapMover.from_record({"kind": "slide", "distance": 4.0, "direction": [0, 1, 0]}).transform_at(0.5).origin == Vector3(0, 2, 0), "the record's own pose function is what the node is set from")
 	# a hinge
 	var io2 := _io([_rec(0, "func_door_rotating", "hinge", [["model", "*0"]])])
 	io2.bind_movers([_door_rec(0, "rotate")])
@@ -235,15 +235,15 @@ func _test_button_chain() -> void:
 		_rec(0, "func_button", "btn", [["spawnflags", "1024"]], [["OnPressed", "door", "Open"], ["OnPressed", "btn", "Lock"], ["OnPressed", "btn", "Unlock", "", 5.0]]),
 		_rec(1, "func_door", "door"),
 	])
-	io.bind_movers([_door_rec(1, "slide", {"wait": 2.0}), DotMapMover.from_record({"entity": 0, "model": 0, "kind": "button", "classname": "func_button",
+	io.bind_movers([_door_rec(1, "slide", {"wait": 2.0}), GSMapMover.from_record({"entity": 0, "model": 0, "kind": "button", "classname": "func_button",
 			"distance": 0.0, "direction": [1, 0, 0], "wait": 1.0, "use": true, "targetname": "btn"})])
 	io.start()
-	var door := io.entity_of(1) as DotMapMoverNode
+	var door := io.entity_of(1) as GSMapMoverNode
 	_check(io.use(0).ok, "using a button presses it")
 	io.advance(1)
 	_check(door.fraction_at(io.now, 20) > 0.0, "and its OnPressed link starts the door")
 	_check(io.use(0).ok, "a locked button still answers use")
-	var btn := io.entity_of(0) as DotMapMoverNode
+	var btn := io.entity_of(0) as GSMapMoverNode
 	_check(btn.locked, "the button locked itself with OnPressed")
 	io.advance(130)
 	_check(not btn.locked and door.fraction_at(io.now, 20) == 0.0, "5 s later it unlocks (the door waited 2 s and closed)")
@@ -262,8 +262,8 @@ func _test_button_chain() -> void:
 func _test_spinner() -> void:
 	_section("func_rotating: start, stop, reverse and speed as functions of the tick")
 	var io := _io([_rec(0, "func_rotating", "fan", [["model", "*0"]])])
-	io.bind_movers([DotMapMover.from_record({"entity": 0, "model": 0, "kind": "spin", "classname": "func_rotating", "axis": [0, 1, 0], "degrees_per_second": 90.0})])
-	var fan := io.entity_of(0) as DotMapMoverNode
+	io.bind_movers([GSMapMover.from_record({"entity": 0, "model": 0, "kind": "spin", "classname": "func_rotating", "axis": [0, 1, 0], "degrees_per_second": 90.0})])
+	var fan := io.entity_of(0) as GSMapMoverNode
 	var n := _model_node(0)
 	io.bind_world(self)
 	_check(fan.angle_at(100, 20) == 0.0, "stopped until started")
@@ -293,8 +293,8 @@ func _test_train() -> void:
 		_rec(1, "path_track", "a", [], []), _rec(2, "path_track", "b", [], [["OnPass", "log", "Add", "1"]]),
 		_rec(3, "path_track", "c", [], [["OnPass", "log", "Add", "10"]]), _rec(4, "math_counter", "log", [["max", "1000"]]),
 	])
-	io.bind_movers([DotMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": path})])
-	var tr := io.entity_of(0) as DotMapMoverNode
+	io.bind_movers([GSMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": path})])
+	var tr := io.entity_of(0) as GSMapMoverNode
 	var n := _model_node(0, Vector3(0, 1, 0))
 	io.bind_world(self)
 	io.start()
@@ -302,10 +302,10 @@ func _test_train() -> void:
 	io.advance(10)
 	_check(tr.path_point(tr.path_at(io.now, 20)).is_equal_approx(Vector3(2, 0, 0)), "4 m/s for half a second is 2 m along")
 	io.advance(11)
-	_check((io.entity_of(4) as DotMapCounter).value == 1.0, "passing the second corner fires its OnPass")
+	_check((io.entity_of(4) as GSMapCounter).value == 1.0, "passing the second corner fires its OnPass")
 	_check(is_equal_approx(n.position.x, 4.0) and n.position.z > 0.0 and is_equal_approx(n.position.y, 1.0), "the node moves with the train, its own offset kept: %s" % n.position)
 	io.advance(100)
-	_check((io.entity_of(4) as DotMapCounter).value == 11.0, "the last corner's OnPass fired")
+	_check((io.entity_of(4) as GSMapCounter).value == 11.0, "the last corner's OnPass fired")
 	_check(is_equal_approx(tr.path_at(io.now, 20), 8.0) and tr.state()["spin"][1] == 0.0, "it stops at the end of an open path")
 	io.send("train", "StartBackward")
 	io.advance(200)
@@ -315,19 +315,19 @@ func _test_train() -> void:
 	var ring := path.duplicate()
 	ring.append({"loop": "a"})
 	var io2 := _io([_rec(0, "func_tracktrain", "t2")])
-	io2.bind_movers([DotMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": ring})])
+	io2.bind_movers([GSMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": ring})])
 	io2.send("t2", "StartForward")
 	io2.advance(20 * 5)
-	var t2 := io2.entity_of(0) as DotMapMoverNode
+	var t2 := io2.entity_of(0) as GSMapMoverNode
 	_check(t2.path_at(io2.now, 20) < 13.7 and t2.path_at(io2.now, 20) >= 0.0 and io2.pending() > 0, "a looped path wraps and keeps scheduling its next corner: %s, %d pending" % [t2.path_at(io2.now, 20), io2.pending()])
 	var tank := _io([_rec(0, "func_tanktrain", "tank")])
-	_check(tank.entity_of(0) is DotMapMoverNode, "a tank train is a path mover like a track train")
+	_check(tank.entity_of(0) is GSMapMoverNode, "a tank train is a path mover like a track train")
 	var tpath: Array = [{"name": "a", "at": [0, 0, 0]}, {"name": "b", "at": [10, 0, 0]}, {"name": "c", "at": [10, 0, 10]}]
 	var tio := _io([_rec(0, "func_tanktrain", "tk"), _rec(1, "func_tracktrain", "tr")])
-	tio.bind_movers([DotMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tanktrain", "speed": 4.0, "path": tpath}),
-			DotMapMover.from_record({"entity": 1, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": tpath})])
-	var tk := tio.entity_of(0) as DotMapMoverNode
-	var trk := tio.entity_of(1) as DotMapMoverNode
+	tio.bind_movers([GSMapMover.from_record({"entity": 0, "model": 0, "kind": "path", "classname": "func_tanktrain", "speed": 4.0, "path": tpath}),
+			GSMapMover.from_record({"entity": 1, "model": 0, "kind": "path", "classname": "func_tracktrain", "speed": 4.0, "path": tpath})])
+	var tk := tio.entity_of(0) as GSMapMoverNode
+	var trk := tio.entity_of(1) as GSMapMoverNode
 	_check(tk.turns_with_path() and not trk.turns_with_path(), "only a tank train turns with its path")
 	_check(absf(tk.path_yaw(2.0)) < 0.001 and absf(tk.path_yaw(5.0)) < 0.001, "a tank train faces its first leg's heading along a straight")
 	var turned := absf(tk.path_yaw(15.0))
@@ -345,17 +345,17 @@ func _test_train() -> void:
 
 
 func _test_bind_world() -> void:
-	_section("the entity classes are registered for DotMapIO to drive, and a game can replace one")
-	var io := DotMapIO.new()
+	_section("the entity classes are registered for GSMapIO to drive, and a game can replace one")
+	var io := GSMapIO.new()
 	io.load_records([_rec(0, "func_door", "d"), _rec(1, "func_breakable", "b"), _rec(2, "func_brush", "w"), _rec(3, "func_plat", "p")])
-	_check(io.entity_of(0) is DotMapMoverNode and io.entity_of(3) is DotMapMoverNode, "doors and lifts are mover entities")
-	_check(io.entity_of(1) is DotMapBreakable and io.entity_of(2) is DotMapToggleBrush, "breakables and brushes have classes")
+	_check(io.entity_of(0) is GSMapMoverNode and io.entity_of(3) is GSMapMoverNode, "doors and lifts are mover entities")
+	_check(io.entity_of(1) is GSMapBreakable and io.entity_of(2) is GSMapToggleBrush, "breakables and brushes have classes")
 	io.send("d", "Open")
 	_check(io.unhandled.get("func_door|open", 0) == 1, "a mover with no record counts the input as unhandled instead of failing")
 	_check(io.bind_movers([_door_rec(7)]) == 0 and io.missing_callables.has("bind_mover.func_door"), "a record for no entity is counted, not an error")
-	io.register_class("func_door", DotMapEntity)
+	io.register_class("func_door", GSMapEntity)
 	io.load_records([_rec(0, "func_door", "d")])
-	_check(not io.entity_of(0) is DotMapMoverNode, "register_class replaces a class")
+	_check(not io.entity_of(0) is GSMapMoverNode, "register_class replaces a class")
 	_done()
 
 
@@ -366,26 +366,26 @@ func _test_real_lifts() -> void:
 		_check(false, "the fixture reads")
 		_done()
 		return
-	var ents := DotMapEntities.from_manifest(doc)
+	var ents := GSMapEntities.from_manifest(doc)
 	var recs: Array = []
 	var movers: Array = []
 	for m in ents.movers:
-		if m.kind == DotMapMover.KIND_SLIDE and m.is_animatable():
+		if m.kind == GSMapMover.KIND_SLIDE and m.is_animatable():
 			recs.append(_rec(m.entity, m.classname, m.targetname))
 			movers.append(m)
 	_check(movers.size() >= 3, "the tunnel has lifts: %d" % movers.size())
 	var io := _io(recs)
 	var holder: Array = []
-	for m: DotMapMover in movers:
+	for m: GSMapMover in movers:
 		var n := Node3D.new()
 		n.set_meta(&"model", m.model)
 		n.position = m.origin
 		add_child(n)
 		holder.append(n)
 	io.bind_movers(movers)
-	var first := movers[0] as DotMapMover
+	var first := movers[0] as GSMapMover
 	holder[0].set_meta(&"model", first.model)
-	var ent := io.entity_of(first.entity) as DotMapMoverNode
+	var ent := io.entity_of(first.entity) as GSMapMoverNode
 	ent.bind_node(holder[0])
 	ent.accept(io, "Open", "", null, null)
 	io.advance(int(ceil(first.travel_time * io.rate)) + 2)
@@ -406,7 +406,7 @@ func _test_replication() -> void:
 	]
 	var host := _io(recs)
 	host.bind_movers([_door_rec(1, "slide", {"wait": -1.0})])
-	var sync := DotMapStateSync.new()
+	var sync := GSMapStateSync.new()
 	var inbox: Array = []
 	sync.attach_host(host, func(peer: Variant, msg: Dictionary) -> void: inbox.append([peer, msg]))
 	sync.add_peer("a")
@@ -415,7 +415,7 @@ func _test_replication() -> void:
 	client.authoritative = false
 	client.bind_movers([_door_rec(1, "slide", {"wait": -1.0})])
 	var cnodes := {1: _model_node(1), 2: _model_node(2), 3: _model_node(3)}
-	var pane := DotMapGlass.new()
+	var pane := GSMapGlass.new()
 	pane.model = 3
 	pane.visual = cnodes[3]
 	pane.collision_layer = 1
@@ -435,9 +435,9 @@ func _test_replication() -> void:
 		inbox.clear()
 		client.advance(1) if client.now < host.now else null
 		if host.now in [20, 40, 60, 79]:
-			seen_door.append([host.now, snappedf((host.entity_of(1) as DotMapMoverNode).fraction_at(host.now, 20), 0.001), snappedf((client.entity_of(1) as DotMapMoverNode).fraction_at(client.now, 20), 0.001)])
-	_check(not (client.entity_of(0) as DotMapEntity).enabled and not (cnodes[1] as Node3D).visible, "the client's brush went away at the host's tick")
-	_check((client.entity_of(0) as DotMapEntity).color == "255 0 0", "the colour arrived")
+			seen_door.append([host.now, snappedf((host.entity_of(1) as GSMapMoverNode).fraction_at(host.now, 20), 0.001), snappedf((client.entity_of(1) as GSMapMoverNode).fraction_at(client.now, 20), 0.001)])
+	_check(not (client.entity_of(0) as GSMapEntity).enabled and not (cnodes[1] as Node3D).visible, "the client's brush went away at the host's tick")
+	_check((client.entity_of(0) as GSMapEntity).color == "255 0 0", "the colour arrived")
 	var agree := true
 	for row: Array in seen_door:
 		agree = agree and row[1] == row[2]
@@ -448,22 +448,22 @@ func _test_replication() -> void:
 	var late := _io(recs)
 	late.authoritative = false
 	late.bind_movers([_door_rec(1, "slide", {"wait": -1.0})])
-	var late_sync := DotMapStateSync.new()
+	var late_sync := GSMapStateSync.new()
 	_check(late_sync.apply(late, sync.snapshot_message()).ok, "a joiner applies the host's snapshot")
 	var ignored_before := late_sync.ignored
-	_check(not (late.entity_of(0) as DotMapEntity).enabled and (late.entity_of(2) as DotMapBreakable).broken, "it already has the brush off and the window broken")
+	_check(not (late.entity_of(0) as GSMapEntity).enabled and (late.entity_of(2) as GSMapBreakable).broken, "it already has the brush off and the window broken")
 	late.advance(5)
-	_check((late.entity_of(1) as DotMapMoverNode).fraction_at(late.now, 20) == (host.entity_of(1) as DotMapMoverNode).fraction_at(late.now, 20), "and the door in the right place for its clock")
+	_check((late.entity_of(1) as GSMapMoverNode).fraction_at(late.now, 20) == (host.entity_of(1) as GSMapMoverNode).fraction_at(late.now, 20), "and the door in the right place for its clock")
 	_check(not late_sync.apply(late, {"type": "chat"}).ok and not late_sync.apply(late, {"type": "io_state", "tick": 1, "changes": 5}).ok, "foreign and malformed messages are refused")
 	late_sync.apply(late, {"type": "io_state", "tick": late.now, "changes": [[99, "enabled", true], [0, "nonsense", 1], "x"]})
 	_check(late_sync.refused == 2 and late_sync.ignored == ignored_before + 1, "unknown entities and shapes are refused, an unknown key is ignored: %d, %d" % [late_sync.refused, late_sync.ignored])
 	_check(not late_sync.apply(late, {"type": "io_state", "tick": late.now - 1, "changes": []}).ok, "a tick lower than the client's clock is refused")
 	var many: Array = []
-	for i in DotMapStateSync.MAX_CHANGES + 1:
+	for i in GSMapStateSync.MAX_CHANGES + 1:
 		many.append([0, "enabled", true])
 	_check(not late_sync.apply(late, {"type": "io_state", "tick": late.now, "changes": many}).ok, "an oversize message is refused whole")
 	_check(not late_sync.apply(late, {"type": "io_state", "tick": INF, "changes": []}).ok, "an infinite tick is refused")
-	_check(not DotMapStateSync.new().apply(host, {"type": "io_state", "tick": host.now + 1, "changes": []}).ok, "an authoritative runtime takes no state from a message")
+	_check(not GSMapStateSync.new().apply(host, {"type": "io_state", "tick": host.now + 1, "changes": []}).ok, "an authoritative runtime takes no state from a message")
 	pane.free()
 	for n: Node in cnodes.values():
 		n.free()
@@ -499,8 +499,8 @@ func _test_physbox() -> void:
 	var io := _io([_rec(0, "func_physbox", "crate", [["damagetoenablemotion", "50"], ["model", "*3"]], [["OnMotionEnabled", "log", "Add", "1"], ["OnBreak", "log", "Add", "10"]]),
 			_rec(1, "math_counter", "log", [["max", "100"]]),
 			_rec(2, "func_physbox", "free", [["model", "*4"]])])
-	var crate := io.entity_of(0) as DotMapPhysbox
-	var log := io.entity_of(1) as DotMapCounter
+	var crate := io.entity_of(0) as GSMapPhysbox
+	var log := io.entity_of(1) as GSMapCounter
 	var rb := RigidBody3D.new()
 	add_child(rb)
 	crate.bind_body(rb, true)
@@ -516,11 +516,11 @@ func _test_physbox() -> void:
 	_check(not rb.freeze, "EnableMotion frees it")
 	var rb2 := RigidBody3D.new()
 	add_child(rb2)
-	(io.entity_of(2) as DotMapPhysbox).bind_body(rb2, true)
+	(io.entity_of(2) as GSMapPhysbox).bind_body(rb2, true)
 	_check(not rb2.freeze, "one with no threshold simulates from the start")
 	var rb3 := RigidBody3D.new()
 	add_child(rb3)
-	(io.entity_of(2) as DotMapPhysbox).bind_body(rb3, false)
+	(io.entity_of(2) as GSMapPhysbox).bind_body(rb3, false)
 	_check(rb3.freeze, "a client keeps it frozen: the authority simulates")
 	io.send("crate", "Break")
 	io.advance(1)
@@ -537,8 +537,8 @@ func _test_spin_up() -> void:
 	var rec := {"entity": 0, "model": 0, "kind": "spin", "classname": "func_rotating", "axis": [0, 1, 0],
 			"degrees_per_second": 90.0, "fan_friction": 20.0}
 	var io := _io(recs)
-	io.bind_movers([DotMapMover.from_record(rec)])
-	var fan := io.entity_of(0) as DotMapMoverNode
+	io.bind_movers([GSMapMover.from_record(rec)])
+	var fan := io.entity_of(0) as GSMapMoverNode
 	io.send("fan", "Start")
 	io.advance(20)
 	_check(is_equal_approx(fan.angle_at(io.now, 20), deg_to_rad(45.0)), "one second to full speed: half the angle of a flat start after that second")
@@ -554,10 +554,10 @@ func _test_spin_up() -> void:
 	_check(is_equal_approx(held, deg_to_rad(135.0 + 45.0)) and fan.angle_at(io.now, 20) == held, "it coasts to a stop 45 degrees on and stays")
 	var client := _io(recs)
 	client.authoritative = false
-	client.bind_movers([DotMapMover.from_record(rec)])
-	var sync := DotMapStateSync.new()
+	client.bind_movers([GSMapMover.from_record(rec)])
+	var sync := GSMapStateSync.new()
 	_check(sync.apply(client, {"type": "io_state", "tick": io.now, "changes": [[0, "spin", io.entity_of(0).state()["spin"]]]}).ok
-			and is_equal_approx((client.entity_of(0) as DotMapMoverNode).angle_at(io.now, 20), held), "a client given the state agrees on the angle")
+			and is_equal_approx((client.entity_of(0) as GSMapMoverNode).angle_at(io.now, 20), held), "a client given the state agrees on the angle")
 	_done()
 
 
@@ -575,8 +575,8 @@ func _test_physbox_pose() -> void:
 	var host := _io(recs)
 	var rb := RigidBody3D.new()
 	add_child(rb)
-	(host.entity_of(0) as DotMapPhysbox).bind_body(rb, true)
-	var sync := DotMapStateSync.new()
+	(host.entity_of(0) as GSMapPhysbox).bind_body(rb, true)
+	var sync := GSMapStateSync.new()
 	var inbox: Array = []
 	sync.attach_host(host, func(_p: Variant, msg: Dictionary) -> void: inbox.append(msg))
 	sync.add_peer("a")
@@ -592,17 +592,17 @@ func _test_physbox_pose() -> void:
 	client.authoritative = false
 	var crb := RigidBody3D.new()
 	add_child(crb)
-	(client.entity_of(0) as DotMapPhysbox).bind_body(crb, false)
-	var csync := DotMapStateSync.new()
+	(client.entity_of(0) as GSMapPhysbox).bind_body(crb, false)
+	var csync := GSMapStateSync.new()
 	for m: Dictionary in inbox:
 		csync.apply(client, m)
 	for i in 20:
-		(client.entity_of(0) as DotMapPhysbox).tick_view(client)
+		(client.entity_of(0) as GSMapPhysbox).tick_view(client)
 	_check(crb.transform.origin.distance_to(Vector3(1, 2, 3)) < 0.01, "the client's body is where the host's is")
 	var pose: Array = host.snapshot()["entities"][0]["pose"]
 	csync.apply(client, {"type": "io_state", "tick": 30, "changes": [[0, "pose", [4.0, 2.0, 3.0, pose[3], pose[4], pose[5], pose[6]]]]})
 	for i in 12:
-		(client.entity_of(0) as DotMapPhysbox).tick_view(client)
+		(client.entity_of(0) as GSMapPhysbox).tick_view(client)
 	_check(crb.transform.origin.distance_to(Vector3(4, 2, 3)) < 0.05, "a later pose is eased to")
 	csync.apply(client, {"type": "io_state", "tick": 31, "changes": [[0, "pose", [1.0]]]})
 	_check(csync.ignored == 1 and crb.transform.origin.distance_to(Vector3(4, 2, 3)) < 0.05, "a malformed pose is ignored")
@@ -612,13 +612,13 @@ func _test_physbox_pose() -> void:
 
 
 func _test_state_transport() -> void:
-	_section("DotMapStateTransport batches a tick's messages per peer and a client unpacks them")
+	_section("GSMapStateTransport batches a tick's messages per peer and a client unpacks them")
 	var recs := [_rec(0, "func_brush", "wall", [["model", "*1"]]), _rec(1, "func_brush", "wall2", [["model", "*2"]])]
 	var host := _io(recs)
-	var t := DotMapStateTransport.new()
+	var t := GSMapStateTransport.new()
 	var wire: Array = []
 	t.raw_send = func(peer: Variant, payload: Dictionary) -> void: wire.append([peer, payload])
-	var sync := DotMapStateSync.new()
+	var sync := GSMapStateSync.new()
 	sync.attach_host(host, t.send)
 	t.flush_on(host)
 	sync.add_peer("a")
@@ -646,11 +646,11 @@ func _test_state_transport() -> void:
 	t.max_bytes = 1100
 	var client := _io(recs)
 	client.authoritative = false
-	var csync := DotMapStateSync.new()
+	var csync := GSMapStateSync.new()
 	var batch := {"type": "io_batch", "messages": [sync.snapshot_message(), {"type": "io_state", "tick": 9, "changes": [[0, "enabled", true]]}]}
-	_check(DotMapStateTransport.is_state_payload(batch) and not DotMapStateTransport.is_state_payload({"type": "chat"}), "state payloads are told from the game's others")
+	_check(GSMapStateTransport.is_state_payload(batch) and not GSMapStateTransport.is_state_payload({"type": "chat"}), "state payloads are told from the game's others")
 	var r := t.receive(client, csync, batch)
-	_check(r.ok and (client.entity_of(0) as DotMapEntity).enabled and not (client.entity_of(1) as DotMapEntity).enabled, "a client applies a whole batch in order")
+	_check(r.ok and (client.entity_of(0) as GSMapEntity).enabled and not (client.entity_of(1) as GSMapEntity).enabled, "a client applies a whole batch in order")
 	_check(not t.receive(client, csync, {"type": "io_batch", "messages": [5]}).ok, "a malformed batch is refused")
 	_done()
 
@@ -668,8 +668,8 @@ func _shape_at(n: Node3D, layer: int) -> void:
 
 
 func _test_shoot() -> void:
-	_section("DotMapWorld.shoot hurts the breakable, button or door a ray meets first")
-	var w := DotMapWorld.new()
+	_section("GSMapWorld.shoot hurts the breakable, button or door a ray meets first")
+	var w := GSMapWorld.new()
 	add_child(w)
 	w.io = _io([
 		_rec(0, "func_breakable", "crate", [["health", "30"], ["model", "*5"]]),
@@ -678,7 +678,7 @@ func _test_shoot() -> void:
 		_rec(3, "math_counter", "c", [["max", "100"]]),
 		_rec(4, "func_brush", "wall", [["model", "*8"]]),
 	])
-	w.io.bind_movers([_door_rec(2, "slide"), DotMapMover.from_record({"entity": 1, "model": 6, "kind": "button",
+	w.io.bind_movers([_door_rec(2, "slide"), GSMapMover.from_record({"entity": 1, "model": 6, "kind": "button",
 			"classname": "func_button", "distance": 0.0, "direction": [1, 0, 0], "wait": 1.0, "targetname": "btn"})])
 	w.io.start()
 	# One lane each along -Z at x = 0, 3, 6, 9; the player (layer 2) stands in front of the crate.
@@ -697,8 +697,8 @@ func _test_shoot() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var space := w.get_world_3d().direct_space_state
-	var crate := w.io.entity_of(0) as DotMapBreakable
-	var counter := w.io.entity_of(3) as DotMapCounter
+	var crate := w.io.entity_of(0) as GSMapBreakable
+	var counter := w.io.entity_of(3) as GSMapCounter
 	var o := Vector3.ZERO
 	_check(w.shoot(space, o, Vector3(0, 0, -20), 10.0, null, 1, 3.0) == -1 and crate.health == 30.0,
 			"limit 3 m (the player stands nearer than the crate) stops the shot: nothing hurt")

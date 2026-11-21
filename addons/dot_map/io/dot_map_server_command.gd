@@ -1,5 +1,5 @@
-class_name DotMapServerCommand
-extends DotMapEntity
+class_name GSMapServerCommand
+extends GSMapEntity
 
 ## point_servercommand: Command is recorded on the runtime (a chat line
 ## goes to the game's event callable; a cvar only if allow-listed) and never executed.

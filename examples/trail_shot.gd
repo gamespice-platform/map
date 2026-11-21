@@ -25,7 +25,7 @@ func _ready() -> void:
 	add_child(floor_mesh)
 	var mover := Node3D.new()
 	add_child(mover)
-	var fx := DotMapFx.new()
+	var fx := GSMapFx.new()
 	fx.trail_target_fn = func(_n: String) -> Node3D: return mover
 	add_child(fx.build([{"classname": "env_spritetrail", "pairs": [["origin", "0 0 0"], ["parentname", "rocket"],
 			["lifetime", "1.2"], ["startwidth", "20"], ["endwidth", "2"], ["rendercolor", "255 140 40"], ["renderamt", "255"]]}]))

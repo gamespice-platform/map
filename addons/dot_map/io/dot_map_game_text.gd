@@ -1,5 +1,5 @@
-class_name DotMapGameText
-extends DotMapEntity
+class_name GSMapGameText
+extends GSMapEntity
 
 ## game_text: Display sends a [code]game_text[/code] event (message, channel, position, colours, timing, effect,
 ## and whether it goes to every player) for the game's HUD; SetText changes the message. Nothing is drawn here.
