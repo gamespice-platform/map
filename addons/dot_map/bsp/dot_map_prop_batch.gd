@@ -182,8 +182,14 @@ static func _fade_bucket(end: float) -> int:
 static func _small(mesh: Mesh, tris_of: Dictionary, most: int) -> bool:
 	if not tris_of.has(mesh):
 		var t := 0
-		var ok := mesh is ArrayMesh and (mesh as ArrayMesh).get_blend_shape_count() == 0
-		if ok:
+		var ok := true
+		if mesh is PrimitiveMesh:
+			var idx: Variant = (mesh as PrimitiveMesh).get_mesh_arrays()[Mesh.ARRAY_INDEX]
+			t = (idx as PackedInt32Array).size() / 3 if idx != null else 0
+			ok = idx != null
+		else:
+			ok = mesh is ArrayMesh and (mesh as ArrayMesh).get_blend_shape_count() == 0
+		if ok and mesh is ArrayMesh:
 			for s in mesh.get_surface_count():
 				if mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
 					ok = false
@@ -198,6 +204,24 @@ static func _small(mesh: Mesh, tris_of: Dictionary, most: int) -> bool:
 		tris_of[mesh] = t if ok else -1
 	var tris: int = tris_of[mesh]
 	return tris >= 0 and tris <= most
+
+
+## The arrays of [param mesh]'s surface [param s]: a generated primitive (a box) has one, made on demand.
+static func _arrays(mesh: Mesh, s: int) -> Array:
+	return (mesh as PrimitiveMesh).get_mesh_arrays() if mesh is PrimitiveMesh else mesh.surface_get_arrays(s)
+
+
+## The vertex attributes of surface [param s] of [param mesh], as the bits of [constant _ATTRIBUTES] it carries.
+static func _format(mesh: Mesh, s: int) -> int:
+	if mesh is ArrayMesh:
+		return (mesh as ArrayMesh).surface_get_format(s) & _ATTRIBUTES
+	var a := (mesh as PrimitiveMesh).get_mesh_arrays()
+	var f := Mesh.ARRAY_FORMAT_VERTEX
+	for pair: Array in [[Mesh.ARRAY_NORMAL, Mesh.ARRAY_FORMAT_NORMAL], [Mesh.ARRAY_TANGENT, Mesh.ARRAY_FORMAT_TANGENT],
+			[Mesh.ARRAY_COLOR, Mesh.ARRAY_FORMAT_COLOR], [Mesh.ARRAY_TEX_UV, Mesh.ARRAY_FORMAT_TEX_UV], [Mesh.ARRAY_TEX_UV2, Mesh.ARRAY_FORMAT_TEX_UV2]]:
+		if a[pair[0]] != null:
+			f |= pair[1]
+	return f
 
 
 ## A tree of only [Node3D] and [MeshInstance3D] (mesh set, no skin), with no script, group, visibility parent or begin range.
@@ -257,13 +281,13 @@ static func _chunk(list: Array) -> MeshInstance3D:
 	var groups := {}    # [material, format] -> [[arrays, xf]]
 	for p: Dictionary in list:
 		var mi: MeshInstance3D = p["mi"]
-		var mesh := mi.mesh as ArrayMesh
+		var mesh := mi.mesh
 		var xf := Transform3D(Basis.IDENTITY, -centre) * (p["xf"] as Transform3D)
 		for s in mesh.get_surface_count():
-			var key := [_material(mi, s), mesh.surface_get_format(s) & _ATTRIBUTES]
+			var key := [_material(mi, s), _format(mesh, s)]
 			if not groups.has(key):
 				groups[key] = []
-			(groups[key] as Array).append([mesh.surface_get_arrays(s), xf])
+			(groups[key] as Array).append([_arrays(mesh, s), xf])
 	var out := ArrayMesh.new()
 	for key: Array in groups:
 		if out.get_surface_count() >= 256:
