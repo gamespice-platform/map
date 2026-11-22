@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## A converted map places thousands of small props (Fork: 4,300 under 4,096 triangles, 371 materials), and each was its own draw per
 ## surface: 4,800 draws from one overlook, the frame on a desktop GPU. [method batch] bakes the meshes of every plain prop under a
-## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree: no script, no skin, no blend shapes, no group) whose mesh has at
+## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree, with an idle [AnimationPlayer] allowed: no script, no skin, no blend shapes, no group) whose mesh has at
 ## most [member max_tris] triangles into one [ArrayMesh] per [member cell] of the map, a surface per material, so the cell is one draw
 ## per material however many props it holds. The same triangles, materials and transforms are drawn. Larger meshes keep their LOD
 ## levels: the copies of one within an [member instance_cell] are drawn as one [MultiMeshInstance3D], and a lone copy keeps its node. The chunks stay direct children of [code]Props[/code], so [DotMapVisibility] culls them by their bounds.
@@ -209,12 +209,20 @@ static func _plain(n: Node) -> bool:
 		var mi := n as MeshInstance3D
 		if mi.skin != null or mi.mesh == null or mi.visibility_range_begin > 0.0 or not mi.visibility_parent.is_empty():
 			return false
+	elif cls == "AnimationPlayer":
+		return _idle(n as AnimationPlayer)
 	elif cls != "Node3D":
 		return false
 	for c in n.get_children():
 		if not _plain(c):
 			return false
 	return true
+
+
+## Whether [param player] plays nothing and will not start (no autoplay, no current animation), as the animation a door model
+## carries and no one triggers on a map prop: it does not keep its model out of a batch.
+static func _idle(player: AnimationPlayer) -> bool:
+	return player.autoplay.is_empty() and not player.is_playing() and player.current_animation.is_empty()
 
 
 ## The visible meshes under [param n], each with its transform in the Props node's space.
@@ -225,7 +233,8 @@ static func _collect(n: Node3D, parent_xf: Transform3D, own: Transform3D, out: A
 	if n is MeshInstance3D:
 		out.append({"mi": n, "xf": xf})
 	for c in n.get_children():
-		_collect(c as Node3D, xf, (c as Node3D).transform, out)
+		if c is Node3D:
+			_collect(c as Node3D, xf, (c as Node3D).transform, out)
 
 
 ## The material a mesh instance draws surface [param s] with.

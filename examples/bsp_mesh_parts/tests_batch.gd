@@ -111,6 +111,38 @@ func _test_prop_batch() -> void:
 	_done()
 
 
+## A door model carries an AnimationPlayer nobody plays: its mesh bakes. One that autoplays keeps its prop whole.
+func _test_prop_batch_animated() -> void:
+	_section("a prop with an idle AnimationPlayer is baked, one with an autoplaying player is not")
+	var small := _box_mesh(Vector3(1, 2, 0.5), StandardMaterial3D.new())
+	var props := Node3D.new()
+	props.name = "Props"
+	add_child(props)
+	var idle := _prop(props, small, Transform3D(Basis.IDENTITY, Vector3(1, 0, 1)))
+	idle.add_child(AnimationPlayer.new())
+	var playing := Node3D.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = small
+	playing.add_child(mi)
+	playing.position = Vector3(3, 0, 1)
+	var player := AnimationPlayer.new()
+	var lib := AnimationLibrary.new()
+	lib.add_animation(&"open", Animation.new())
+	player.add_animation_library(&"", lib)
+	player.autoplay = &"open"
+	playing.add_child(player)
+	props.add_child(playing)
+	var b := DotMapPropBatch.new()
+	b.max_tris = 1000
+	b.instance_cell = 0.0
+	var n := b.batch(props)
+	_check(n == 1 and b.batched_props == 1, "one chunk, from the prop with the idle player: %d chunks, %d props" % [n, b.batched_props])
+	_check(idle.find_children("*", "MeshInstance3D", true, false).is_empty(), "the idle prop's mesh is in the chunk")
+	_check(playing.find_children("*", "MeshInstance3D", true, false).size() == 1, "the autoplaying prop keeps its mesh")
+	props.free()
+	_done()
+
+
 func _test_chunk_merge(world: DotMapBspMesh) -> void:
 	_section("chunk merging: a small map keeps its cells, a merged one draws the same triangles in fewer chunks")
 	_check(world.chunk_merge == 0 and world.auto_merge(0) == 1, "by default the fixture's two chunks are left alone")
