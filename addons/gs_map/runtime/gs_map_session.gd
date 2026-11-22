@@ -189,6 +189,12 @@ func change_to_map(map: GSMapDef) -> GSResult:
 	# netcode can stop replicating entities that are about to be freed.
 	changing.emit(previous, map)
 
+	# One frame, so a listener that put a loading cover up (hold) has it drawn before the fetch,
+	# unload and install below, which are synchronous and seconds long. Without it the cover
+	# first appears after them.
+	if is_inside_tree():
+		await get_tree().process_frame
+
 	if not loader.is_ready(map):
 		fetching.emit(map)
 

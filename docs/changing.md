@@ -4,7 +4,7 @@
 
 `GSMapSession.change_to_map` is the most dangerous thing a server does: players are in runs, entities are replicated, content may still be downloading, and the scene about to be freed is the one everything holds a reference to. The order is:
 
-1. **announce** (`changing`) before anything is torn down, so a timer can abandon its runs and a netcode can stop replicating entities that are about to vanish;
+1. **announce** (`changing`) before anything is torn down, so a timer can abandon its runs and a netcode can stop replicating entities that are about to vanish; A frame is awaited after the announcement, so a cover a listener put up is drawn before the fetch and the synchronous teardown (without it the cover came seconds late).
 2. **fetch and load the new scene** before freeing the old one;
 3. free the old world and add the new one **in the same call**;
 4. **announce** (`changed`) so listeners can rebuild.
