@@ -248,6 +248,7 @@ static func is_original(entry: Dictionary) -> bool:
 static func surfaces_for(entry: Dictionary) -> GSMapSurfaces:
 	var surfaces := GSMapSurfaces.new()
 	surfaces.use_original_textures = is_original(entry)
+	GSMapTextureTier.apply_current(surfaces)
 	return surfaces
 
 

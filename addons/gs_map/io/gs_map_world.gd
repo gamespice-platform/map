@@ -272,6 +272,8 @@ func _assemble_head(doc: Dictionary, hooks: Dictionary, options: Dictionary) -> 
 	var mat_for: Callable = hooks.get("material_for", Callable()) if hooks.get("material_for") is Callable else Callable()
 	if draw and not mat_for.is_valid():
 		var surfaces: GSMapSurfaces = options.get("surfaces") if options.get("surfaces") is GSMapSurfaces else GSMapSurfaces.new()
+		if not options.get("surfaces") is GSMapSurfaces:
+			GSMapTextureTier.apply_current(surfaces)
 		surfaces.use_lightmap = bool(options.get("lightmap", true))
 		mat_for = surfaces.world_material_for(mesh, mesh.source_path.get_base_dir())
 	return GSResult.success({"ents": ents, "draw": draw, "mat_for": mat_for})

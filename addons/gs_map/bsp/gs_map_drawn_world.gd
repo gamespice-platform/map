@@ -84,6 +84,7 @@ static func _surfaces_for(world: GSMapBspMesh, options: Dictionary) -> GSMapSurf
 	var surfaces := GSMapSurfaces.new(str(options.get("surfaces_root", GSMapSurfaces.DEFAULT_ROOT)))
 	surfaces.use_lightmap = bool(options.get("lightmap", true))
 	surfaces.use_original_textures = bool(options.get("original_textures", false))
+	GSMapTextureTier.apply_current(surfaces)
 	GSMapStore.apply(world.licence(), options.get("cloud"), surfaces, world)
 	if bool(options.get("one_way_glass", true)) and not world.glass_material_for.is_valid():
 		var cell := GSMapOneWayGlass.cell_of(world.manifest)

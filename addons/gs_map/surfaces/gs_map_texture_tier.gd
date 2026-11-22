@@ -15,6 +15,8 @@ static var half_masks: Array[bool] = [true, true, true, false]
 static var half_normals: Array[bool] = [true, true, true, false]
 ## Share of the browser's free quota the art may take; 0 turns the quota check off.
 static var quota_share: float = 0.8
+## The player's texture quality (0..3) that every [GSMapSurfaces] the library builds itself (drawn worlds, [GSMapWorld]) applies through [method apply_current]; -1 (default) leaves the surfaces' own caps. Set by [method follow] or directly.
+static var current_quality: int = -1
 
 
 ## The tier settings for [param quality] as {max_size, half_masks, half_normals}; {} (with an error pushed) when the table or the level is wrong.
@@ -61,3 +63,28 @@ static func apply(surfaces: GSMapSurfaces, quality: int, bytes_at_reference: int
 	surfaces.half_res_masks = bool(s["half_masks"])
 	surfaces.half_res_normals = bool(s["half_normals"])
 	return f
+
+
+## Keeps [member current_quality] at [param store]'s `texture_quality` (duck-typed `get_value` and `changed`, as gs-settings and [GSMenuApplier] use) now and when it changes. A game calls this once with its settings; null does nothing. Surfaces built before a change keep their art, the next map picks the new tier up.
+static func follow(store: Object) -> void:
+	if store == null:
+		return
+	_read(store)
+	if store.has_signal(&"changed"):
+		store.connect(&"changed", func(key: StringName, _value: Variant = null, _why: Variant = null) -> void:
+			if key == &"texture_quality":
+				_read(store))
+
+
+static func _read(store: Object) -> void:
+	if store.has_method(&"get_value"):
+		var v: Variant = store.call(&"get_value", &"texture_quality")
+		if v != null:
+			current_quality = clampi(int(v), 0, LEVELS - 1)
+
+
+## [method apply] with [member current_quality] when one is set; the library's own builders call it. Returns {} when none is set.
+static func apply_current(surfaces: GSMapSurfaces, bytes_at_reference: int = 0, free_bytes: int = -1) -> Dictionary:
+	if current_quality < 0:
+		return {}
+	return apply(surfaces, current_quality, bytes_at_reference, free_bytes)

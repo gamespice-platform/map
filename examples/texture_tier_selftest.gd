@@ -40,5 +40,32 @@ func _ready() -> void:
 	GSMapTextureTier.max_sides = [1, 2] as Array[int]
 	_check(GSMapTextureTier.settings(0).is_empty(), "a short table is refused")
 	GSMapTextureTier.max_sides = saved
+	# follow(): a store's texture_quality drives current_quality and the surfaces the library builds.
+	var store := _Store.new()
+	GSMapTextureTier.current_quality = -1
+	_check(GSMapTextureTier.apply_current(GSMapSurfaces.new()).is_empty(), "no current quality changes nothing")
+	GSMapTextureTier.follow(store)
+	_check(GSMapTextureTier.current_quality == 0, "follow reads the store (low)")
+	var s2 := GSMapSurfaces.new()
+	GSMapTextureTier.apply_current(s2)
+	_check(s2.max_texture_size == 512, "apply_current uses the followed quality")
+	store.set_value(&"texture_quality", 3)
+	_check(GSMapTextureTier.current_quality == 3, "a change of texture_quality is followed")
+	store.set_value(&"other", 0)
+	_check(GSMapTextureTier.current_quality == 3, "other keys are ignored")
+	_check(GSMapLocalMaps.surfaces_for({}).max_texture_size == 0, "GSMapLocalMaps.surfaces_for takes the tier (ultra unlimited)")
+	GSMapTextureTier.current_quality = -1
 	print("%d passed, %d failed" % [_passed, _failed])
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+class _Store extends RefCounted:
+	signal changed(key: StringName, value: Variant, why: StringName)
+	var values := {&"texture_quality": 0}
+
+	func get_value(key: StringName) -> Variant:
+		return values.get(key)
+
+	func set_value(key: StringName, v: Variant) -> void:
+		values[key] = v
+		changed.emit(key, v, &"test")
