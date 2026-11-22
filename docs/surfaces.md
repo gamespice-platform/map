@@ -85,3 +85,7 @@ A box-document game without a converted pack gets baked light from `GSMapBoxBake
 ## The map's own textures (internal `_orig` packs)
 
 `GSMapSurfaces.use_original_textures` (default off) draws a surface with the map's own texture where its record has `orig` (a PNG beside the pack, written by `gs-map-convert` `bsp.py regen <map> --orig-textures --name <map>_orig`). The mesh UVs already are source coordinate over source texture size, so original tiling and alignment come out as authored: the unlit path is a plain `StandardMaterial3D`, the lit path is `lightmapped.gdshader` with `use_uv` on. A surface with no `orig`, or a missing file, keeps its free replacement. Such a pack is internal, never published, never committed.
+
+## Texture quality tiers
+
+`GSMapTextureTier.apply(surfaces, quality, bytes_at_reference, free_bytes)` maps the video setting's texture quality (0 low, 1 medium, 2 high, 3 ultra) to `max_texture_size` (512, 1024, 2048, unlimited) and the half-size masks and normals. Pass the art's size measured at 2048 and the browser's free quota (`DotCloudStore.free_bytes()`, `-1` when unmeasured) and it steps the tier down until the art fits `quota_share` (0.8) of it, logging a warning; `fit()` returns `fits: false` when even low is over, which the game must show the player. Tables (`max_sides`, `half_masks`, `half_normals`) and `quota_share` are static and configurable; 0 is unlimited and `quota_share` 0 turns the check off. A wrong level or a short table is refused with an error, changing nothing. Check: `examples/texture_tier_selftest.tscn`.
