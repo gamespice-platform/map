@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## A converted map places thousands of small props (Fork: 4,300 under 4,096 triangles, 371 materials), and each was its own draw per
 ## surface: 4,800 draws from one overlook, the frame on a desktop GPU. [method batch] bakes the meshes of every plain prop under a
-## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree: no script, no skin, no blend shapes, no group) whose mesh has at
+## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree, with an idle [AnimationPlayer] allowed: no script, no skin, no blend shapes, no group) whose mesh has at
 ## most [member max_tris] triangles into one [ArrayMesh] per [member cell] of the map, a surface per material, so the cell is one draw
 ## per material however many props it holds. The same triangles, materials and transforms are drawn. Larger meshes keep their LOD
 ## levels: the copies of one within an [member instance_cell] are drawn as one [MultiMeshInstance3D], and a lone copy keeps its node. The chunks stay direct children of [code]Props[/code], so [GSMapVisibility] culls them by their bounds.
@@ -182,8 +182,14 @@ static func _fade_bucket(end: float) -> int:
 static func _small(mesh: Mesh, tris_of: Dictionary, most: int) -> bool:
 	if not tris_of.has(mesh):
 		var t := 0
-		var ok := mesh is ArrayMesh and (mesh as ArrayMesh).get_blend_shape_count() == 0
-		if ok:
+		var ok := true
+		if mesh is PrimitiveMesh:
+			var idx: Variant = (mesh as PrimitiveMesh).get_mesh_arrays()[Mesh.ARRAY_INDEX]
+			t = (idx as PackedInt32Array).size() / 3 if idx != null else 0
+			ok = idx != null
+		else:
+			ok = mesh is ArrayMesh and (mesh as ArrayMesh).get_blend_shape_count() == 0
+		if ok and mesh is ArrayMesh:
 			for s in mesh.get_surface_count():
 				if mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
 					ok = false
@@ -200,6 +206,24 @@ static func _small(mesh: Mesh, tris_of: Dictionary, most: int) -> bool:
 	return tris >= 0 and tris <= most
 
 
+## The arrays of [param mesh]'s surface [param s]: a generated primitive (a box) has one, made on demand.
+static func _arrays(mesh: Mesh, s: int) -> Array:
+	return (mesh as PrimitiveMesh).get_mesh_arrays() if mesh is PrimitiveMesh else mesh.surface_get_arrays(s)
+
+
+## The vertex attributes of surface [param s] of [param mesh], as the bits of [constant _ATTRIBUTES] it carries.
+static func _format(mesh: Mesh, s: int) -> int:
+	if mesh is ArrayMesh:
+		return (mesh as ArrayMesh).surface_get_format(s) & _ATTRIBUTES
+	var a := (mesh as PrimitiveMesh).get_mesh_arrays()
+	var f := Mesh.ARRAY_FORMAT_VERTEX
+	for pair: Array in [[Mesh.ARRAY_NORMAL, Mesh.ARRAY_FORMAT_NORMAL], [Mesh.ARRAY_TANGENT, Mesh.ARRAY_FORMAT_TANGENT],
+			[Mesh.ARRAY_COLOR, Mesh.ARRAY_FORMAT_COLOR], [Mesh.ARRAY_TEX_UV, Mesh.ARRAY_FORMAT_TEX_UV], [Mesh.ARRAY_TEX_UV2, Mesh.ARRAY_FORMAT_TEX_UV2]]:
+		if a[pair[0]] != null:
+			f |= pair[1]
+	return f
+
+
 ## A tree of only [Node3D] and [MeshInstance3D] (mesh set, no skin), with no script, group, visibility parent or begin range.
 static func _plain(n: Node) -> bool:
 	if n.has_meta(&"gs_map_proxy") or n.get_script() != null or not n.get_groups().is_empty():
@@ -209,12 +233,20 @@ static func _plain(n: Node) -> bool:
 		var mi := n as MeshInstance3D
 		if mi.skin != null or mi.mesh == null or mi.visibility_range_begin > 0.0 or not mi.visibility_parent.is_empty():
 			return false
+	elif cls == "AnimationPlayer":
+		return _idle(n as AnimationPlayer)
 	elif cls != "Node3D":
 		return false
 	for c in n.get_children():
 		if not _plain(c):
 			return false
 	return true
+
+
+## Whether [param player] plays nothing and will not start (no autoplay, no current animation), as the animation a door model
+## carries and no one triggers on a map prop: it does not keep its model out of a batch.
+static func _idle(player: AnimationPlayer) -> bool:
+	return player.autoplay.is_empty() and not player.is_playing() and player.current_animation.is_empty()
 
 
 ## The visible meshes under [param n], each with its transform in the Props node's space.
@@ -225,7 +257,8 @@ static func _collect(n: Node3D, parent_xf: Transform3D, own: Transform3D, out: A
 	if n is MeshInstance3D:
 		out.append({"mi": n, "xf": xf})
 	for c in n.get_children():
-		_collect(c as Node3D, xf, (c as Node3D).transform, out)
+		if c is Node3D:
+			_collect(c as Node3D, xf, (c as Node3D).transform, out)
 
 
 ## The material a mesh instance draws surface [param s] with.
@@ -248,13 +281,13 @@ static func _chunk(list: Array) -> MeshInstance3D:
 	var groups := {}    # [material, format] -> [[arrays, xf]]
 	for p: Dictionary in list:
 		var mi: MeshInstance3D = p["mi"]
-		var mesh := mi.mesh as ArrayMesh
+		var mesh := mi.mesh
 		var xf := Transform3D(Basis.IDENTITY, -centre) * (p["xf"] as Transform3D)
 		for s in mesh.get_surface_count():
-			var key := [_material(mi, s), mesh.surface_get_format(s) & _ATTRIBUTES]
+			var key := [_material(mi, s), _format(mesh, s)]
 			if not groups.has(key):
 				groups[key] = []
-			(groups[key] as Array).append([mesh.surface_get_arrays(s), xf])
+			(groups[key] as Array).append([_arrays(mesh, s), xf])
 	var out := ArrayMesh.new()
 	for key: Array in groups:
 		if out.get_surface_count() >= 256:

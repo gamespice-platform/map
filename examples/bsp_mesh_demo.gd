@@ -2,8 +2,8 @@ extends "bsp_mesh_parts/tests_batch.gd"
 
 ## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
-const CHECKS := 197
-const SECTIONS := 17
+const CHECKS := 204
+const SECTIONS := 19
 const FIXTURE := "res://examples/bsp_mesh/fixture"
 const GLASS := "res://examples/bsp_mesh/glass"
 const U := 0.01905
@@ -30,6 +30,8 @@ func _run() -> void:
 	_test_terrain()
 	_test_mesh_lods()
 	_test_prop_batch()
+	_test_prop_batch_animated()
+	_test_prop_batch_primitive()
 	var lit_world := _test_lightmap()
 	if world != null and lit_world != null:
 		_test_drawn(world, lit_world)

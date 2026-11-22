@@ -111,6 +111,66 @@ func _test_prop_batch() -> void:
 	_done()
 
 
+## A door model carries an AnimationPlayer nobody plays: its mesh bakes. One that autoplays keeps its prop whole.
+func _test_prop_batch_animated() -> void:
+	_section("a prop with an idle AnimationPlayer is baked, one with an autoplaying player is not")
+	var small := _box_mesh(Vector3(1, 2, 0.5), StandardMaterial3D.new())
+	var props := Node3D.new()
+	props.name = "Props"
+	add_child(props)
+	var idle := _prop(props, small, Transform3D(Basis.IDENTITY, Vector3(1, 0, 1)))
+	idle.add_child(AnimationPlayer.new())
+	var playing := Node3D.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = small
+	playing.add_child(mi)
+	playing.position = Vector3(3, 0, 1)
+	var player := AnimationPlayer.new()
+	var lib := AnimationLibrary.new()
+	lib.add_animation(&"open", Animation.new())
+	player.add_animation_library(&"", lib)
+	player.autoplay = &"open"
+	playing.add_child(player)
+	props.add_child(playing)
+	var b := GSMapPropBatch.new()
+	b.max_tris = 1000
+	b.instance_cell = 0.0
+	var n := b.batch(props)
+	_check(n == 1 and b.batched_props == 1, "one chunk, from the prop with the idle player: %d chunks, %d props" % [n, b.batched_props])
+	_check(idle.find_children("*", "MeshInstance3D", true, false).is_empty(), "the idle prop's mesh is in the chunk")
+	_check(playing.find_children("*", "MeshInstance3D", true, false).size() == 1, "the autoplaying prop keeps its mesh")
+	props.free()
+	_done()
+
+
+func _test_prop_batch_primitive() -> void:
+	_section("loose primitive boxes (a stand-in block) are baked: one chunk, the same triangles and bounds")
+	var props := Node3D.new()
+	props.name = "Props"
+	add_child(props)
+	var mat := StandardMaterial3D.new()
+	for i in 3:
+		var mi := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(1 + i, 2, 1)
+		box.material = mat
+		mi.mesh = box
+		mi.position = Vector3(i * 4, 1, 0)
+		mi.rotation_degrees.y = 30.0 * i
+		props.add_child(mi)
+	var b := GSMapPropBatch.new()
+	b.max_tris = 1000
+	b.instance_cell = 0.0
+	var n := b.batch(props)
+	_check(n == 1 and b.batched_meshes == 3, "one chunk from three boxes: %d chunks, %d meshes" % [n, b.batched_meshes])
+	var chunk := props.get_child(0) as MeshInstance3D
+	_check(chunk.mesh.get_surface_count() == 1 and chunk.mesh.surface_get_material(0) == mat, "one surface with the boxes' material")
+	_check(chunk.mesh.surface_get_array_index_len(0) == 3 * 36, "the boxes' 36 indices each: %d" % chunk.mesh.surface_get_array_index_len(0))
+	_check(chunk.mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_NORMAL != 0, "normals kept")
+	props.free()
+	_done()
+
+
 func _test_chunk_merge(world: GSMapBspMesh) -> void:
 	_section("chunk merging: a small map keeps its cells, a merged one draws the same triangles in fewer chunks")
 	_check(world.chunk_merge == 0 and world.auto_merge(0) == 1, "by default the fixture's two chunks are left alone")
