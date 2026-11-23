@@ -16,5 +16,6 @@ extends RefCounted
 # 30: GSMapDropIntake.config_prefixes, option_takes_value, paths_in, strip_config_args, config_takes_value (a game's own config options are never dropped paths).
 # 31: GSMapBoxBatch (opaque static boxes of one material per cell drawn as one ArrayMesh; skip callable; skipped headless).
 # 32: GSMapBoxBatch.build `coarse` (a second pass folds boxes alone in their cell into a coarser cell; default off).
-const LEVEL := 32
+# 33: GSMapStore.events.art_problem, META_ART_PROBLEM, ACTION_CLEAR: art that cannot fit the browser storage is refused before download (needs gs-cloud 34 make_room) and shown to the player.
+const LEVEL := 33
 const OLDEST := 1

@@ -132,7 +132,7 @@ static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = ""
 			if cache is Object and (cache as Object).has_method(&"make_room"):
 				var room: Dictionary = await (cache as Object).call(&"make_room", need)
 				if not bool(room.get("fits", true)):
-					return _refuse(licence, need, int(room.get("free", 0)))
+					return _refuse(licence, cloud, need, int(room.get("free", 0)))
 	var res: GSResult = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
 	if not res.ok:
 		_unfetched[str(p["id"])] = {"ids": missing(licence, cloud), "why": res.error.message}
@@ -143,7 +143,7 @@ static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = ""
 
 
 ## Records the art as not fetched for lack of storage, tells the gate and [member events], and fails without downloading (a partial download only wastes the quota).
-static func _refuse(licence: Dictionary, need: int, free: int) -> GSResult:
+static func _refuse(licence: Dictionary, cloud: Object, need: int, free: int) -> GSResult:
 	var p := pack_of(licence)
 	var message := "Not enough browser storage for this map's art (needs %s, %s free). Clear downloaded content to make room." % [GSPaths.format_bytes(need), GSPaths.format_bytes(free)]
 	_unfetched[str(p["id"])] = {"ids": slice_ids(licence), "why": "quota"}
@@ -153,6 +153,9 @@ static func _refuse(licence: Dictionary, need: int, free: int) -> GSResult:
 	if gate != null and not gate.is_open():
 		gate.set_meta(META_ART_PROBLEM, problem)
 		gate.set_progress(gate.progress(), message)
+	var indicator: Object = GSBusyIndicator.current()
+	if indicator != null and indicator.has_method(&"show_art_problem"):
+		indicator.call(&"show_art_problem", problem, cloud)
 	events.art_problem.emit(problem)
 	return GSResult.fail(GSError.CODE_QUOTA, message)
 
