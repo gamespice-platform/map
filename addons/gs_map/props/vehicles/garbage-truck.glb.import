@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://3bxsanv0am1q"
-path="res://.godot/imported/garbage-truck.glb-0b098618cf9126deeff881d00c6e15fb.scn"
+path="res://.godot/imported/garbage-truck.glb-071c1b1f500f10e5ec5d4d7813db14ed.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/vehicles/garbage-truck.glb"
-dest_files=["res://.godot/imported/garbage-truck.glb-0b098618cf9126deeff881d00c6e15fb.scn"]
+dest_files=["res://.godot/imported/garbage-truck.glb-071c1b1f500f10e5ec5d4d7813db14ed.scn"]
 
 [params]
 

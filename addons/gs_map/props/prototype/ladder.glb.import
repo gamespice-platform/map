@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c0d8udp4b080o"
-path="res://.godot/imported/ladder.glb-aa2d783bcdf979458acd8e8388824ca4.scn"
+path="res://.godot/imported/ladder.glb-fbfb2de8cad0adaf819155fdc4dd5801.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/prototype/ladder.glb"
-dest_files=["res://.godot/imported/ladder.glb-aa2d783bcdf979458acd8e8388824ca4.scn"]
+dest_files=["res://.godot/imported/ladder.glb-fbfb2de8cad0adaf819155fdc4dd5801.scn"]
 
 [params]
 

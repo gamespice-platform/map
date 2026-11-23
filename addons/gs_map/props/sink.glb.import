@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://djcclrm2iwshe"
-path="res://.godot/imported/sink.glb-3fe550a8afc646b86923a3c24d8f3c66.scn"
+path="res://.godot/imported/sink.glb-8fc8db57ef4cea82967a74a9885d88fa.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/sink.glb"
-dest_files=["res://.godot/imported/sink.glb-3fe550a8afc646b86923a3c24d8f3c66.scn"]
+dest_files=["res://.godot/imported/sink.glb-8fc8db57ef4cea82967a74a9885d88fa.scn"]
 
 [params]
 

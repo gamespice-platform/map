@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://be32x1prlvyot"
-path="res://.godot/imported/burger.glb-12ec5f6578c7571a27273b54682cb88a.scn"
+path="res://.godot/imported/burger.glb-b4872a5549742db7fab707398a32b299.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/food/burger.glb"
-dest_files=["res://.godot/imported/burger.glb-12ec5f6578c7571a27273b54682cb88a.scn"]
+dest_files=["res://.godot/imported/burger.glb-b4872a5549742db7fab707398a32b299.scn"]
 
 [params]
 
