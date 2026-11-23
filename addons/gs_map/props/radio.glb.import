@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dxt3xxgy7s3js"
-path="res://.godot/imported/radio.glb-a3fa89d214358c336fc114289b1d625a.scn"
+path="res://.godot/imported/radio.glb-df99e8d94b71bd8015b292e84cda9df7.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/radio.glb"
-dest_files=["res://.godot/imported/radio.glb-a3fa89d214358c336fc114289b1d625a.scn"]
+dest_files=["res://.godot/imported/radio.glb-df99e8d94b71bd8015b292e84cda9df7.scn"]
 
 [params]
 

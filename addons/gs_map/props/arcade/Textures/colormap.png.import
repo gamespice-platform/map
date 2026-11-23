@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cny1k148g8w66"
-path="res://.godot/imported/colormap.png-d253707ffbb4aff6326a7b9806f30203.ctex"
+path="res://.godot/imported/colormap.png-02f887139cd303b7787a2a943797106e.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/props/arcade/Textures/colormap.png"
-dest_files=["res://.godot/imported/colormap.png-d253707ffbb4aff6326a7b9806f30203.ctex"]
+dest_files=["res://.godot/imported/colormap.png-02f887139cd303b7787a2a943797106e.ctex"]
 
 [params]
 

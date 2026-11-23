@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://pttrpi8qdilu"
-path="res://.godot/imported/bathtub.glb-88829af971e9228841f6fc0ce431bb8e.scn"
+path="res://.godot/imported/bathtub.glb-41b73219a76811ae2109f037f2aaaba6.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/bathtub.glb"
-dest_files=["res://.godot/imported/bathtub.glb-88829af971e9228841f6fc0ce431bb8e.scn"]
+dest_files=["res://.godot/imported/bathtub.glb-41b73219a76811ae2109f037f2aaaba6.scn"]
 
 [params]
 

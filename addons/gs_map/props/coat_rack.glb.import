@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bkxyvchkafp4e"
-path="res://.godot/imported/coat_rack.glb-f0b70b909424e45dfa742cb05ea50d2c.scn"
+path="res://.godot/imported/coat_rack.glb-b9b11120e576979af562870d083aac5e.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/coat_rack.glb"
-dest_files=["res://.godot/imported/coat_rack.glb-f0b70b909424e45dfa742cb05ea50d2c.scn"]
+dest_files=["res://.godot/imported/coat_rack.glb-b9b11120e576979af562870d083aac5e.scn"]
 
 [params]
 

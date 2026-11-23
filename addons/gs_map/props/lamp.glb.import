@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://b5idjrs4kg0qi"
-path="res://.godot/imported/lamp.glb-4903462ac265eec5f576340ebb4f28dd.scn"
+path="res://.godot/imported/lamp.glb-c8debbbf9fe6b979d783f04ca9916be0.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/lamp.glb"
-dest_files=["res://.godot/imported/lamp.glb-4903462ac265eec5f576340ebb4f28dd.scn"]
+dest_files=["res://.godot/imported/lamp.glb-c8debbbf9fe6b979d783f04ca9916be0.scn"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://p5sodniwj6sn"
-path="res://.godot/imported/machine_generator.glb-b0029364a24da78614891ef8e056664b.scn"
+path="res://.godot/imported/machine_generator.glb-0cb2b8f4c7d18fa6bf3b1754217e6a95.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/space/machine_generator.glb"
-dest_files=["res://.godot/imported/machine_generator.glb-b0029364a24da78614891ef8e056664b.scn"]
+dest_files=["res://.godot/imported/machine_generator.glb-0cb2b8f4c7d18fa6bf3b1754217e6a95.scn"]
 
 [params]
 

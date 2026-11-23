@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cr1bov2uoy4oh"
-path="res://.godot/imported/albedo.jpg-27f28526cd8931d6d489cd6874a12301.ctex"
+path="res://.godot/imported/albedo.jpg-d440c296d25e7e0174a0891180b2b436.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/wallpaper_decrepit/albedo.jpg"
-dest_files=["res://.godot/imported/albedo.jpg-27f28526cd8931d6d489cd6874a12301.ctex"]
+dest_files=["res://.godot/imported/albedo.jpg-d440c296d25e7e0174a0891180b2b436.ctex"]
 
 [params]
 

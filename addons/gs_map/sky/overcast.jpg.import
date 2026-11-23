@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwj2a7ey34j6f"
-path="res://.godot/imported/overcast.jpg-d326e141c40a4f66ecc8974fb7005b6a.ctex"
+path="res://.godot/imported/overcast.jpg-35b6726eb5168a889735e41fd6fc8e5a.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/sky/overcast.jpg"
-dest_files=["res://.godot/imported/overcast.jpg-d326e141c40a4f66ecc8974fb7005b6a.ctex"]
+dest_files=["res://.godot/imported/overcast.jpg-35b6726eb5168a889735e41fd6fc8e5a.ctex"]
 
 [params]
 

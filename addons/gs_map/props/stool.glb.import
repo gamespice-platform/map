@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bxln0w4yfnbep"
-path="res://.godot/imported/stool.glb-b230b80d963de9d4a44d9346343eee79.scn"
+path="res://.godot/imported/stool.glb-e0e07f5c262c195122fd1993ec2ed05e.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/stool.glb"
-dest_files=["res://.godot/imported/stool.glb-b230b80d963de9d4a44d9346343eee79.scn"]
+dest_files=["res://.godot/imported/stool.glb-e0e07f5c262c195122fd1993ec2ed05e.scn"]
 
 [params]
 

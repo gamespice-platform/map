@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://drnyw7eoyx0nr"
-path="res://.godot/imported/normal.jpg-fc3b8b76c936bbfc0e33ac766e2751de.ctex"
+path="res://.godot/imported/normal.jpg-7acba2a9c97e5bb0fa6662021932fe7c.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/rock/normal.jpg"
-dest_files=["res://.godot/imported/normal.jpg-fc3b8b76c936bbfc0e33ac766e2751de.ctex"]
+dest_files=["res://.godot/imported/normal.jpg-7acba2a9c97e5bb0fa6662021932fe7c.ctex"]
 
 [params]
 

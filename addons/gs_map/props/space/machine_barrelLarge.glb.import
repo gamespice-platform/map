@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bosxbetbdtnth"
-path="res://.godot/imported/machine_barrelLarge.glb-f5d6e4756f963af3c83f487e21711c7c.scn"
+path="res://.godot/imported/machine_barrelLarge.glb-c775cc4d4d4a7d7dffa87f958478c014.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/space/machine_barrelLarge.glb"
-dest_files=["res://.godot/imported/machine_barrelLarge.glb-f5d6e4756f963af3c83f487e21711c7c.scn"]
+dest_files=["res://.godot/imported/machine_barrelLarge.glb-c775cc4d4d4a7d7dffa87f958478c014.scn"]
 
 [params]
 

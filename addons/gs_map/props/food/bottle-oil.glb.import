@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://djttdbg3e8g2e"
-path="res://.godot/imported/bottle-oil.glb-d62010ef55dd7cbccbe7b0f2350dc19b.scn"
+path="res://.godot/imported/bottle-oil.glb-3a65edf33371becfc2b53f41d58a7f4f.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/food/bottle-oil.glb"
-dest_files=["res://.godot/imported/bottle-oil.glb-d62010ef55dd7cbccbe7b0f2350dc19b.scn"]
+dest_files=["res://.godot/imported/bottle-oil.glb-3a65edf33371becfc2b53f41d58a7f4f.scn"]
 
 [params]
 

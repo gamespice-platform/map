@@ -3,12 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://ct2tj4rp17grm"
-path="res://.godot/imported/energy.ogg-87053fde4be9ad8f27e48c220f33888e.oggvorbisstr"
+path="res://.godot/imported/energy.ogg-fb75e0d9c0de1ef733ba623f32a31234.oggvorbisstr"
 
 [deps]
 
 source_file="res://addons/gs_map/sounds/energy.ogg"
-dest_files=["res://.godot/imported/energy.ogg-87053fde4be9ad8f27e48c220f33888e.oggvorbisstr"]
+dest_files=["res://.godot/imported/energy.ogg-fb75e0d9c0de1ef733ba623f32a31234.oggvorbisstr"]
 
 [params]
 

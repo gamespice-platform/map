@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c3ggy512lyypu"
-path="res://.godot/imported/tv.glb-db99188800796148d026597b83a29da2.scn"
+path="res://.godot/imported/tv.glb-4cf119e0a68c6495a361273ed2844ac3.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/tv.glb"
-dest_files=["res://.godot/imported/tv.glb-db99188800796148d026597b83a29da2.scn"]
+dest_files=["res://.godot/imported/tv.glb-4cf119e0a68c6495a361273ed2844ac3.scn"]
 
 [params]
 

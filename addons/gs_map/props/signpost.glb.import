@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://ntrf4wckemx"
-path="res://.godot/imported/signpost.glb-1f07bca3eeda8ff054d24cb97913ab27.scn"
+path="res://.godot/imported/signpost.glb-9bd8dc42a032a11485547a2d31cfb548.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/signpost.glb"
-dest_files=["res://.godot/imported/signpost.glb-1f07bca3eeda8ff054d24cb97913ab27.scn"]
+dest_files=["res://.godot/imported/signpost.glb-9bd8dc42a032a11485547a2d31cfb548.scn"]
 
 [params]
 

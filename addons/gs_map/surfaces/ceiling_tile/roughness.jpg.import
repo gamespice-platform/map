@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ct7lrdv8242g0"
-path="res://.godot/imported/roughness.jpg-587498683c8d6b3fdf8c592a0767f3d6.ctex"
+path="res://.godot/imported/roughness.jpg-c428aa3e8d7caa57e965e8dd914f7839.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/ceiling_tile/roughness.jpg"
-dest_files=["res://.godot/imported/roughness.jpg-587498683c8d6b3fdf8c592a0767f3d6.ctex"]
+dest_files=["res://.godot/imported/roughness.jpg-c428aa3e8d7caa57e965e8dd914f7839.ctex"]
 
 [params]
 

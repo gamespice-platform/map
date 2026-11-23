@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://67bngmhq0ydk"
-path="res://.godot/imported/lamppost.glb-f955c6325c69f49bc47a16548d84db84.scn"
+path="res://.godot/imported/lamppost.glb-bbb2e3eab7b54a9d049642a741adbf6b.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/graveyard/lamppost.glb"
-dest_files=["res://.godot/imported/lamppost.glb-f955c6325c69f49bc47a16548d84db84.scn"]
+dest_files=["res://.godot/imported/lamppost.glb-bbb2e3eab7b54a9d049642a741adbf6b.scn"]
 
 [params]
 

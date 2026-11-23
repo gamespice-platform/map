@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://j7k2t6w2kqmu"
-path="res://.godot/imported/floor_lamp.glb-19defbddb1c87ba4745db2c929719679.scn"
+path="res://.godot/imported/floor_lamp.glb-be94b6d7365e8a0fcf9a174bd604932a.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/floor_lamp.glb"
-dest_files=["res://.godot/imported/floor_lamp.glb-19defbddb1c87ba4745db2c929719679.scn"]
+dest_files=["res://.godot/imported/floor_lamp.glb-be94b6d7365e8a0fcf9a174bd604932a.scn"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bldemftw1mfbv"
-path="res://.godot/imported/bed.glb-7e31e5847ba3cc58f6112c8d98a01598.scn"
+path="res://.godot/imported/bed.glb-37e74772bb8d6262b7647ad1c4dd5792.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/bed.glb"
-dest_files=["res://.godot/imported/bed.glb-7e31e5847ba3cc58f6112c8d98a01598.scn"]
+dest_files=["res://.godot/imported/bed.glb-37e74772bb8d6262b7647ad1c4dd5792.scn"]
 
 [params]
 

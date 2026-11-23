@@ -3,12 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://dw6ng2axhbsn3"
-path="res://.godot/imported/metal_slide.ogg-aba5524dfc689d9cc7a066d20a25e3d3.oggvorbisstr"
+path="res://.godot/imported/metal_slide.ogg-1c375348d2b7a71eb74aee545fa6b785.oggvorbisstr"
 
 [deps]
 
 source_file="res://addons/gs_map/sounds/metal_slide.ogg"
-dest_files=["res://.godot/imported/metal_slide.ogg-aba5524dfc689d9cc7a066d20a25e3d3.oggvorbisstr"]
+dest_files=["res://.godot/imported/metal_slide.ogg-1c375348d2b7a71eb74aee545fa6b785.oggvorbisstr"]
 
 [params]
 

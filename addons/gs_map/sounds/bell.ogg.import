@@ -3,12 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://bbah20scapuc6"
-path="res://.godot/imported/bell.ogg-a4e25020597a77984c6bad11b10cf530.oggvorbisstr"
+path="res://.godot/imported/bell.ogg-6cbf458abf9d7b2d9d853fb37dc643aa.oggvorbisstr"
 
 [deps]
 
 source_file="res://addons/gs_map/sounds/bell.ogg"
-dest_files=["res://.godot/imported/bell.ogg-a4e25020597a77984c6bad11b10cf530.oggvorbisstr"]
+dest_files=["res://.godot/imported/bell.ogg-6cbf458abf9d7b2d9d853fb37dc643aa.oggvorbisstr"]
 
 [params]
 

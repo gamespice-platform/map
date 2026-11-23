@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ubbvd65uvga6"
-path="res://.godot/imported/normal.jpg-9a68a4bcfcb8bdd018dbd8b502285f16.ctex"
+path="res://.godot/imported/normal.jpg-66027e4fb857cfd10940a1b564e07188.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/carpet_pattern/normal.jpg"
-dest_files=["res://.godot/imported/normal.jpg-9a68a4bcfcb8bdd018dbd8b502285f16.ctex"]
+dest_files=["res://.godot/imported/normal.jpg-66027e4fb857cfd10940a1b564e07188.ctex"]
 
 [params]
 

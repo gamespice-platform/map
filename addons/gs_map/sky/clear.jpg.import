@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://davy5grruilcj"
-path="res://.godot/imported/clear.jpg-063929ecd01b659d9859fa6d9ec62e72.ctex"
+path="res://.godot/imported/clear.jpg-9ba405104359f082ac435c9d385551b3.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/sky/clear.jpg"
-dest_files=["res://.godot/imported/clear.jpg-063929ecd01b659d9859fa6d9ec62e72.ctex"]
+dest_files=["res://.godot/imported/clear.jpg-9ba405104359f082ac435c9d385551b3.ctex"]
 
 [params]
 

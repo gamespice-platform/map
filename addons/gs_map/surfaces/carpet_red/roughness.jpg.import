@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgqgmqu70ru8o"
-path="res://.godot/imported/roughness.jpg-e45d50f31673cd452c384c8cf432b2a3.ctex"
+path="res://.godot/imported/roughness.jpg-60ad4378c1e8300738af1046219ee445.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/carpet_red/roughness.jpg"
-dest_files=["res://.godot/imported/roughness.jpg-e45d50f31673cd452c384c8cf432b2a3.ctex"]
+dest_files=["res://.godot/imported/roughness.jpg-60ad4378c1e8300738af1046219ee445.ctex"]
 
 [params]
 

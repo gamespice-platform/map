@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://rlra5ufkdod6"
-path="res://.godot/imported/normal.jpg-bc77ea010331b99e2a58b59b60714a46.ctex"
+path="res://.godot/imported/normal.jpg-51ccb9bd0b689925709089969a452bd5.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/concrete_clean/normal.jpg"
-dest_files=["res://.godot/imported/normal.jpg-bc77ea010331b99e2a58b59b60714a46.ctex"]
+dest_files=["res://.godot/imported/normal.jpg-51ccb9bd0b689925709089969a452bd5.ctex"]
 
 [params]
 

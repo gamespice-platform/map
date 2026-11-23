@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://ynobyjksdyof"
-path="res://.godot/imported/cross.glb-e4c726e964f5113dee8156d8c000c5ed.scn"
+path="res://.godot/imported/cross.glb-c23c9437a79bbb53e5939bef9e4db26d.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/graveyard/cross.glb"
-dest_files=["res://.godot/imported/cross.glb-e4c726e964f5113dee8156d8c000c5ed.scn"]
+dest_files=["res://.godot/imported/cross.glb-c23c9437a79bbb53e5939bef9e4db26d.scn"]
 
 [params]
 

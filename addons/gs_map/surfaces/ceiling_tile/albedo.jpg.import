@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmbb4p6rwspdv"
-path="res://.godot/imported/albedo.jpg-159d2d78afd7b01909b8903100eff66b.ctex"
+path="res://.godot/imported/albedo.jpg-80b5d30af08c661f56a37e4cc3b1fbdc.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/ceiling_tile/albedo.jpg"
-dest_files=["res://.godot/imported/albedo.jpg-159d2d78afd7b01909b8903100eff66b.ctex"]
+dest_files=["res://.godot/imported/albedo.jpg-80b5d30af08c661f56a37e4cc3b1fbdc.ctex"]
 
 [params]
 

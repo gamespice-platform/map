@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bpykss10mf5p6"
-path="res://.godot/imported/cone.glb-29df412223a1c5e6030ab100d3927aea.scn"
+path="res://.godot/imported/cone.glb-90619d2dba0501aeac73f13970d02c16.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/vehicles/cone.glb"
-dest_files=["res://.godot/imported/cone.glb-29df412223a1c5e6030ab100d3927aea.scn"]
+dest_files=["res://.godot/imported/cone.glb-90619d2dba0501aeac73f13970d02c16.scn"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c4ualqxl1sr02"
-path="res://.godot/imported/sedan.glb-f7b12e1fabe745d2ebd32c8b411049ac.scn"
+path="res://.godot/imported/sedan.glb-2f82c7f36060770ab04611af7d20f0bb.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/vehicles/sedan.glb"
-dest_files=["res://.godot/imported/sedan.glb-f7b12e1fabe745d2ebd32c8b411049ac.scn"]
+dest_files=["res://.godot/imported/sedan.glb-2f82c7f36060770ab04611af7d20f0bb.scn"]
 
 [params]
 

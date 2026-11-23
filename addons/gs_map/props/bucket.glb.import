@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://p8eu531dq4od"
-path="res://.godot/imported/bucket.glb-331bfc0cf8ee2780d25bad422ba42c76.scn"
+path="res://.godot/imported/bucket.glb-7f36e292383cdea2cc3d9319da0bfe43.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/bucket.glb"
-dest_files=["res://.godot/imported/bucket.glb-331bfc0cf8ee2780d25bad422ba42c76.scn"]
+dest_files=["res://.godot/imported/bucket.glb-7f36e292383cdea2cc3d9319da0bfe43.scn"]
 
 [params]
 

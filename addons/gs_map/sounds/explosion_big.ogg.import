@@ -3,12 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://dt0lkdnuohsb5"
-path="res://.godot/imported/explosion_big.ogg-6ec7ade2d047a5e8b005ec33bb5c2fe9.oggvorbisstr"
+path="res://.godot/imported/explosion_big.ogg-06c4efa98b99d737f6691240a3122a9a.oggvorbisstr"
 
 [deps]
 
 source_file="res://addons/gs_map/sounds/explosion_big.ogg"
-dest_files=["res://.godot/imported/explosion_big.ogg-6ec7ade2d047a5e8b005ec33bb5c2fe9.oggvorbisstr"]
+dest_files=["res://.godot/imported/explosion_big.ogg-06c4efa98b99d737f6691240a3122a9a.oggvorbisstr"]
 
 [params]
 

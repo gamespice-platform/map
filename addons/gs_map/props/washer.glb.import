@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://b55dux4ewuhcw"
-path="res://.godot/imported/washer.glb-c3ecef8b20f4cac72d132469fe0d2f9c.scn"
+path="res://.godot/imported/washer.glb-9d40e3dbd541f075dc70a026d26c2233.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/washer.glb"
-dest_files=["res://.godot/imported/washer.glb-c3ecef8b20f4cac72d132469fe0d2f9c.scn"]
+dest_files=["res://.godot/imported/washer.glb-9d40e3dbd541f075dc70a026d26c2233.scn"]
 
 [params]
 
