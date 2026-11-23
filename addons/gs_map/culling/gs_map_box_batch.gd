@@ -1,33 +1,9 @@
 class_name GSMapBoxBatch
 extends RefCounted
 
-## Draws a hand-built map's plain opaque boxes as a few meshes instead of one per box.
-##
-## A box map is hundreds of [MeshInstance3D]s that share a handful of materials, and the web
-## renderer is draw-call bound. [method build] folds the boxes of one material that lie in one
-## [constant CELL]-metre cell (x and z) into one [ArrayMesh], so the draws fall to materials
-## times cells and a far cell is still culled whole. Each folded box keeps its body, its shapes
-## and its mesh (hidden), so collision, panes, picking and any survey that reads the boxes see
-## what they always saw; only the drawing changes. An [ArrayMesh] is plain data, so this is as
-## safe on the web as anywhere.
-##
-## A candidate is a direct child of the parent that is a [StaticBody3D] holding one
-## [MeshInstance3D] with a [BoxMesh] and nothing but [CollisionShape3D]s besides, and whose
-## material is opaque. Anything else stays as it was. A game vetoes more through the [param skip]
-## callable (a breakable, a door, a box the game restyles at run time).
-##
-## [codeblock]
-## # skip(body: Node3D, mesh: MeshInstance3D) -> bool: true leaves this box alone.
-## var skip := func(body: Node3D, _mesh: MeshInstance3D) -> bool: return body.has_meta(&"breakable")
-## GSMapBoxBatch.build(level, GSMapBoxBatch.CELL, skip)
-## [/codeblock]
-##
-## [param coarse] (metres, default 0 = off) adds a second pass for the boxes that are alone in
-## their cell: those of one material that share a [param coarse]-metre cell (say 256, four cells)
-## fold together, so a lone lamp post or kerb stone no longer costs a draw of its own. A box that
-## already folded in the fine pass is not touched, and a see-through or vetoed box never joins.
-##
-## Skipped on a headless server (nothing draws there; [param force] overrides, for a suite).
+## Draws a hand-built map's plain opaque boxes as a few meshes instead of one per box: [method build] folds the boxes of one material in one [constant CELL]-metre cell (x and z) into one [ArrayMesh], so draws fall to materials times cells and a far cell is still culled whole. Each folded box keeps its body, shapes and (hidden) mesh, so collision, picking and surveys see what they always saw.
+## A candidate is a direct child of the parent that is a [StaticBody3D] holding one [MeshInstance3D] with a [BoxMesh] and only [CollisionShape3D]s besides, with an opaque material. A game vetoes more through [param skip], [code]func(body: Node3D, mesh: MeshInstance3D) -> bool[/code] (true leaves the box alone), e.g. a breakable or a door.
+## [param coarse] (metres, default 0 = off) adds a second pass folding boxes alone in their cell into one coarse cell (say 256) per material; boxes already folded, see-through or vetoed never join. Skipped on a headless server ([param force] overrides, for a suite).
 
 const GROUP := &"gs_map_box_batch"
 ## Set on a body whose mesh was folded, so a second [method build] does not fold it again.
@@ -37,10 +13,8 @@ const CELL := 64.0
 const NODE_NAME := "BoxBatch"
 
 
-## Batches [param parent]'s box bodies. Returns `{boxes, nodes}`: how many boxes were folded
-## and how many meshes now draw them. [param cell] is the cell edge in metres (zero or less puts
-## everything of a material in one mesh). A cell holding one box of a material is left alone,
-## unless [param coarse] is above [param cell] and another such box shares its coarse cell.
+## Batches [param parent]'s box bodies. Returns `{boxes, nodes}`: boxes folded and meshes now drawing them. [param cell] is the cell edge in metres (zero or less puts everything of a material in one mesh).
+## A cell holding one box of a material is left alone, unless [param coarse] is above [param cell] and another such box shares its coarse cell.
 static func build(parent: Node3D, cell: float = CELL, skip: Callable = Callable(), force: bool = false, coarse: float = 0.0) -> Dictionary:
 	if not force and DisplayServer.get_name() == "headless":
 		return {"boxes": 0, "nodes": 0}

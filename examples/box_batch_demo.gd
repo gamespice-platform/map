@@ -1,11 +1,7 @@
 extends Node3D
 
-## [GSMapBoxBatch]: the draw budget. Boxes of one material in one cell fold into one mesh,
-## nothing a player touches changes, and the see-through, vetoed and lone boxes stay as they were.
-##
-## [codeblock]
-## godot --headless --path . res://examples/box_batch_demo.tscn
-## [/codeblock]
+## [GSMapBoxBatch]: the draw budget. Boxes of one material in one cell fold into one mesh, nothing a player touches changes, and the see-through, vetoed and lone boxes stay as they were.
+## Run: [code]godot --headless --path . res://examples/box_batch_demo.tscn[/code]
 
 const CHECKS := 17
 

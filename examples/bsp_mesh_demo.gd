@@ -690,6 +690,12 @@ func _test_lightmap() -> GSMapBspMesh:
 			"surfaces": [{"model": 0, "material": "m", "vertex_count": 3, "position_offset": offs[0], "normal_offset": offs[1],
 					"uv_offset": offs[2], "uv2_offset": offs[3], "index_offset": offs[4], "index_count": 3,
 					"lightmap_page": 0}], "hulls": []}
+	var legacy := doc.duplicate(true)
+	legacy["format"] = "dot-bsp-mesh"  # gs-rename: keep
+	_check(GSMapBspMesh.from_data(legacy, blob).ok, "a legacy-format manifest still loads (with a deprecation warning)")
+	var bad := doc.duplicate(true)
+	bad["format"] = "other-mesh"
+	_check(not GSMapBspMesh.from_data(bad, blob).ok, "an unknown format is refused")
 	var r := GSMapBspMesh.from_data(doc, blob)
 	_check(r.ok, "a v2 map loads: %s" % (r.error if not r.ok else ""))
 	var w: GSMapBspMesh = r.value

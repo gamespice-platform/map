@@ -1,9 +1,7 @@
 extends "suite_base.gd"
 
-## GSMapVpk, GSMapVtf and GSMapVpkWriter on made-up archives (headless): VPK v1 and v2, preload bytes, files in the
-## dir and in a part, the extension filter, case, CRC, and every refusal; VTF formats, mip choice, KeyValues and the
-## converter's material names. `-- --vpk=<a *_dir.vpk>` adds the real-archive section: tree parse and read timings,
-## and every VTF of the first N (`--sample=`, default 200) decoded. Nothing of Valve's is in this repository.
+## GSMapVpk, GSMapVtf and GSMapVpkWriter on made-up archives (headless): VPK v1 and v2, preload bytes, files in the dir and in a part, the extension filter, case, CRC, and every refusal; VTF formats, mip choice, KeyValues and the converter's material names.
+## `-- --vpk=<a *_dir.vpk>` adds the real-archive section: tree parse and read timings, and every VTF of the first N (`--sample=`, default 200) decoded. Nothing of Valve's is in this repository.
 
 const ROOT := "user://source_demo"
 

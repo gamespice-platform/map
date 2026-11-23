@@ -5,6 +5,9 @@ extends "mesh_glass.gd"
 const CHANNEL := "gs_map.bsp_mesh"
 
 const FORMAT := "gs-bsp-mesh"
+## Packs published before the Dot to GS rename carry the old id. Same layout; read with a deprecation warning
+## until they are republished (remove with the republish).
+const LEGACY_FORMAT := "dot-bsp-mesh"  # gs-rename: keep
 ## Version 2 adds a second UV set per surface and the manifest's [code]lightmap[/code] atlas pages; version 1 maps read as before.
 const VERSION := 2
 
@@ -161,8 +164,11 @@ static func _unpack(doc: Dictionary, stored: PackedByteArray) -> Dictionary:
 ## Builds from a parsed manifest and the stored .bin bytes (as delivered: gzip'd or not). [param unpacked] is
 ## [method _unpack]'s result when a worker already made it.
 static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictionary = {}) -> GSResult:
-	if str(doc.get("format", "")) != FORMAT:
-		return GSResult.fail(GSError.CODE_INVALID, "not a %s manifest" % FORMAT, str(doc.get("format", "")))
+	var fmt := str(doc.get("format", ""))
+	if fmt == LEGACY_FORMAT:
+		GSLog.warn(CHANNEL, "deprecated legacy manifest format, republish the pack", {"format": fmt, "name": doc.get("name"), "expected": FORMAT})
+	elif fmt != FORMAT:
+		return GSResult.fail(GSError.CODE_INVALID, "not a %s manifest" % FORMAT, fmt)
 	if int(doc.get("version", 0)) > VERSION:
 		return GSResult.fail(GSError.CODE_VERSION, "mesh manifest is newer than this reader",
 				"%s > %d" % [doc.get("version"), VERSION])

@@ -222,10 +222,8 @@ static func decal_shader(baked: bool) -> Shader:
 	return _decal_shaders[baked]
 
 
-## The shared alpha-blended material of a decal [param kind] (an unknown kind is a grey patch). [param texture]
-## replaces the kind's drawn pattern (the map's own texture in an internal pack: drawn white, as authored);
-## [param own_colour] is the record's average of the original, used by kinds that take it; [param light] is
-## the bake: {lightmap: Texture2D, exposure, floor: Color, emissive} (empty: lit by the scene).
+## The shared alpha-blended material of a decal [param kind] (an unknown kind is a grey patch). [param texture] replaces the kind's drawn pattern (the map's own texture in an internal pack: drawn white, as authored);
+## [param own_colour] is the record's average of the original, used by kinds that take it; [param light] is the bake: {lightmap: Texture2D, exposure, floor: Color, emissive} (empty: lit by the scene).
 static func decal_material(kind: StringName, own_colour: Array = [], texture: Texture2D = null, light: Dictionary = {}) -> ShaderMaterial:
 	var look: Dictionary = DECAL_LOOKS.get(kind, DECAL_LOOKS[&"decal_patch"])
 	var c: Color = look["colour"]

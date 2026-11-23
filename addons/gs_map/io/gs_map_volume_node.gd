@@ -181,12 +181,9 @@ func _stay(io: GSMapIO, info: Dictionary) -> void:
 			io.move_body(info.get("body"), v)
 
 
-## trigger_teleport as the engine runs it: the destination is the entity's live [code]target[/code]
-## (SetRemoteDestination and AddOutput re-aim it), found by name ignoring case. Without a landmark the
-## body lands on the destination facing its yaw (spawnflag 32 keeps the body's own yaw); with a
-## landmark it keeps its offset from the landmark and its own yaw, unless UseLandmarkAngles snaps it
-## to the destination's. Velocity is kept either way. A body reports its own yaw (degrees) as
-## [code]yaw[/code] in [param info]; one that does not gets the destination's.
+## trigger_teleport as the engine runs it: the destination is the entity's live [code]target[/code] (SetRemoteDestination and AddOutput re-aim it), looked up by name ignoring case. Without a landmark the body lands on the destination facing its yaw (spawnflag 32 keeps the body's yaw);
+## with a landmark it keeps its offset from the landmark and its own yaw, unless UseLandmarkAngles snaps it to the destination's. Velocity is kept either way.
+## A body reports its own yaw (degrees) as [code]yaw[/code] in [param info]; one that does not gets the destination's.
 func _teleport(io: GSMapIO, info: Dictionary) -> void:
 	var dest_name := volume.target
 	if entity != null:

@@ -1,16 +1,8 @@
 class_name GSMapPropBatch
 extends RefCounted
-## Draws a world's small static props as merged meshes, one surface per material per [member cell], instead of one node per prop.
-##
-## A converted map places thousands of small props (Fork: 4,300 under 4,096 triangles, 371 materials), and each was its own draw per
-## surface: 4,800 draws from one overlook, the frame on a desktop GPU. [method batch] bakes the meshes of every plain prop under a
-## world's [code]Props[/code] node (a [Node3D]/[MeshInstance3D] tree, with an idle [AnimationPlayer] allowed: no script, no skin, no blend shapes, no group) whose mesh has at
-## most [member max_tris] triangles into one [ArrayMesh] per [member cell] of the map, a surface per material, so the cell is one draw
-## per material however many props it holds. The same triangles, materials and transforms are drawn. Larger meshes keep their LOD
-## levels: the copies of one within an [member instance_cell] are drawn as one [MultiMeshInstance3D], and a lone copy keeps its node. The chunks stay direct children of [code]Props[/code], so [GSMapVisibility] culls them by their bounds.
-## A chunk fades no earlier than any prop in it did: props are grouped by fade distance (a quarter octave), and a chunk's
-## [member GeometryInstance3D.visibility_range_end] is its members' furthest reach from the chunk's centre (Godot measures the range
-## to an instance's bounds centre). Collision bodies, proxies (meta [code]gs_map_proxy[/code]) and anything with behaviour are left as they are.
+## Draws a world's small static props as merged meshes, one surface per material per [member cell], instead of one node per prop (Fork: 4,300 props, 371 materials, 4,800 draws from one overlook).
+## [method batch] bakes every plain prop under a world's [code]Props[/code] node (no script, skin, blend shapes or group; an idle [AnimationPlayer] is fine) of at most [member max_tris] triangles into one [ArrayMesh] per cell; larger meshes keep their LOD levels as one [MultiMeshInstance3D] per [member instance_cell], and a lone copy keeps its node.
+## Chunks stay direct children of [code]Props[/code] so [GSMapVisibility] culls them; props group by fade distance (a quarter octave) and a chunk fades at its members' furthest reach. Collision bodies, proxies (meta [code]gs_map_proxy[/code]) and anything with behaviour are left as they are.
 
 const CHANNEL := "gs_map.batch"
 

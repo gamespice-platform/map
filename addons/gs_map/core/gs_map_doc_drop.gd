@@ -1,11 +1,8 @@
 class_name GSMapDocDrop
 extends RefCounted
 
-## The acceptor for a game whose maps are DOCUMENTS (a JSON file of the game's own kind: spawns, nav, safe areas) rather than
-## converted mesh folders. Hand [method accept] to [method GSMapDropIntake.add_acceptor]: it finds the documents in a dropped
-## [code].json[/code], a folder (searched [param depth] folders down) or a [code].zip[/code] (read in place, nothing unpacked), and
-## gives each to the game's [param take] callable, which checks it, stores it and joins the catalogue. The result is the
-## [code]{added, errors}[/code] the intake wants, and [method lines] says it as "Added <title> (local)" / "Not a map: <reason>".
+## The acceptor for a game whose maps are DOCUMENTS (a JSON file of the game's own kind: spawns, nav, safe areas) rather than converted mesh folders. Hand [method accept] to [method GSMapDropIntake.add_acceptor]: it finds the documents in a dropped [code].json[/code], a folder (searched [param depth] down) or a [code].zip[/code] (read in place),
+## and gives each to the game's [param take] callable, which checks it, stores it and joins the catalogue. The result is the [code]{added, errors}[/code] the intake wants, and [method lines] says it as "Added <title> (local)" / "Not a map: <reason>".
 ## The game keeps its own validation; nothing here knows a game's format beyond its [code]kind[/code] key.
 
 const CHANNEL := "gs_map.doc_drop"
@@ -20,10 +17,8 @@ const TAG := " (local)"
 static var max_doc_bytes := 16 * 1024 * 1024
 
 
-## [code]{}[/code] when [param path] holds no document of [param kinds] and no refusal (the intake then refuses it as not this
-## game's), else [code]{added: Array[Dictionary], errors: PackedStringArray}[/code]. [param take] is
-## [code]func(doc: Dictionary, text: String, name: String, into: String) -> Dictionary[/code] and returns either
-## [code]{added: <entry dictionary>}[/code] or [code]{error: "<why>"}[/code]. [param name] is the file's name (inside a zip too).
+## [code]{}[/code] when [param path] holds no document of [param kinds] and no refusal (the intake then refuses it as not this game's), else [code]{added: Array[Dictionary], errors: PackedStringArray}[/code]. [param name] is the file's name (inside a zip too).
+## [param take] is [code]func(doc: Dictionary, text: String, name: String, into: String) -> Dictionary[/code] and returns either [code]{added: <entry dictionary>}[/code] or [code]{error: "<why>"}[/code].
 static func accept(path: String, into: String, kinds: PackedStringArray, depth: int, take: Callable) -> Dictionary:
 	var found := documents_in(path, kinds, depth)
 	var errors: PackedStringArray = found["errors"]

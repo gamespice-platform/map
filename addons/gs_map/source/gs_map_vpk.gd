@@ -1,17 +1,9 @@
 class_name GSMapVpk
 extends RefCounted
 
-## One Valve VPK archive set (v1 or v2: a `<base>_dir.vpk` and its `<base>_NNN.vpk` parts) on the player's own disk.
-## [b]LOCAL ONLY.[/b] It reads the stock textures of a Source game the player installed, so a game can draw a dropped
-## `<map>_orig` pack on that machine and fill the textures the pack lacks. Nothing it reads is ever written into a
-## repository or a pack that leaves the machine: Valve's files are not ours to ship, only this reader is.
-## `gs-map-convert`'s `gsbsp/vpk.py` is the same reader for the converter (offline); this one runs in the game.
-## [codeblock]
-## var vpk := GSMapVpk.new()
-## if vpk.open("C:/.../tf/tf2_textures_dir.vpk", PackedStringArray(["vmt", "vtf"])):
-##     var bytes := vpk.read("materials/brick/brickwall003.vtf")  # empty, [member error] set, when absent or broken
-##     var img := GSMapVtf.image(bytes, 512)
-## [/codeblock]
+## One Valve VPK archive set (v1 or v2: a `<base>_dir.vpk` and its `<base>_NNN.vpk` parts) on the player's own disk. [b]LOCAL ONLY.[/b] It reads the stock textures of a Source game the player installed, so a game can draw a dropped `<map>_orig` pack on that machine and fill the textures the pack lacks.
+## Nothing it reads is ever written into a repository or a pack that leaves the machine: Valve's files are not ours to ship, only this reader is. `gs-map-convert`'s `gsbsp/vpk.py` is the same reader for the converter.
+## Use: [code]var vpk := GSMapVpk.new()[/code], [code]vpk.open(dir_vpk_path, PackedStringArray(["vmt", "vtf"]))[/code], [code]vpk.read("materials/brick/brickwall003.vtf")[/code] (empty, [member error] set, when absent or broken), then [code]GSMapVtf.image(bytes, 512)[/code].
 
 const SIG := 0x55AA1234
 ## The archive index of a file stored after the tree in the `_dir.vpk` itself.
