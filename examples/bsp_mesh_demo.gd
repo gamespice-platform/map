@@ -2,7 +2,7 @@ extends "bsp_mesh_parts/tests_batch.gd"
 
 ## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
-const CHECKS := 204
+const CHECKS := 206
 const SECTIONS := 19
 const FIXTURE := "res://examples/bsp_mesh/fixture"
 const GLASS := "res://examples/bsp_mesh/glass"
@@ -706,9 +706,9 @@ func _test_lightmap() -> GSMapBspMesh:
 	_check(tex.get_image().get_pixel(0, 0).is_equal_approx(Color(1, 1, 1)), "the white texel reads as 1.0: %s" % tex.get_image().get_pixel(0, 0))
 	var a := w.surface_arrays(doc["surfaces"][0])
 	_check((a[Mesh.ARRAY_TEX_UV2] as PackedVector2Array)[1].is_equal_approx(Vector2(0.75, 0.5)), "the second UV set is read")
-	var bad := doc.duplicate(true)
-	(bad["surfaces"][0] as Dictionary)["uv2_offset"] = blob.size()
-	_check(not GSMapBspMesh.from_data(bad, blob).ok, "a uv2 block past the data is refused")
+	var bad_uv := doc.duplicate(true)
+	(bad_uv["surfaces"][0] as Dictionary)["uv2_offset"] = blob.size()
+	_check(not GSMapBspMesh.from_data(bad_uv, blob).ok, "a uv2 block past the data is refused")
 	var built := w.build_meshes(0)
 	var arrays: Array = (built[0]["mesh"] as ArrayMesh).surface_get_arrays(0)
 	_check(built.size() == 1 and arrays[Mesh.ARRAY_TEX_UV2] != null, "the built mesh keeps UV2")
