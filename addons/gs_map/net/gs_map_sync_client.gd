@@ -8,7 +8,7 @@ extends Node
 
 const CHANNEL := "map.sync.client"
 
-## The mount prefix a delivered map's scene must be under to be accepted from a host. Duplicated from dot-
+## The mount prefix a delivered map's scene must be under to be accepted from a host. Duplicated from gs-
 ## cloud rather than read from it: this addon must compile in a project that does not have GameSpice Cloud, and a
 ## constant that disagreed with GameSpice Cloud would fail closed — a refused map, not a loaded wrong one.
 const MOUNT_ROOT := "res://gs_cloud/"
