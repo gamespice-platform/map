@@ -135,8 +135,13 @@ static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = ""
 					return _refuse(licence, cloud, need, int(room.get("free", 0)))
 	var res: GSResult = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
 	if not res.ok:
-		_unfetched[str(p["id"])] = {"ids": missing(licence, cloud), "why": res.error.message}
+		var quota: bool = res.error.code == GSError.CODE_QUOTA
+		_unfetched[str(p["id"])] = {"ids": missing(licence, cloud), "why": "quota" if quota else res.error.message}
 		_show(licence)
+		if quota:
+			_announce_problem(_art_problem(0, 0, "The browser ran out of storage while downloading this map's art. Clear downloaded content to make room."), cloud)
+		else:
+			_announce_failure(res.error.message)
 		return res.wrap("store slice %s@%s" % [p["id"], p["version"]])
 	_unfetched.erase(str(p["id"]))
 	return GSResult.success(mount_dir(licence, cloud))
@@ -147,7 +152,19 @@ static func _refuse(licence: Dictionary, cloud: Object, need: int, free: int) ->
 	var p := pack_of(licence)
 	var message := "Not enough browser storage for this map's art (needs %s, %s free). Clear downloaded content to make room." % [GSPaths.format_bytes(need), GSPaths.format_bytes(free)]
 	_unfetched[str(p["id"])] = {"ids": slice_ids(licence), "why": "quota"}
-	var problem := {"message": message, "action": ACTION_CLEAR, "bytes": need, "free": free}
+	_announce_problem(_art_problem(need, free, message), cloud)
+	return GSResult.fail(GSError.CODE_QUOTA, message)
+
+
+static func _art_problem(need: int, free: int, message: String) -> Dictionary:
+	return {"message": message, "action": ACTION_CLEAR, "bytes": need, "free": free}
+
+
+## Tells the player (gate meta and message under the cover, the busy indicator's bar in play) and [member events] that art could not be stored.
+static func _announce_problem(problem: Dictionary, cloud: Object) -> void:
+	var message: String = problem["message"]
+	var need: int = problem["bytes"]
+	var free: int = problem["free"]
 	GSLog.warn(CHANNEL, "map art does not fit the browser storage", {"need": GSPaths.format_bytes(need), "free": GSPaths.format_bytes(free)})
 	var gate := GSRegistry.get_service(GSLoadGate.SERVICE) as GSLoadGate
 	if gate != null and not gate.is_open():
@@ -157,7 +174,13 @@ static func _refuse(licence: Dictionary, cloud: Object, need: int, free: int) ->
 	if indicator != null and indicator.has_method(&"show_art_problem"):
 		indicator.call(&"show_art_problem", problem, cloud)
 	events.art_problem.emit(problem)
-	return GSResult.fail(GSError.CODE_QUOTA, message)
+
+
+## A slice that failed for another reason still shows in play: the game would otherwise draw boxes with only a console line.
+static func _announce_failure(why: String) -> void:
+	var indicator: Object = GSBusyIndicator.current()
+	if indicator != null and indicator.has_method(&"fail"):
+		indicator.call(&"fail", "Some map art could not be downloaded (%s), so surfaces look plainer." % why)
 
 
 ## What fetching [param licence]'s slices would cost, without downloading: `{bytes, slices, ids}` summed over the root and every dependency not mounted or cached ([method GSCloudClient.plan_for]). Fails when a manifest cannot be had.

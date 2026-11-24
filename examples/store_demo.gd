@@ -97,6 +97,14 @@ class OfflineCloud:
 		return GSResult.fail(GSError.CODE_IO, "Could not get %s's manifest." % id)
 
 
+## A cloud whose download runs out of browser storage part way (the pre-flight said it would fit).
+class FullDuringCloud:
+	extends FakeCloud
+
+	func ensure(_id: StringName, _version: String, _groups: PackedStringArray, _url: String) -> GSResult:
+		return GSResult.fail(GSError.CODE_QUOTA, "no room")
+
+
 func _ready() -> void:
 	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
@@ -204,6 +212,11 @@ func _quota() -> void:
 	res = await GSMapStore.ensure(mounted_lic, tiny)
 	_check("a mounted map never asks for room", res.ok and tiny.store.asked == -1)
 	_check("no problem is reported for it", seen.size() == 1)
+	GSMapStore.reset()
+	var full := FullDuringCloud.new()
+	res = await GSMapStore.ensure(lic, full)
+	_check("a download that runs out of storage part way reports art_problem", not res.ok and seen.size() == 2 and seen[1]["action"] == "clear_downloaded_content")
+	_check("and the notice names the storage", GSMapStore.notice(lic).contains("no room"))
 	GSMapStore.events.art_problem.disconnect(on_problem)
 	GSMapStore.reset()
 	_completed += 1
