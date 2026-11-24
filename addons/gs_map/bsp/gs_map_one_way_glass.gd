@@ -45,6 +45,11 @@ static func _glass_for(rec: Dictionary, centre: Vector3, radius: float) -> Varia
 	return null
 
 
+## Drops the shared shader, for a process that quits.
+static func clear_cache() -> void:
+	_shader = null
+
+
 ## The shader material for one glass kind and tint around the cell at [param centre].
 static func material(kind: StringName, tint: Array, centre: Vector3, radius: float) -> ShaderMaterial:
 	if _shader == null:

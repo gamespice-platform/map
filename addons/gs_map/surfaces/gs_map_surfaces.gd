@@ -333,6 +333,12 @@ func _prefetch_done(plan: Dictionary, decode_ms: int) -> void:
 	GSLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
 
 
+## Drops the warm materials and the shrunk headless textures, for a process that quits.
+static func clear_cache() -> void:
+	_warm_materials.clear()
+	_small.clear()
+
+
 ## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world drawn later does not stop a frame for the compile (about 85 ms for the lightmapped one on a desktop GPU). Call once at a quiet moment, e.g. under a boot cover; a second call returns at once.
 static func warm_shaders_async(tree: SceneTree) -> void:
 	if not _warm_materials.is_empty():

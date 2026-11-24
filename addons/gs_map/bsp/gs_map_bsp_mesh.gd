@@ -5,6 +5,23 @@ extends "mesh_parts/mesh_props.gd"
 ## Game-neutral: [method build_node] asks a callback for each surface's [Material]; [method hull_shapes] returns shapes with their kind and the game makes the bodies. Positions are metres in Godot axes, and every brush entity gets its own node at its origin so a door turns about its hinge.
 ## The .bin is planar and gzip'd, read synchronously with no thread (it runs in a browser), and its sha256 is checked against the manifest first.
 
+## Forgets every static this class and the helpers it builds with hold (mesh, glass, decal, prop and surface caches), for a
+## process that quits: a script's static var keeps its resources, and the exit check counts them as leaked. A running game never calls it.
+static func release_statics() -> void:
+	clear_cache()
+	_glass_cache.clear()
+	_cutouts.clear()
+	_decal_shaders.clear()
+	_decal_cache.clear()
+	_decal_textures.clear()
+	_support_material = null
+	_tinted.clear()
+	_warm_props.clear()
+	GSMapSurfaces.clear_cache()
+	GSMapOneWayGlass.clear_cache()
+	GSMapCommand.clear_cache()
+
+
 ## One static body with a box per solid prop (see [constant SOLID_BOX]), in world space and with no meshes, for a
 ## server that draws nothing and a client that draws [method build_props] without [code]collide_fn[/code].
 ## The boxes match [method build_props]'s own solid bodies. Null when no prop is solid.

@@ -17,6 +17,12 @@ static var _name_re: RegEx = null
 static var _value_re: RegEx = null
 
 
+## Drops the compiled patterns, for a process that quits.
+static func clear_cache() -> void:
+	_name_re = null
+	_value_re = null
+
+
 ## Splits [param text] on [code];[/code] into trimmed, non-empty commands.
 static func split(text: String) -> PackedStringArray:
 	var out := PackedStringArray()
