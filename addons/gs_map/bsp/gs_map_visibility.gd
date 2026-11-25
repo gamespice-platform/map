@@ -63,6 +63,8 @@ var _no_lights: Array[Dictionary] = []
 var _light_nodes: Array[Light3D] = []
 var _drawn_scratch: Array[AABB] = []   # reused by _gather_drawn so a camera jump allocates no list for it
 var _lights_tree: SceneTree = null
+# Sun instance id -> [signature of its receivers, their count, ReceiverGrid]; see _grid_for.
+var _grids := {}
 
 
 ## The drawn chunks a sun shades, as a coarse occupancy grid: whether a swept box touches any is four reads and a mask.
@@ -255,6 +257,7 @@ func _apply_mode() -> void:
 
 func _collect(drawn: Node3D) -> void:
 	_items.clear()
+	_grids.clear()
 	if _clusters == 0:
 		return
 	var stack: Array[Node] = [drawn]
@@ -530,6 +533,17 @@ func _reaches_drawn(at: Vector3, reach: float) -> bool:
 		if at.distance_to(at.clamp(box.position, box.end)) <= reach:
 			return true
 	return false
+
+
+## The [ReceiverGrid] of [param receivers], reused while the same chunks (by [param sig], their indices folded) receive the
+## same sun: building one is a few thousand cell visits, and a camera that crosses a cluster border without changing which chunks are drawn asked for it again.
+func _grid_for(light_id: int, sig: int, receivers: Array[AABB]) -> ReceiverGrid:
+	var kept: Array = _grids.get(light_id, [])
+	if kept.size() == 3 and kept[0] == sig and kept[1] == receivers.size():
+		return kept[2]
+	var grid := ReceiverGrid.new(receivers)
+	_grids[light_id] = [sig, receivers.size(), grid]
+	return grid
 
 
 ## Every Light3D in the tree, kept current by the tree's node_added and node_removed signals.
