@@ -61,6 +61,7 @@ var _todo: Array[int] = []
 var _box_clusters := {}
 var _no_lights: Array[Dictionary] = []
 var _light_nodes: Array[Light3D] = []
+var _drawn_scratch: Array[AABB] = []   # reused by _gather_drawn so a camera jump allocates no list for it
 var _lights_tree: SceneTree = null
 
 
@@ -484,10 +485,7 @@ func _active_lights(local: Vector3) -> Array[Dictionary]:
 	if _all_lights().is_empty():
 		return out
 	var inv := root.global_transform.affine_inverse()
-	var drawn: Array[AABB] = []   # the boxes of what the camera's clusters draw, once for every light
-	for item in _items:
-		if item["want"]:
-			drawn.append(item["box"])
+	_gather_drawn()   # what the camera's clusters draw, once for every light
 	for light in _all_lights():
 		if not light.shadow_enabled or not light.is_visible_in_tree():
 			continue
@@ -502,20 +500,36 @@ func _active_lights(local: Vector3) -> Array[Dictionary]:
 		elif light is DirectionalLight3D:
 			reach = (light as DirectionalLight3D).directional_shadow_max_distance
 		var directional := light is DirectionalLight3D
-		var receivers: Array[AABB] = []
-		for box in drawn:
-			if at.distance_to(at.clamp(box.position, box.end)) <= reach:
-				receivers.append(box)
-				if not directional:
-					break   # only a sun needs them all, for its grid
-		if receivers.is_empty():
+		if not directional and not _reaches_drawn(at, reach):
 			continue
 		var entry := {"at": at, "reach": reach}
 		if directional:
+			var receivers: Array[AABB] = []   # only a sun needs them all, for its grid
+			for box in _drawn_scratch:
+				if at.distance_to(at.clamp(box.position, box.end)) <= reach:
+					receivers.append(box)
+			if receivers.is_empty():
+				continue
 			entry["dir"] = (inv.basis * -light.global_basis.z).normalized()
 			entry["grid"] = ReceiverGrid.new(receivers)
 		out.append(entry)
 	return out
+
+
+## Fills the scratch list with the boxes of the chunks and props the camera's clusters draw.
+func _gather_drawn() -> void:
+	_drawn_scratch.clear()
+	for item in _items:
+		if item["want"]:
+			_drawn_scratch.append(item["box"])
+
+
+## Whether a light at [param at] with [param reach] touches any drawn box: all a point or spot light needs.
+func _reaches_drawn(at: Vector3, reach: float) -> bool:
+	for box in _drawn_scratch:
+		if at.distance_to(at.clamp(box.position, box.end)) <= reach:
+			return true
+	return false
 
 
 ## Every Light3D in the tree, kept current by the tree's node_added and node_removed signals.
