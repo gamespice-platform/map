@@ -625,11 +625,16 @@ func _set_shown(item: Dictionary, show: bool, cast: bool = false) -> void:
 	if cast:
 		(n as Node3D).visible = true
 		for g in ([n] if n is GeometryInstance3D else n.find_children("*", "GeometryInstance3D", true, false)):
+			if g.has_meta(&"shadow_cell"):
+				(g as Node3D).visible = false   # its shadow is its cell's proxy, an item of its own
+				continue
 			if not g.has_meta(&"vis_cast"):
 				g.set_meta(&"vis_cast", (g as GeometryInstance3D).cast_shadow)
 			(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		return
 	for g in ([n] if n is GeometryInstance3D else n.find_children("*", "GeometryInstance3D", true, false)):
+		if g.has_meta(&"shadow_cell"):
+			(g as Node3D).visible = true
 		if g.has_meta(&"vis_cast"):
 			(g as GeometryInstance3D).cast_shadow = g.get_meta(&"vis_cast")
 			g.remove_meta(&"vis_cast")

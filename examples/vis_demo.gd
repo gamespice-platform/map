@@ -8,6 +8,7 @@ const LIGHT_CHECKS := 5
 const OFF_TREE_CHECKS := 4
 const MAP_CHECKS := 4
 const TRI_CHECKS := 3
+const SHADOW_CELL_CHECKS := 4
 const VisStats := preload("res://examples/vis_stats.gd")
 const ErrorCatcher := preload("res://examples/error_catcher.gd")
 
@@ -16,8 +17,8 @@ var _failed := 0
 var _failures := PackedStringArray()
 var _entered := 0
 var _completed := 0
-var _expected_sections := 5
-var _expected_checks := SYNTH_CHECKS + SUN_CHECKS + LIGHT_CHECKS + OFF_TREE_CHECKS + TRI_CHECKS
+var _expected_sections := 6
+var _expected_checks := SYNTH_CHECKS + SUN_CHECKS + LIGHT_CHECKS + OFF_TREE_CHECKS + TRI_CHECKS + SHADOW_CELL_CHECKS
 
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _run() -> void:
 	print("gs-map visibility")
 	_test_synthetic()
 	_test_sun_reach()
+	_test_shadow_cell()
 	_test_light_cache()
 	_test_off_tree()
 	_test_tri_count()
@@ -127,6 +129,32 @@ func _test_sun_reach() -> void:
 		reached += int(vis._reached(AABB(Vector3(i % 400, 10, i / 8.0), Vector3.ONE), lights))
 	var ms := (Time.get_ticks_usec() - t) / 1000.0
 	_check(reached == 0 and ms < 60.0, "3000 hidden chunks over 1600 drawn ones: %d reached in %.1f ms (under 60)" % [reached, ms])
+	vis.free()
+	_completed += 1
+
+
+func _test_shadow_cell() -> void:
+	_entered += 1
+	print("  a prop mesh whose shadow is a cell proxy is hidden, not made a caster, while its prop only casts")
+	var vis := GSMapVisibility.new()
+	var prop := Node3D.new()
+	var folded := MeshInstance3D.new()
+	folded.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	folded.set_meta(&"shadow_cell", Node3D.new())
+	var own := MeshInstance3D.new()
+	prop.add_child(folded)
+	prop.add_child(own)
+	var item := {"node": prop, "shown": true, "cast": false}
+	vis._set_shown(item, false, true)
+	_check(prop.visible and not folded.visible and folded.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+			"casting only: the folded mesh is hidden and still casts nothing")
+	_check(own.visible and own.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "its own-shadow sibling casts only")
+	vis._set_shown(item, true, false)
+	_check(prop.visible and folded.visible and own.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "shown again: both drawn, the sibling's shadow restored")
+	vis._set_shown(item, false, false)
+	_check(not prop.visible, "hidden: the prop is off")
+	(folded.get_meta(&"shadow_cell") as Node).free()
+	prop.free()
 	vis.free()
 	_completed += 1
 

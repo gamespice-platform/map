@@ -33,6 +33,7 @@ static func read(prefix: String, cloud: Object = null) -> GSResult:
 ## Draws [param world] under [param parent]. [code]options.original_textures[/code] (default false) draws the map's own
 ## textures ([member GSMapSurfaces.use_original_textures]); pass [method GSMapLocalMaps.is_original] of a local entry, never true for a published map.
 ## [code]options.props[/code] draws the pack's props; [code]options.batch_props[/code] (default false: no measured gain on Fork yet) draws the static ones in batches ([GSMapPropBatch]: [code]batch_cell[/code], [code]batch_max_tris[/code], [code]instance_cell[/code]).
+## [code]options.prop_shadow[/code] (default true, never headless) draws the props' sun shadows per cell ([GSMapPropShadow]: [code]prop_shadow_cell[/code], [code]prop_shadow_max_tris[/code]).
 static func attach(parent: Node3D, world: GSMapBspMesh, options: Dictionary = {}) -> GSMapDrawnWorld:
 	var surfaces := _surfaces_for(world, options)
 	var node := world.build_node(surfaces.world_material_for(world, world.source_path.get_base_dir()))
@@ -171,6 +172,12 @@ static func _add_props(world: GSMapBspMesh, options: Dictionary, node: Node3D, s
 		batcher.max_tris = int(options.get("batch_max_tris", batcher.max_tris))
 		batcher.instance_cell = float(options.get("instance_cell", batcher.instance_cell))
 		batcher.batch(props)
+	# Their sun shadows drawn from one shadows-only mesh per cell (GSMapPropShadow), not one per prop mesh per cascade.
+	if bool(options.get("prop_shadow", true)) and DisplayServer.get_name() != "headless":
+		var shadows := GSMapPropShadow.new()
+		shadows.cell = float(options.get("prop_shadow_cell", shadows.cell))
+		shadows.max_tris = int(options.get("prop_shadow_max_tris", shadows.max_tris))
+		shadows.fold(props)
 	node.add_child(props)
 
 

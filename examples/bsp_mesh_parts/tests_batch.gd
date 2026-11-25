@@ -201,3 +201,89 @@ func _tri_count(nodes: Array) -> int:
 			var a := m.surface_get_arrays(s)
 			t += ((a[Mesh.ARRAY_INDEX] as PackedInt32Array).size() if a[Mesh.ARRAY_INDEX] != null else (a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
 	return t
+
+
+## The world-space triangles of every mesh under [param root] that casts a sun shadow, corners in millimetres, rotated to start at the smallest.
+func _shadow_triangles(root: Node3D) -> Array:
+	var out := []
+	for n: Node in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			continue
+		var xf := mi.global_transform
+		for s in mi.mesh.get_surface_count():
+			var a := mi.mesh.surface_get_arrays(s)
+			var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(v.size()))
+			for i in range(0, idx.size(), 3):
+				var c := [xf * v[idx[i]], xf * v[idx[i + 1]], xf * v[idx[i + 2]]].map(func(p: Vector3) -> String: return str(Vector3i((p * 1000.0).round())))
+				if xf.basis.determinant() < 0.0:
+					c.reverse()
+				var lo := c.find(c.min())
+				out.append("%s|%s|%s" % [c[lo], c[(lo + 1) % 3], c[(lo + 2) % 3]])
+	out.sort()
+	return out
+
+
+func _test_prop_shadow() -> void:
+	_section("prop shadows fold into one shadows-only mesh per cell, casting the same triangles")
+	var solid := StandardMaterial3D.new()
+	var glass := StandardMaterial3D.new()
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var leaves := StandardMaterial3D.new()
+	leaves.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var crate := _box_mesh(Vector3(1, 1, 1), solid)
+	var props := Node3D.new()
+	props.name = "Props"
+	add_child(props)
+	var a := _prop(props, crate, Transform3D(Basis.IDENTITY, Vector3(1, 0, 1)))
+	_prop(props, crate, Transform3D(Basis(Vector3.UP, 0.6), Vector3(4, 0, 2)))
+	var mirrored := _prop(props, crate, Transform3D(Basis.IDENTITY.scaled(Vector3(-1, 1, 1)), Vector3(6, 0, 3)))
+	var see := _prop(props, _box_mesh(Vector3(1, 1, 1), glass), Transform3D(Basis.IDENTITY, Vector3(2, 0, 5)))
+	var bush := _prop(props, _box_mesh(Vector3(2, 1, 2), leaves), Transform3D(Basis.IDENTITY, Vector3(3, 0, 7)))
+	var far := _prop(props, crate, Transform3D(Basis.IDENTITY, Vector3(100, 0, 0)))
+	var loose := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.5, 0.5, 0.5)
+	loose.mesh = box
+	loose.position = Vector3(2, 1, 2)
+	props.add_child(loose)
+	var scripted := _prop(props, crate, Transform3D(Basis.IDENTITY, Vector3(5, 0, 5)))
+	scripted.add_to_group(&"breakable")
+	var before := _shadow_triangles(props)
+	var s := GSMapPropShadow.new()
+	var n := s.fold(props)
+	var after := _shadow_triangles(props)
+	var off := range(mini(before.size(), after.size())).filter(func(i: int) -> bool: return before[i] != after[i])
+	_check(before.size() == after.size() and off.is_empty(), "the same shadow triangles and windings are cast (%d before, %d after, %d differ)" % [before.size(), after.size(), off.size()])
+	_check(n == 3 and s.proxies == 3, "a one-sided and a two-sided proxy near, one far: %d" % n)
+	_check(s.folded_meshes == 6, "six meshes folded (three crates, the bush, the far crate, the loose box): %d" % s.folded_meshes)
+	var cells := props.get_children().filter(func(c: Node) -> bool: return c.has_meta(&"gs_map_shadow_cell"))
+	_check(cells.size() == 3 and cells.all(func(c: Node) -> bool: return (c as MeshInstance3D).cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY),
+			"the proxies are shadows only: %d" % cells.size())
+	var two := cells.filter(func(c: Node) -> bool: return str(c.name).ends_with("_2"))
+	_check(two.size() == 1 and (two[0] as MeshInstance3D).material_override != null \
+			and ((two[0] as MeshInstance3D).material_override as BaseMaterial3D).cull_mode == BaseMaterial3D.CULL_DISABLED, "the two-sided bush casts from both sides")
+	for p: Node3D in [a, mirrored, far]:
+		var mi := p.get_child(0) as MeshInstance3D
+		_check(mi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF and mi.get_meta(&"shadow_cell", null) is MeshInstance3D, "%s casts through its cell" % p.name)
+	_check((see.get_child(0) as MeshInstance3D).cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON and not (see.get_child(0) as Node).has_meta(&"shadow_cell"),
+			"a translucent prop keeps its own shadow")
+	_check((scripted.get_child(0) as MeshInstance3D).cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "a prop in a group keeps its own shadow")
+	_check((bush.get_child(0) as MeshInstance3D).get_meta(&"shadow_cell", null) == two[0], "the bush is in the two-sided cell")
+	var none := GSMapPropShadow.new()
+	none.max_tris = 0
+	_check(none.fold(props) == 0, "a max_tris of 0 folds nothing")
+	props.free()
+	# LOD levels: a scaled member with two, one with one, one with none; level k at the largest scaled edge, a short member at its coarsest.
+	var a1 := PackedInt32Array([0, 1, 2])
+	var a2 := PackedInt32Array([0, 2, 1])
+	var levels := GSMapPropShadow._levels([
+		[0, PackedInt32Array([0, 1, 2, 0, 2, 1]), [[1.0, a1], [2.0, a2]], 2.0, false],
+		[10, PackedInt32Array([0, 1, 2]), [[3.0, PackedInt32Array([1, 2, 0])]], 1.0, false],
+		[20, PackedInt32Array([0, 1, 2]), [], 1.0, true]])
+	_check(levels.keys() == [3.0, 4.0], "proxy LOD edges are the largest scaled member edges: %s" % [levels.keys()])
+	_check(levels.get(3.0, PackedInt32Array()) == PackedInt32Array([0, 1, 2, 11, 12, 10, 20, 22, 21]), "level 0 joins each member's first level, the plain one whole and mirrored")
+	_check(levels.get(4.0, PackedInt32Array()) == PackedInt32Array([0, 2, 1, 11, 12, 10, 20, 22, 21]), "level 1 keeps a one-level member at its coarsest")
+	_check(GSMapPropShadow._levels([[0, a1, [], 1.0, false]]).is_empty(), "members without LODs give a proxy without LODs")
+	_done()
