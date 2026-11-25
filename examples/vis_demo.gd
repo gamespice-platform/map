@@ -3,7 +3,7 @@ extends Node3D
 ## [GSMapVisibility]: a hand-made three-cluster map, then real converted maps ray-cast for holes.
 
 const SYNTH_CHECKS := 16
-const SUN_CHECKS := 3
+const SUN_CHECKS := 4
 const LIGHT_CHECKS := 5
 const OFF_TREE_CHECKS := 4
 const MAP_CHECKS := 4
@@ -94,6 +94,27 @@ func _test_sun_reach() -> void:
 		misses += int(not got)
 	_check(lost == 0, "the grid finds every receiver the exact sweep finds (%d lost)" % lost)
 	_check(misses > 0, "and still answers no for some (%d of 2000)" % misses)
+	# Parity with the summed-volume table the grid replaced: every swept box answers the same, over several receiver sets.
+	var differ := 0
+	var build_ms := 0.0
+	var ref_ms := 0.0
+	for set_i in 6:
+		var rs: Array[AABB] = []
+		for i in 20 + set_i * 150:
+			rs.append(AABB(Vector3(rng.randf_range(-300, 300), rng.randf_range(-60, 60), rng.randf_range(-300, 300)),
+					Vector3(rng.randf_range(0.0, 70), rng.randf_range(0.0, 30), rng.randf_range(0.0, 70))))
+		var t0 := Time.get_ticks_usec()
+		var g := GSMapVisibility.ReceiverGrid.new(rs)
+		build_ms += (Time.get_ticks_usec() - t0) / 1000.0
+		var t1 := Time.get_ticks_usec()
+		var ref := _RefGrid.new(rs)
+		ref_ms += (Time.get_ticks_usec() - t1) / 1000.0
+		for i in 3000:
+			var bx := AABB(Vector3(rng.randf_range(-420, 420), rng.randf_range(-120, 120), rng.randf_range(-420, 420)),
+					Vector3(rng.randf_range(0, 60), rng.randf_range(0, 40), rng.randf_range(0, 60)))
+			differ += int(g.touches(bx) != ref.touches(bx))
+	print("    grid build: %.2f ms each, summed-volume reference %.2f ms each" % [build_ms / 6.0, ref_ms / 6.0])
+	_check(differ == 0, "the sparse-table grid answers as the summed-volume table did (%d of 18000 differ), builds in %.2f ms each" % [differ, build_ms / 6.0])
 	var floor_tiles: Array[AABB] = []
 	for x in 40:
 		for z in 40:
@@ -381,3 +402,70 @@ static func _crosses_solid(vis: GSMapVisibility, a: Vector3, b: Vector3) -> bool
 			return true
 	return false
 
+
+
+## The summed-volume grid GSMapVisibility.ReceiverGrid replaced, kept as the reference its answers are held to.
+class _RefGrid:
+	const CELLS := 16
+	var bounds := AABB()
+	var _sum := PackedInt32Array()
+	var _cell := Vector3.ONE
+
+	func _init(receivers: Array[AABB]) -> void:
+		if receivers.is_empty():
+			return
+		bounds = receivers[0]
+		for r in receivers:
+			bounds = bounds.merge(r)
+		_cell = (bounds.size / CELLS).max(Vector3.ONE * 0.001)
+		var n := CELLS + 1
+		var d := PackedInt32Array()
+		d.resize(n * n * n)
+		for r in receivers:
+			var a := _index(r.position, 0)
+			var b := _index(r.end, 1)
+			for corner in 8:
+				var x := b.x if corner & 1 else a.x
+				var y := b.y if corner & 2 else a.y
+				var z := b.z if corner & 4 else a.z
+				d[(z * n + y) * n + x] += -1 if (corner ^ (corner >> 1) ^ (corner >> 2)) & 1 else 1
+		_prefix(d, n)
+		for i in d.size():
+			d[i] = 1 if d[i] > 0 else 0
+		_prefix(d, n)
+		_sum = d
+
+	func _index(p: Vector3, round_up: int) -> Vector3i:
+		var f := (p - bounds.position) / _cell
+		var v := Vector3i(floori(f.x), floori(f.y), floori(f.z)) + Vector3i.ONE * round_up
+		return v.clamp(Vector3i.ZERO, Vector3i.ONE * (CELLS - 1 + round_up))
+
+	static func _prefix(d: PackedInt32Array, n: int) -> void:
+		for z in n:
+			for y in n:
+				var row := (z * n + y) * n
+				for x in range(1, n):
+					d[row + x] += d[row + x - 1]
+		for z in n:
+			for y in range(1, n):
+				for x in n:
+					d[(z * n + y) * n + x] += d[(z * n + y - 1) * n + x]
+		for z in range(1, n):
+			for y in n:
+				for x in n:
+					d[(z * n + y) * n + x] += d[((z - 1) * n + y) * n + x]
+
+	func _at(x: int, y: int, z: int) -> int:
+		if x < 0 or y < 0 or z < 0:
+			return 0
+		return _sum[(z * (CELLS + 1) + y) * (CELLS + 1) + x]
+
+	func touches(box: AABB) -> bool:
+		if _sum.is_empty() or not box.intersects(bounds.grow(0.001)):
+			return false
+		var a := _index(box.position, 0)
+		var b := _index(box.end, 1) - Vector3i.ONE
+		var lo := a - Vector3i.ONE
+		var total := _at(b.x, b.y, b.z) - _at(lo.x, b.y, b.z) - _at(b.x, lo.y, b.z) - _at(b.x, b.y, lo.z) \
+				+ _at(lo.x, lo.y, b.z) + _at(lo.x, b.y, lo.z) + _at(b.x, lo.y, lo.z) - _at(lo.x, lo.y, lo.z)
+		return total > 0

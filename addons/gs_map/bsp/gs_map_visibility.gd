@@ -64,13 +64,17 @@ var _light_nodes: Array[Light3D] = []
 var _lights_tree: SceneTree = null
 
 
-## The drawn chunks a sun shades, as a coarse occupancy grid with a summed-volume table: whether a swept box touches
-## any is eight reads, where a loop over every drawn chunk per hidden one was quadratic in the chunk count.
+## The drawn chunks a sun shades, as a coarse occupancy grid: whether a swept box touches any is four reads and a mask.
 ## Conservative to a cell: a box near a receiver counts as touching it, so a shadow is never lost.
+## Each (y, z) row of cells is a 16-bit mask of the occupied x cells, and a sparse table ORs power-of-two blocks of rows
+## in y and z, so a query ORs four blocks and the build is one row write per receiver plus about 3000 ORs; the summed-volume
+## table this replaced needed two three-axis prefix passes over 4913 cells (about 2 ms in script on the first camera jump).
 class ReceiverGrid:
 	const CELLS := 16
+	const LEVELS := 5   # block heights 1, 2, 4, 8, 16
+	const _LOG := [0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4]
 	var bounds := AABB()
-	var _sum := PackedInt32Array()
+	var _table := PackedInt32Array()
 	var _cell := Vector3.ONE
 
 	func _init(receivers: Array[AABB]) -> void:
@@ -80,22 +84,37 @@ class ReceiverGrid:
 		for r in receivers:
 			bounds = bounds.merge(r)
 		_cell = (bounds.size / CELLS).max(Vector3.ONE * 0.001)
-		var n := CELLS + 1
-		var d := PackedInt32Array()
-		d.resize(n * n * n)
+		var t := PackedInt32Array()
+		t.resize(LEVELS * LEVELS * CELLS * CELLS)
 		for r in receivers:
 			var a := _index(r.position, 0)
 			var b := _index(r.end, 1)
-			for corner in 8:
-				var x := b.x if corner & 1 else a.x
-				var y := b.y if corner & 2 else a.y
-				var z := b.z if corner & 4 else a.z
-				d[(z * n + y) * n + x] += -1 if (corner ^ (corner >> 1) ^ (corner >> 2)) & 1 else 1
-		_prefix(d, n)
-		for i in d.size():
-			d[i] = 1 if d[i] > 0 else 0
-		_prefix(d, n)
-		_sum = d
+			if b.x <= a.x:
+				continue
+			var mask := ((1 << (b.x - a.x)) - 1) << a.x
+			for z in range(a.z, b.z):
+				var row := z * CELLS
+				for y in range(a.y, b.y):
+					t[row + y] |= mask
+		# Level (ky, kz) at (y, z) is the OR of 2^ky rows in y by 2^kz in z starting there; only entries that fit are written.
+		for ky in LEVELS:
+			var hy := 1 << ky
+			if ky > 0:
+				var half := hy >> 1
+				var from := (ky - 1) * LEVELS * CELLS * CELLS
+				var to := ky * LEVELS * CELLS * CELLS
+				for z in CELLS:
+					for y in range(0, CELLS - hy + 1):
+						t[to + z * CELLS + y] = t[from + z * CELLS + y] | t[from + z * CELLS + y + half]
+			for kz in range(1, LEVELS):
+				var hz := 1 << kz
+				var half_z := hz >> 1
+				var base := (ky * LEVELS + kz) * CELLS * CELLS
+				var below := (ky * LEVELS + kz - 1) * CELLS * CELLS
+				for z in range(0, CELLS - hz + 1):
+					for y in range(0, CELLS - (1 << ky) + 1):
+						t[base + z * CELLS + y] = t[below + z * CELLS + y] | t[below + (z + half_z) * CELLS + y]
+		_table = t
 
 	## Cell coordinate of [param p], clamped; [param round_up] 1 gives the first cell past it (an exclusive end).
 	func _index(p: Vector3, round_up: int) -> Vector3i:
@@ -103,36 +122,23 @@ class ReceiverGrid:
 		var v := Vector3i(floori(f.x), floori(f.y), floori(f.z)) + Vector3i.ONE * round_up
 		return v.clamp(Vector3i.ZERO, Vector3i.ONE * (CELLS - 1 + round_up))
 
-	static func _prefix(d: PackedInt32Array, n: int) -> void:
-		for z in n:
-			for y in n:
-				var row := (z * n + y) * n
-				for x in range(1, n):
-					d[row + x] += d[row + x - 1]
-		for z in n:
-			for y in range(1, n):
-				for x in n:
-					d[(z * n + y) * n + x] += d[(z * n + y - 1) * n + x]
-		for z in range(1, n):
-			for y in n:
-				for x in n:
-					d[(z * n + y) * n + x] += d[((z - 1) * n + y) * n + x]
-
-	func _at(x: int, y: int, z: int) -> int:
-		if x < 0 or y < 0 or z < 0:
-			return 0
-		return _sum[(z * (CELLS + 1) + y) * (CELLS + 1) + x]
-
 	## Whether [param box] overlaps a cell any receiver covers.
 	func touches(box: AABB) -> bool:
-		if _sum.is_empty() or not box.intersects(bounds.grow(0.001)):
+		if _table.is_empty() or not box.intersects(bounds.grow(0.001)):
 			return false
 		var a := _index(box.position, 0)
-		var b := _index(box.end, 1) - Vector3i.ONE
-		var lo := a - Vector3i.ONE
-		var total := _at(b.x, b.y, b.z) - _at(lo.x, b.y, b.z) - _at(b.x, lo.y, b.z) - _at(b.x, b.y, lo.z) \
-				+ _at(lo.x, lo.y, b.z) + _at(lo.x, b.y, lo.z) + _at(b.x, lo.y, lo.z) - _at(lo.x, lo.y, lo.z)
-		return total > 0
+		var b := _index(box.end, 1)
+		if b.x <= a.x or b.y <= a.y or b.z <= a.z:
+			return false
+		var mask := ((1 << (b.x - a.x)) - 1) << a.x
+		var ky: int = _LOG[b.y - a.y]
+		var kz: int = _LOG[b.z - a.z]
+		var base := (ky * LEVELS + kz) * CELLS * CELLS
+		var y2 := b.y - (1 << ky)
+		var z2 := b.z - (1 << kz)
+		var rows := _table[base + a.z * CELLS + a.y] | _table[base + a.z * CELLS + y2] \
+				| _table[base + z2 * CELLS + a.y] | _table[base + z2 * CELLS + y2]
+		return (rows & mask) != 0
 
 
 static func parse_mode(text: String) -> Mode:
@@ -475,7 +481,13 @@ func _active_lights(local: Vector3) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if root == null or not root.is_inside_tree():
 		return out
+	if _all_lights().is_empty():
+		return out
 	var inv := root.global_transform.affine_inverse()
+	var drawn: Array[AABB] = []   # the boxes of what the camera's clusters draw, once for every light
+	for item in _items:
+		if item["want"]:
+			drawn.append(item["box"])
 	for light in _all_lights():
 		if not light.shadow_enabled or not light.is_visible_in_tree():
 			continue
@@ -489,14 +501,17 @@ func _active_lights(local: Vector3) -> Array[Dictionary]:
 			at = inv * light.global_position
 		elif light is DirectionalLight3D:
 			reach = (light as DirectionalLight3D).directional_shadow_max_distance
+		var directional := light is DirectionalLight3D
 		var receivers: Array[AABB] = []
-		for item in _items:
-			if item["want"] and _box_distance(item["box"], at) <= reach:
-				receivers.append(item["box"])
+		for box in drawn:
+			if at.distance_to(at.clamp(box.position, box.end)) <= reach:
+				receivers.append(box)
+				if not directional:
+					break   # only a sun needs them all, for its grid
 		if receivers.is_empty():
 			continue
 		var entry := {"at": at, "reach": reach}
-		if light is DirectionalLight3D:
+		if directional:
 			entry["dir"] = (inv.basis * -light.global_basis.z).normalized()
 			entry["grid"] = ReceiverGrid.new(receivers)
 		out.append(entry)
