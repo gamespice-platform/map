@@ -79,3 +79,20 @@ A map of hundreds of `StaticBody3D` boxes with one `BoxMesh` each draws one mesh
 The sun's four cascades draw every prop mesh that casts once per cascade it touches, so a prop-heavy converted map spends more draws on shadows than on what is seen. `GSMapPropShadow.fold(props)`, which `GSMapDrawnWorld` runs on a windowed client (`prop_shadow`, default true; `prop_shadow_cell` 16 m, `prop_shadow_max_tris` 20000), copies the opaque, plainly shaded prop meshes of each cell into one position-only, shadows-only mesh and turns the members' own shadow off. Each prop still draws its own colour pass, so the picture is the same (32 views compared pixel by pixel: under 0.003% of pixels differ by more than 8 of 255). `GSMapVisibility` culls a proxy like a prop and keeps a hidden member from casting twice. An imported member's LOD levels are carried into its proxy at the largest scaled member edge.
 
 Measured with `tools/render_static_bench.sh` (32 fixed views, n=3, the laptop): an industrial deathmatch map went from 1068 objects, 704 draws and 401 shadow draws to 732, 585 and 282, at 1.59M primitives instead of 1.21M (a 32 m cell drew 566 but 2.41M). A small control-point map went from 209 objects and 175 draws to 176 and 167. Render CPU moved 1.60 to 1.46 ms on one paired run; the laptop drifts too much for a finer number.
+
+## Fewer shadow draws for a converted map's world
+
+Once the props are folded, most of what is left in the shadow pass is the world's own chunks: each chunk's position-only proxy (`shadow_<chunk>`) draws once per cascade it touches. `GSMapWorldShadow.fold(world)`, which `GSMapDrawnWorld` runs on a windowed client after the props (`world_shadow`, default true; `world_shadow_cell` 32 m; the statics `GSMapWorldShadow.enabled`/`default_cell` and `configure()` are the cvar hooks), merges the proxies of each cell into one shadows-only mesh and points every chunk's meta `shadow_proxy` at it. The colour pass is untouched. `GSMapVisibility` marks each chunk on or off for shadows; a fold stays on while any of its chunks is, so nothing casts twice and a fold whose chunks are all culled casts nothing. The main pass is already merged by `chunk_merge`/`auto_merge` (`chunk_target` 512).
+
+`tools/render_static_bench.sh` measures it on staging (GTX 1660 Ti, 32 views, n=3 medians; `--opt.world_shadow=false` for off):
+
+| Map | world_shadow | objects | draws | shadow_draws | prims | render_cpu_ms | gpu_ms |
+|---|---|---|---|---|---|---|---|
+| cp-orange-x3 | off | 180 | 171 | 119 | 16341 | 0.961 | 1.676 |
+| cp-orange-x3 | on (32 m) | 100 | 91 | 39 | 20343 | 0.865 | 1.694 |
+| cp-orange-x3 | on (64 m) | 91 | 82 | 30 | 25098 | 0.878 | 1.741 |
+| dm-industrial-gamma | off | 732 | 585 | 282 | 1585574 | 1.384 | 2.135 |
+| dm-industrial-gamma | on (32 m) | 689 | 542 | 239 | 1633852 | 1.282 | 2.046 |
+| dm-industrial-gamma | on (64 m) | 683 | 536 | 233 | 1680682 | 1.335 | 2.143 |
+
+The screenshots match: 0 of 23961600 pixels (cp-orange-x3) and 22 (0.0001%, dm-industrial-gamma) differ by more than 8/255 between on and off. A 64 m cell saves a few more draws but casts more triangles into more cascades and is no faster, so 32 m is the default.

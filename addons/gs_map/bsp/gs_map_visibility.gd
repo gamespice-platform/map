@@ -617,9 +617,7 @@ func _set_shown(item: Dictionary, show: bool, cast: bool = false) -> void:
 	if not is_instance_valid(n):
 		return
 	if n.has_meta(&"shadow_proxy"):
-		var proxy: Variant = n.get_meta(&"shadow_proxy")
-		if is_instance_valid(proxy):
-			(proxy as Node3D).visible = show or cast
+		GSMapWorldShadow.mark(n, show or cast)   # a folded proxy stays on while any of its chunks is
 		(n as Node3D).visible = show
 		return
 	if cast:

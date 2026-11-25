@@ -9,6 +9,7 @@ const OFF_TREE_CHECKS := 4
 const MAP_CHECKS := 4
 const TRI_CHECKS := 3
 const SHADOW_CELL_CHECKS := 4
+const WORLD_SHADOW_CHECKS := 4
 const VisStats := preload("res://examples/vis_stats.gd")
 const ErrorCatcher := preload("res://examples/error_catcher.gd")
 
@@ -17,8 +18,8 @@ var _failed := 0
 var _failures := PackedStringArray()
 var _entered := 0
 var _completed := 0
-var _expected_sections := 6
-var _expected_checks := SYNTH_CHECKS + SUN_CHECKS + LIGHT_CHECKS + OFF_TREE_CHECKS + TRI_CHECKS + SHADOW_CELL_CHECKS
+var _expected_sections := 7
+var _expected_checks := SYNTH_CHECKS + SUN_CHECKS + LIGHT_CHECKS + OFF_TREE_CHECKS + TRI_CHECKS + SHADOW_CELL_CHECKS + WORLD_SHADOW_CHECKS
 
 
 func _ready() -> void:
@@ -38,6 +39,7 @@ func _run() -> void:
 	_test_synthetic()
 	_test_sun_reach()
 	_test_shadow_cell()
+	_test_world_shadow()
 	_test_light_cache()
 	_test_off_tree()
 	_test_tri_count()
@@ -155,6 +157,34 @@ func _test_shadow_cell() -> void:
 	_check(not prop.visible, "hidden: the prop is off")
 	(folded.get_meta(&"shadow_cell") as Node).free()
 	prop.free()
+	vis.free()
+	_completed += 1
+
+
+func _test_world_shadow() -> void:
+	_entered += 1
+	print("  two chunks sharing a folded shadow proxy: it casts while either is drawn or casting, and stops when neither is")
+	var vis := GSMapVisibility.new()
+	var parent := Node3D.new()
+	var proxy := MeshInstance3D.new()
+	var a := MeshInstance3D.new()
+	var b := MeshInstance3D.new()
+	for chunk: MeshInstance3D in [a, b]:
+		chunk.set_meta(&"shadow_proxy", proxy)
+		parent.add_child(chunk)
+	proxy.set_meta(&"shadow_members", [a, b])
+	parent.add_child(proxy)
+	var ia := {"node": a, "shown": true, "cast": false}
+	var ib := {"node": b, "shown": true, "cast": false}
+	vis._set_shown(ia, false, false)
+	_check(not a.visible and proxy.visible, "one chunk hidden and out of reach: the other keeps the fold casting")
+	vis._set_shown(ib, false, true)
+	_check(not b.visible and proxy.visible, "the other hidden but in a light's reach: still casting")
+	vis._set_shown(ib, false, false)
+	_check(not proxy.visible, "neither drawn nor reached: the fold casts nothing")
+	vis._set_shown(ia, true, false)
+	_check(a.visible and proxy.visible, "one drawn again: the fold casts again")
+	parent.free()
 	vis.free()
 	_completed += 1
 

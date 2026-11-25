@@ -2,7 +2,7 @@ extends Node
 ## Proves GSMapCredits and GSMapStore on a hand-written manifest and a stand-in cloud client.
 ## godot --headless --path . res://examples/store_demo.tscn
 
-const CHECKS := 74
+const CHECKS := 76
 const SECTIONS := 9
 
 var _passed := 0

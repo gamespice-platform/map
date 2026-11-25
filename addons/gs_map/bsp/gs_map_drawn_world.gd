@@ -34,6 +34,7 @@ static func read(prefix: String, cloud: Object = null) -> GSResult:
 ## textures ([member GSMapSurfaces.use_original_textures]); pass [method GSMapLocalMaps.is_original] of a local entry, never true for a published map.
 ## [code]options.props[/code] draws the pack's props; [code]options.batch_props[/code] (default false: no measured gain on Fork yet) draws the static ones in batches ([GSMapPropBatch]: [code]batch_cell[/code], [code]batch_max_tris[/code], [code]instance_cell[/code]).
 ## [code]options.prop_shadow[/code] (default true, never headless) draws the props' sun shadows per cell ([GSMapPropShadow]: [code]prop_shadow_cell[/code], [code]prop_shadow_max_tris[/code]).
+## [code]options.world_shadow[/code] (default [member GSMapWorldShadow.enabled], never headless) draws the world chunks' sun shadows per cell ([GSMapWorldShadow]: [code]world_shadow_cell[/code]).
 static func attach(parent: Node3D, world: GSMapBspMesh, options: Dictionary = {}) -> GSMapDrawnWorld:
 	var surfaces := _surfaces_for(world, options)
 	var node := world.build_node(surfaces.world_material_for(world, world.source_path.get_base_dir()))
@@ -57,7 +58,7 @@ static func attach_async(parent: Node3D, world: GSMapBspMesh, options: Dictionar
 			node.free()
 		return null
 	var drawn := GSMapDrawnWorld.new()
-	var names := ["hang", "probes", "props", "lit", "culling"]
+	var names := ["hang", "probes", "props", "shadows", "lit", "culling"]
 	var at := 0
 	for step: Callable in _finish_steps(parent, world, options, surfaces, node, drawn, slice):
 		if slice.due():
@@ -109,6 +110,7 @@ static func _finish_steps(parent: Node3D, world: GSMapBspMesh, options: Dictiona
 		func() -> void: _hang(parent, world, options, node, drawn),
 		func() -> void: _add_probes(world, options, node),
 		func() -> void: await _add_props(world, options, node, slice),
+		func() -> void: _fold_world_shadow(options, node),
 		func() -> void: _add_lit(parent, world, options, surfaces, node, drawn),
 		func() -> void: _add_culling(parent, world, options, node, drawn),
 	]
@@ -179,6 +181,16 @@ static func _add_props(world: GSMapBspMesh, options: Dictionary, node: Node3D, s
 		shadows.max_tris = int(options.get("prop_shadow_max_tris", shadows.max_tris))
 		shadows.fold(props)
 	node.add_child(props)
+
+
+## The world chunks' sun shadows drawn from one shadows-only mesh per cell ([GSMapWorldShadow]), not one per chunk per cascade; never headless.
+static func _fold_world_shadow(options: Dictionary, node: Node3D) -> void:
+	if not bool(options.get("world_shadow", GSMapWorldShadow.enabled)) or DisplayServer.get_name() == "headless":
+		return
+	var folder := GSMapWorldShadow.new()
+	folder.cell = float(options.get("world_shadow_cell", folder.cell))
+	var world := node.get_node_or_null("world")
+	folder.fold(world if world != null else node)
 
 
 static func _add_lit(parent: Node3D, world: GSMapBspMesh, options: Dictionary, surfaces: GSMapSurfaces, node: Node3D, drawn: GSMapDrawnWorld) -> void:

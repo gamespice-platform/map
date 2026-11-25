@@ -287,3 +287,30 @@ func _test_prop_shadow() -> void:
 	_check(levels.get(4.0, PackedInt32Array()) == PackedInt32Array([0, 2, 1, 11, 12, 10, 20, 22, 21]), "level 1 keeps a one-level member at its coarsest")
 	_check(GSMapPropShadow._levels([[0, a1, [], 1.0, false]]).is_empty(), "members without LODs give a proxy without LODs")
 	_done()
+
+
+func _test_world_shadow(world: GSMapBspMesh) -> void:
+	_section("world chunk shadows fold into one shadows-only mesh per cell, casting the same triangles")
+	var node := world.build_node(func(_r: Dictionary) -> Material: return null)
+	add_child(node)
+	var w := node.get_node("world") as Node3D
+	var chunks := w.get_children().filter(func(c: Node) -> bool: return c.has_meta(&"shadow_proxy"))
+	var before := _shadow_triangles(w)
+	var apart := GSMapWorldShadow.new()
+	apart.cell = 0.001
+	_check(apart.fold(w) == 0 and _shadow_triangles(w) == before, "a cell smaller than a chunk folds nothing")
+	var folder := GSMapWorldShadow.new()
+	folder.cell = 100000.0
+	var made := folder.fold(w)
+	var proxies := w.get_children().filter(func(c: Node) -> bool: return str(c.name).begins_with("shadow_"))
+	_check(chunks.size() == 2 and made == 1 and folder.folded == 2 and proxies.size() == 1, "two chunks, one fold: %d chunks, %d made, %d proxies" % [chunks.size(), made, proxies.size()])
+	var fold := proxies[0] as MeshInstance3D
+	_check(fold.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY and chunks.all(func(c: Node) -> bool: return c.get_meta(&"shadow_proxy") == fold)
+			and (fold.get_meta(&"shadow_members") as Array).size() == 2, "the fold is shadows-only and both chunks point at it")
+	_check(_shadow_triangles(w) == before, "it casts exactly the triangles the two proxies did: %d" % before.size())
+	GSMapWorldShadow.mark(chunks[0], false)
+	var one_on := fold.visible
+	GSMapWorldShadow.mark(chunks[1], false)
+	_check(one_on and not fold.visible, "it stays on while one chunk is, off when neither is")
+	node.free()
+	_done()

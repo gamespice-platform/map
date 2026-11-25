@@ -2,8 +2,8 @@ extends "bsp_mesh_parts/tests_batch.gd"
 
 ## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
-const CHECKS := 222
-const SECTIONS := 20
+const CHECKS := 227
+const SECTIONS := 21
 const FIXTURE := "res://examples/bsp_mesh/fixture"
 const GLASS := "res://examples/bsp_mesh/glass"
 const U := 0.01905
@@ -27,6 +27,7 @@ func _run() -> void:
 		await _test_legacy_split()
 		await _test_async_build(world)
 		_test_chunk_merge(world)
+		_test_world_shadow(world)
 	_test_terrain()
 	_test_mesh_lods()
 	_test_prop_batch()
