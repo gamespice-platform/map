@@ -10,6 +10,10 @@ const HOW_TO_GET := "run gs-map-convert/tools/stage_stores.sh, or point the game
 static var _unfetched: Dictionary = {}
 ## Whether [method ensure] works out the download size first and puts it on the load gate (a few KB of signed manifests, one request per slice).
 static var announce_download: bool = true
+
+## Extra tries for a slice whose download failed for a reason that can pass (a dropped connection, a busy server), and the seconds before the first (times the try number). 0 retries nothing.
+static var retries: int = 2
+static var retry_delay: float = 1.0
 ## The gate meta [method ensure] sets to the bytes still to download, for a client that draws progress against the whole.
 const META_DOWNLOAD_BYTES := &"download_bytes"
 
@@ -134,6 +138,12 @@ static func ensure(licence: Dictionary, cloud: Object, manifest_url: String = ""
 				if not bool(room.get("fits", true)):
 					return _refuse(licence, cloud, need, int(room.get("free", 0)))
 	var res: GSResult = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
+	var attempt := 0
+	while not res.ok and attempt < retries and _retryable(res):
+		attempt += 1
+		GSLog.info(CHANNEL, "map art download failed, retrying", {"slice": "%s@%s" % [p["id"], p["version"]], "attempt": attempt, "why": res.error.message})
+		await _pause(retry_delay * attempt)
+		res = await cloud.call("ensure", StringName(str(p["id"])), str(p["version"]), PackedStringArray(), manifest_url)
 	if not res.ok:
 		var quota: bool = res.error.code == GSError.CODE_QUOTA
 		_unfetched[str(p["id"])] = {"ids": missing(licence, cloud), "why": "quota" if quota else res.error.message}
@@ -176,11 +186,21 @@ static func _announce_problem(problem: Dictionary, cloud: Object) -> void:
 	events.art_problem.emit(problem)
 
 
-## A slice that failed for another reason still shows in play: the game would otherwise draw boxes with only a console line.
+## A slice that could not be had after the retries (not published, the network down) is a log line and the load screen's quiet [method notice], never a banner in play: the map is
+## still drawn, each missing set with its own small albedo or the addon's stand-in material ([method GSMapSurfaces.world_material_for]).
 static func _announce_failure(why: String) -> void:
-	var indicator: Object = GSBusyIndicator.current()
-	if indicator != null and indicator.has_method(&"fail"):
-		indicator.call(&"fail", "Some map art could not be downloaded (%s), so surfaces look plainer." % why)
+	GSLog.warn(CHANNEL, "map art could not be downloaded, surfaces are drawn with plain materials", {"why": why})
+
+
+## Whether another try could help: a dropped connection, a timeout, a busy or failing server ([method GSError.is_retryable]). A slice that is not published (a 404 is CODE_INVALID) or a refused document would answer the same again.
+static func _retryable(res: GSResult) -> bool:
+	return res.error != null and res.error.is_retryable()
+
+
+static func _pause(seconds: float) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null and seconds > 0.0:
+		await tree.create_timer(seconds).timeout
 
 
 ## What fetching [param licence]'s slices would cost, without downloading: `{bytes, slices, ids}` summed over the root and every dependency not mounted or cached ([method GSCloudClient.plan_for]). Fails when a manifest cannot be had.

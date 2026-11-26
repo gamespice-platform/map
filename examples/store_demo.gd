@@ -2,8 +2,8 @@ extends Node
 ## Proves GSMapCredits and GSMapStore on a hand-written manifest and a stand-in cloud client.
 ## godot --headless --path . res://examples/store_demo.tscn
 
-const CHECKS := 74
-const SECTIONS := 9
+const CHECKS := 82
+const SECTIONS := 10
 
 var _passed := 0
 var _failed := 0
@@ -97,6 +97,20 @@ class OfflineCloud:
 		return GSResult.fail(GSError.CODE_IO, "Could not get %s's manifest." % id)
 
 
+## A cloud whose first `fail_times` downloads fail with `code` (a dropped connection, or a 404 which is CODE_INVALID), then succeeds.
+class FlakyCloud:
+	extends FakeCloud
+	var fail_times := 1
+	var code := GSError.CODE_NETWORK
+	var tries := 0
+
+	func ensure(_id: StringName, _version: String, _groups: PackedStringArray, _url: String) -> GSResult:
+		tries += 1
+		if tries <= fail_times:
+			return GSResult.fail(code, "Could not download the content manifest.")
+		return GSResult.success(null)
+
+
 ## A cloud whose download runs out of browser storage part way (the pre-flight said it would fit).
 class FullDuringCloud:
 	extends FakeCloud
@@ -123,6 +137,7 @@ func _run() -> void:
 	await _store()
 	await _plan()
 	await _quota()
+	await _retry()
 	_surfaces()
 	await _missing_slices()
 	_stand_ins()
@@ -222,6 +237,34 @@ func _quota() -> void:
 	_completed += 1
 
 
+func _retry() -> void:
+	_entered += 1
+	var lic := {"store_pack": {"id": "r", "version": "1"}}
+	var old_delay := GSMapStore.retry_delay
+	GSMapStore.retry_delay = 0.0
+	GSMapStore.reset()
+	var flaky := FlakyCloud.new()
+	var res: GSResult = await GSMapStore.ensure(lic, flaky)
+	_check("a dropped connection is retried and then succeeds", res.ok and flaky.tries == 2)
+	var gone := FlakyCloud.new()
+	gone.fail_times = 99
+	gone.code = GSError.CODE_INVALID
+	GSMapStore.reset()
+	res = await GSMapStore.ensure(lic, gone)
+	_check("a slice that is not published (404) is not retried", not res.ok and gone.tries == 1)
+	var down := FlakyCloud.new()
+	down.fail_times = 99
+	GSMapStore.reset()
+	res = await GSMapStore.ensure(lic, down)
+	_check("a network that stays down is tried 1 + retries times", not res.ok and down.tries == 1 + GSMapStore.retries)
+	_check("and the map is noted as drawn without art, quietly", GSMapStore.notice(lic).begins_with("Some map art is missing"))
+	_check("no busy-indicator banner is raised in play", GSBusyIndicator.current() == null or not GSBusyIndicator.current().has_method(&"error_text") or str(GSBusyIndicator.current().call(&"error_text")) == "")
+	_check("the cloud's own error survives for the caller", res.error.code == GSError.CODE_NETWORK)
+	GSMapStore.retry_delay = old_delay
+	GSMapStore.reset()
+	_completed += 1
+
+
 func _surfaces() -> void:
 	_entered += 1
 	var cloud := FakeCloud.new()
@@ -260,6 +303,7 @@ func _missing_slices() -> void:
 	_check("no notice before anything was tried", GSMapStore.notice(lic) == "")
 	var res: GSResult = await GSMapStore.ensure(lic, OfflineCloud.new())
 	_check("an unreachable slice fails ensure", not res.ok)
+	warns.clear()  # ensure logs its own plain-materials warning; this section counts the one from apply
 	_check("both slices are named missing", GSMapStore.missing(lic, OfflineCloud.new()) == PackedStringArray(["gamemann/store-x@h1234abcd", "gamemann/store-shared-aa@h1"]))
 	_check("the notice says the art is low-detail", GSMapStore.notice(lic).begins_with("Some map art is missing (2"))
 	_check("the credits line carries the notice", GSMapCredits.line({"licence": lic}).contains("map art is missing"))
