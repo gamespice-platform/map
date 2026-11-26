@@ -3,7 +3,7 @@ extends StaticBody3D
 
 # The mesh script chain's glass part, named directly: GSMapBspMesh builds these panes, so naming it here would
 # keep both parsers alive.
-const _MESH_GLASS := preload("uid://cb3jej8cfm0h0")
+const _MESH_GLASS := preload("res://addons/gs_map/bsp/mesh_parts/mesh_glass.gd")
 
 ## A breakable glass brush entity from a converted map: solid until its health runs out, then gone with a
 ## burst of shards. Built by [method GSMapBspMesh.build_breakables]. Server decides, clients follow.

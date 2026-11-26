@@ -184,7 +184,7 @@ static func from_data(doc: Dictionary, stored: PackedByteArray, unpacked: Dictio
 		return GSResult.fail(GSError.CODE_PARSE, "mesh data is the wrong size",
 				"%d != %s" % [blob.size(), info.get("bytes")])
 	# GSMapBspMesh, loaded: this file is one of its bases, so naming it would keep both parsers alive.
-	var m: RefCounted = (load("uid://bgtb6hc6o6j52") as GDScript).new()
+	var m: RefCounted = (load("res://addons/gs_map/bsp/gs_map_bsp_mesh.gd") as GDScript).new()
 	m.manifest = doc
 	m.surfaces = doc.get("surfaces", [])
 	m.hulls = doc.get("hulls", [])

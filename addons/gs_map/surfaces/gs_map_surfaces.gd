@@ -3,7 +3,7 @@ extends "gs_map_surfaces_kinds.gd"
 
 # "world" parameters here are GSMapBspMesh, typed RefCounted, and its static helpers are reached through its glass
 # part or the instance: the mesh scripts name this file, so naming the mesh back would keep both parsers alive.
-const _MESH_GLASS := preload("uid://cb3jej8cfm0h0")
+const _MESH_GLASS := preload("res://addons/gs_map/bsp/mesh_parts/mesh_glass.gd")
 
 ## A surface kind ([code]&"brick"[/code]) to a world-space triplanar [StandardMaterial3D]: a code-built box has no UVs, and this keeps texel density equal on every wall.
 ## Textures load by path under [member root] (or [member path_fn]), never referenced by a scene, so a delivered pack that mounts elsewhere still finds them.
