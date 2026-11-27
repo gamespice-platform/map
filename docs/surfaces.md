@@ -45,6 +45,10 @@ A pack ships the imported form only (the source JPG stays behind, [publishing.md
 
 Credits and licences (all ambientCG, CC0): `addons/gs_map/surfaces/CREDITS.md`.
 
+## Making a level's materials behind the loading screen
+
+A material made the first time a box asks for it costs its three texture loads and a shader build in that frame: Fatal Contact's floor and boxes were one 104-124 ms frame. `prepare_kinds_async(wanted, tree, budget_msec)` makes a list of `[kind, tint]` pairs ahead, as many a frame as fit `budget_msec` (at least one; 0 makes them all in one frame), and flushes each shader with `get_rid()`. The boxes' own `try_material` calls are then cache hits. The selftest's `prepare kinds` section covers it.
+
 ## Delivering to players: a game vendors what it uses
 
 The client shell bundles gs-map, so the 12 MB of textures here must not ride in the addon to every player. A game copies exactly the kinds it draws into its own tree with `tools/sync-surfaces.sh <game> assets/surfaces [kind...]` (the kinds are written to `<dest>/kinds.txt`, so a later `sync-surfaces.sh <game> assets/surfaces` and `--check` know the list; `--check` copies nothing and exits 1 if a file is missing or differs), commits the copy with its `.import` files, passes `ZzPaths.rebase("res://assets/surfaces")` (its mounted root) to `GSMapSurfaces.new(root)`, and lists the folder in `sides.json` as client-only so a server does not fetch it. A game with a lightmap bakes with an instance whose `metallic_scale` is 0: a lightmap holds diffuse light only and a metallic surface has almost none, so a baked corrugated roof drew nearly black. Game-zombie-zone is the first (13 kinds, 6.2 MiB imported, [its design notes](../../game-zombie-zone/docs/design.md)).

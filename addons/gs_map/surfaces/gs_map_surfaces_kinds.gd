@@ -83,8 +83,8 @@ var path_fn: Callable = Callable()
 ## Folders (each laid out like [member root]) a texture under [member root] or [constant DEFAULT_ROOT] is looked for in when this build does not carry it.
 ## The client shell leaves the textures out of its pck and a host adds the mounted surfaces pack's folder here.
 static var fallback_roots: PackedStringArray = PackedStringArray()
-## One material per world shader, kept so [method warm_shaders_async] compiles each only once.
-static var _warm_materials: Array[ShaderMaterial] = []
+## One material per world shader and one [method photo_shaped], kept so [method warm_shaders_async] compiles each only once.
+static var _warm_materials: Array[Material] = []
 
 ## Whether a headless build swaps each kind texture for a 4x4 bilinear downsample as it loads. The dummy
 ## renderer keeps a decoded copy of every texture it never draws: 55 MB for FC's six built-in kinds.
@@ -181,25 +181,32 @@ func try_material(kind: StringName, tint: Color = Color.WHITE) -> GSResult:
 			GSError.CODE_IO, "surface '%s': a texture did not load from %s" % [k, root]
 		)
 
-	var m := StandardMaterial3D.new()
+	var m := photo_shaped(sharpness)
 	m.resource_name = String(k)
 	m.albedo_texture = albedo
 	m.albedo_color = tint
-	m.normal_enabled = true
 	m.normal_texture = normal
 	m.roughness_texture = rough
-	m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
 	m.roughness = float(spec["rough"])
 	m.metallic = float(spec["metal"]) * metallic_scale
-	m.uv1_triplanar = true
-	m.uv1_world_triplanar = true
-	m.uv1_triplanar_sharpness = sharpness
 	# One texture covers [meters] metres: the triplanar UV is world metres times this scale.
 	var s := 1.0 / float(spec["meters"])
 	m.uv1_scale = Vector3(s, s, s)
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_cache[key] = m
 	return GSResult.success(m)
+
+
+## A material with every switch [method try_material] sets and no texture: the switches pick the shader, the textures
+## and colours do not, so [method GSMapSurfaces.warm_shaders_async] compiles a photo kind's shader on one of these.
+static func photo_shaped(triplanar_sharpness: float = 4.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.normal_enabled = true
+	m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_triplanar_sharpness = triplanar_sharpness
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	return m
 
 
 ## The material for [param kind], and always a material: a kind that is unknown or whose

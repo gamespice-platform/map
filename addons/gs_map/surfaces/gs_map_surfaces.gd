@@ -333,7 +333,11 @@ func _prefetch_done(plan: Dictionary, decode_ms: int) -> void:
 	GSLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
 
 
-## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world drawn later does not stop a frame for the compile (about 85 ms for the lightmapped one on a desktop GPU). Call once at a quiet moment, e.g. under a boot cover; a second call returns at once.
+## Compiles the world shaders (lightmapped, blended, liquid) and the photo kinds' ([method photo_shaped]) one per frame of [param tree], so the first converted world
+## drawn later does not stop a frame for the compile. Call once at a quiet moment, e.g. under a boot cover; a second call
+## returns at once. Each frame still holds the main thread for its whole compile (77-106 ms with the lightmap variants,
+## Fatal Contact's dm_box on staging): the renderer waits for the compile when the shader's server object is first made.
+## All three in one frame was one 295 ms frame, as one compile already fills the pool, so one per frame is the spread.
 static func warm_shaders_async(tree: SceneTree) -> void:
 	if not _warm_materials.is_empty():
 		return
@@ -342,6 +346,38 @@ static func warm_shaders_async(tree: SceneTree) -> void:
 		m.shader = shader
 		_warm_materials.append(m)
 		await tree.process_frame
+	# A game drawing its own level with [method try_material] (Fatal Contact's built-in maps) compiled this one in the
+	# frame its painter made the first photo material: a 107-113 ms frame on staging.
+	_warm_materials.append(photo_shaped())
+	await tree.process_frame
+
+
+## Makes the photo-kind materials [param wanted] lists ([code][kind, tint][/code] pairs, as [method try_material] takes them) and builds
+## each one's shader and parameters at once ([method Material.get_rid] flushes a material's pending shader). As many a frame of
+## [param tree] as fit [param budget_msec], at least one a frame; 0 makes them all in one frame. A later [method try_material] for the
+## same pair returns the same material from the cache. Returns the frames waited. For a game that paints its own level (Fatal Contact's
+## built-in maps): made in the frame its painter first asked, the floor's and boxes' materials were one 104-124 ms frame on staging.
+func prepare_kinds_async(wanted: Array, tree: SceneTree, budget_msec: float) -> int:
+	var frames := 0
+	var budget_usec := int(budget_msec * 1000.0)
+	var frame_began := Time.get_ticks_usec()
+	var worst_usec := 0
+	var worst_kind := ""
+	for pair: Array in wanted:
+		if budget_usec > 0 and Time.get_ticks_usec() - frame_began >= budget_usec:
+			await tree.process_frame
+			frames += 1
+			frame_began = Time.get_ticks_usec()
+		var began := Time.get_ticks_usec()
+		var res: GSResult = try_material(StringName(pair[0]), pair[1] as Color)
+		if res.ok:
+			var _rid := (res.value as Material).get_rid()
+		var took := Time.get_ticks_usec() - began
+		if took > worst_usec:
+			worst_usec = took
+			worst_kind = String(pair[0])
+	GSLog.info(CHANNEL, "kinds prepared", {"materials": wanted.size(), "frames": frames, "worst_ms": worst_usec / 1000, "worst_kind": worst_kind})
+	return frames
 
 
 ## Texture count and megabytes per image format, for the memory log.

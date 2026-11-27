@@ -3,12 +3,12 @@ extends "map_selftest_parts/tests_rotation.gd"
 ## Proves the catalogue, the rotation, the vote and the map change do what a server depends on. The most
 ## important test here is [method _test_change_survives_a_failure].
 
-const CHECKS := 495
+const CHECKS := 503
 
 ## Sections entered against sections that ran to their last line, and against this. A runtime error inside a
 ## section aborts that function and nothing says so; a section that bailed out early after a failed guard is
 ## counted as not finished on purpose. The CHECKS total is the other half — see docs/testing.md.
-const SECTIONS := 48
+const SECTIONS := 50
 
 
 func _ready() -> void:
@@ -59,6 +59,8 @@ func _run() -> void:
 	_test_map_config()
 	_test_model_texture_max()
 	_test_supports()
+	await _test_prepare_kinds()
+	await _test_warm_shaders()
 	await _test_data_round_trip()
 	await _test_data_layering()
 	await _test_data_stale()
@@ -478,6 +480,53 @@ func _test_model_texture_max() -> void:
 	mesh.call("apply_config")
 	_check(mesh.get("model_texture_max") == 512, "a game's own assignment survives with nothing above it")
 	mesh.set("model_texture_max", kept)
+	_completed += 1
+
+
+func _test_prepare_kinds() -> void:
+	_section("prepare kinds: a budget spreads the materials over frames, 0 makes them in one, and try_material reuses them")
+	var lib := GSMapSurfaces.new()
+	var wanted: Array = [[&"brick", Color(0.7, 0.4, 0.3)], [&"metal", Color.WHITE], [&"wood_planks", Color(0.9, 0.6, 0.2)]]
+	var start := Engine.get_process_frames()
+	var frames := await lib.prepare_kinds_async(wanted, get_tree(), 0.0)
+	_check(frames == 0 and Engine.get_process_frames() == start, "a budget of 0 makes every material in the calling frame", str(frames))
+	var made: GSResult = lib.try_material(&"metal", Color.WHITE)
+	var again: GSResult = lib.try_material(&"metal", Color.WHITE)
+	_check(made.ok and again.ok and made.value == again.value, "try_material returns the prepared material from the cache")
+	var other := GSMapSurfaces.new()
+	frames = await other.prepare_kinds_async(wanted, get_tree(), 0.01)
+	_check(frames == wanted.size() - 1, "a budget smaller than one material makes one a frame", str(frames))
+	frames = await other.prepare_kinds_async([], get_tree(), 5.0)
+	_check(frames == 0, "nothing wanted waits no frame")
+	_completed += 1
+
+
+func _test_warm_shaders() -> void:
+	_section("warm shaders: one material per world shader, made once, and a call while warming returns at once")
+	var kinds := load("res://addons/gs_map/surfaces/gs_map_surfaces_kinds.gd") as GDScript
+	GSMapSurfaces.warm_shaders_async(get_tree())
+	var start := Engine.get_process_frames()
+	await GSMapSurfaces.warm_shaders_async(get_tree())
+	_check(Engine.get_process_frames() == start, "a call while one is warming returns without waiting a frame")
+	var waited := 0
+	while (kinds.get("_warm_materials") as Array).size() < 4 and waited < 600:
+		await get_tree().process_frame
+		waited += 1
+	_check((kinds.get("_warm_materials") as Array).size() == 4, "one material per world shader and a photo-shaped one are kept", str(waited))
+	await GSMapSurfaces.warm_shaders_async(get_tree())
+	_check((kinds.get("_warm_materials") as Array).size() == 4, "a later call makes none again")
+	# The warm is only worth its frame if a real kind's material draws with the shader it compiled. The shader is picked
+	# by the material's switches (its bool and enum properties), never by its textures or colours, and the shader RID is
+	# not exposed to scripts, so every switch is compared.
+	var res: GSResult = GSMapSurfaces.new().try_material(&"brick", Color(0.7, 0.4, 0.3))
+	if res.ok:
+		var shaped: StandardMaterial3D = (kinds.get("_warm_materials") as Array)[3]
+		var real := res.value as StandardMaterial3D
+		var differ: Array[String] = []
+		for p: Dictionary in shaped.get_property_list():
+			if int(p.type) in [TYPE_BOOL, TYPE_INT] and shaped.get(p.name) != real.get(p.name):
+				differ.append(String(p.name))
+		_check(differ.is_empty(), "a photo kind has the warmed material's switches", ", ".join(differ))
 	_completed += 1
 
 
