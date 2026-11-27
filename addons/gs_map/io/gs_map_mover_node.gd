@@ -16,6 +16,8 @@ var mover: GSMapMover = null
 var hit_frame := Transform3D.IDENTITY
 var hit_half := Vector3.ZERO
 var _inside: Dictionary = {}
+## Heights above the feet push_bodies probes (low, middle, high), refilled per body instead of a literal per body.
+var _probe_y: PackedFloat64Array = PackedFloat64Array([0.05, 0.0, 0.0])
 var _hurt_at: Dictionary = {}
 var locked := false
 ## Slide, hinge and button: fraction at the move's start, its target, the start tick, and seconds a full travel takes.
@@ -595,7 +597,9 @@ func push_bodies(io: RefCounted, bodies: Array) -> void:
 		if not io.mover_push:
 			continue
 		var hit := false
-		for y: float in [0.05, h * 0.5, h - 0.05]:
+		_probe_y[1] = h * 0.5
+		_probe_y[2] = h - 0.05
+		for y: float in _probe_y:
 			var p: Vector3 = feet + Vector3(0.0, y, 0.0)
 			var q: Vector3 = inv_box * (inv_now * p)
 			if absf(q.x) < hit_half.x + r - 0.02 and absf(q.y) < hit_half.y - 0.02 and absf(q.z) < hit_half.z + r - 0.02:
