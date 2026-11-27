@@ -333,7 +333,11 @@ func _prefetch_done(plan: Dictionary, decode_ms: int) -> void:
 	GSLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
 
 
-## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world drawn later does not stop a frame for the compile (about 85 ms for the lightmapped one on a desktop GPU). Call once at a quiet moment, e.g. under a boot cover; a second call returns at once.
+## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world
+## drawn later does not stop a frame for the compile. Call once at a quiet moment, e.g. under a boot cover; a second call
+## returns at once. Each frame still holds the main thread for its whole compile (77-106 ms with the lightmap variants,
+## Fatal Contact's dm_box on staging): the renderer waits for the compile when the shader's server object is first made.
+## All three in one frame was one 295 ms frame, as one compile already fills the pool, so one per frame is the spread.
 static func warm_shaders_async(tree: SceneTree) -> void:
 	if not _warm_materials.is_empty():
 		return

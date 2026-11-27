@@ -3,12 +3,12 @@ extends "map_selftest_parts/tests_rotation.gd"
 ## Proves the catalogue, the rotation, the vote and the map change do what a server depends on. The most
 ## important test here is [method _test_change_survives_a_failure].
 
-const CHECKS := 495
+const CHECKS := 498
 
 ## Sections entered against sections that ran to their last line, and against this. A runtime error inside a
 ## section aborts that function and nothing says so; a section that bailed out early after a failed guard is
 ## counted as not finished on purpose. The CHECKS total is the other half — see docs/testing.md.
-const SECTIONS := 48
+const SECTIONS := 49
 
 
 func _ready() -> void:
@@ -59,6 +59,7 @@ func _run() -> void:
 	_test_map_config()
 	_test_model_texture_max()
 	_test_supports()
+	await _test_warm_shaders()
 	await _test_data_round_trip()
 	await _test_data_layering()
 	await _test_data_stale()
@@ -478,6 +479,23 @@ func _test_model_texture_max() -> void:
 	mesh.call("apply_config")
 	_check(mesh.get("model_texture_max") == 512, "a game's own assignment survives with nothing above it")
 	mesh.set("model_texture_max", kept)
+	_completed += 1
+
+
+func _test_warm_shaders() -> void:
+	_section("warm shaders: one material per world shader, made once, and a call while warming returns at once")
+	var kinds := load("res://addons/gs_map/surfaces/gs_map_surfaces_kinds.gd") as GDScript
+	GSMapSurfaces.warm_shaders_async(get_tree())
+	var start := Engine.get_process_frames()
+	await GSMapSurfaces.warm_shaders_async(get_tree())
+	_check(Engine.get_process_frames() == start, "a call while one is warming returns without waiting a frame")
+	var waited := 0
+	while (kinds.get("_warm_materials") as Array).size() < 3 and waited < 600:
+		await get_tree().process_frame
+		waited += 1
+	_check((kinds.get("_warm_materials") as Array).size() == 3, "one material per world shader is kept", str(waited))
+	await GSMapSurfaces.warm_shaders_async(get_tree())
+	_check((kinds.get("_warm_materials") as Array).size() == 3, "a later call makes none again")
 	_completed += 1
 
 
