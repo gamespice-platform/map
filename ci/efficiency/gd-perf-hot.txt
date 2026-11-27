@@ -10,3 +10,5 @@ addons/gs_map/bsp/gs_map_glass_sight.gd
 addons/gs_map/runtime/gs_map_session.gd
 addons/gs_map/vote/gs_map_timelimit.gd
 addons/gs_map/net/gs_map_sync_host.gd
+# Run once (cvar/spec tables, config parsing, save/restore, descriptions), not per tick:
+cold+: ^(from_.*|describe.*|specs|cvar_specs|_absorb_specs|set_cvar|follow_cvars|validate.*|presets|properties|standard_pair|restore|_restore_.*|to_config|parse_.*|_parse_.*|find_spot|_assemble_.*|_apply_config|_find_document|_collision_context)$
