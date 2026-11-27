@@ -2,7 +2,7 @@
 
 Maps as content, not as builds. One Godot game can carry a hundred maps and switch between them under live players. GameSpice Map gives you a map catalogue, a rotation with a cooldown, a time limit with rock-the-vote, nominations and voting, a loader that turns a map into a scene, and tools for drawing converted BSP maps. Part of TMC's open source [**GameSpice**](https://gamespice.net) collection (MIT licence).
 
-> Built with Claude Code. Every addon has a headless test suite and the suites pass, but little of this has met real players yet. Please report rough edges.
+> gs-map is a [GameSpice](https://gamespice.net) addon, MIT licensed, built with Claude Code. Test it with `examples/map_selftest.tscn`. Every map in [Zee's Games](https://zeesgames.com) goes through it on live servers, so it runs under real players.
 
 ## Why
 
@@ -196,6 +196,27 @@ A hand-built level gets the same from `GSOccluderBaker` (large walls and floors 
 godot --headless --path . --import
 godot --headless --path . res://examples/map_selftest.tscn
 ```
+
+## Used by
+
+These games include it:
+
+- [Fatal Contact](https://zeesgames.com/fatal-contact)
+- [Airdrift](https://zeesgames.com/airdrift)
+- [Playlot](https://zeesgames.com/playlot)
+- [Hungario](https://zeesgames.com/hungario)
+- [Buses From Hell](https://zeesgames.com/buses-from-hell)
+- [Smash Copter](https://zeesgames.com/smash-copter)
+- [Zombie Zone](https://zeesgames.com/zombie-zone)
+- [Hide n Seek](https://zeesgames.com/hide-n-seek)
+- [Prop Hunt](https://zeesgames.com/prop-hunt)
+- [Murder Mystery](https://zeesgames.com/murder-mystery)
+- [Deathrun](https://zeesgames.com/deathrun)
+- [Wipeout](https://zeesgames.com/wipeout)
+- [Dangerous Delivery](https://zeesgames.com/dangerous-delivery)
+- [Look At Me](https://zeesgames.com/look-at-me)
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
 
 ## Credits
 
