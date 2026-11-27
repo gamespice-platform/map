@@ -352,6 +352,34 @@ static func warm_shaders_async(tree: SceneTree) -> void:
 	await tree.process_frame
 
 
+## Makes the photo-kind materials [param wanted] lists ([code][kind, tint][/code] pairs, as [method try_material] takes them) and builds
+## each one's shader and parameters at once ([method Material.get_rid] flushes a material's pending shader). As many a frame of
+## [param tree] as fit [param budget_msec], at least one a frame; 0 makes them all in one frame. A later [method try_material] for the
+## same pair returns the same material from the cache. Returns the frames waited. For a game that paints its own level (Fatal Contact's
+## built-in maps): made in the frame its painter first asked, the floor's and boxes' materials were one 104-124 ms frame on staging.
+func prepare_kinds_async(wanted: Array, tree: SceneTree, budget_msec: float) -> int:
+	var frames := 0
+	var budget_usec := int(budget_msec * 1000.0)
+	var frame_began := Time.get_ticks_usec()
+	var worst_usec := 0
+	var worst_kind := ""
+	for pair: Array in wanted:
+		if budget_usec > 0 and Time.get_ticks_usec() - frame_began >= budget_usec:
+			await tree.process_frame
+			frames += 1
+			frame_began = Time.get_ticks_usec()
+		var began := Time.get_ticks_usec()
+		var res: GSResult = try_material(StringName(pair[0]), pair[1] as Color)
+		if res.ok:
+			var _rid := (res.value as Material).get_rid()
+		var took := Time.get_ticks_usec() - began
+		if took > worst_usec:
+			worst_usec = took
+			worst_kind = String(pair[0])
+	GSLog.info(CHANNEL, "kinds prepared", {"materials": wanted.size(), "frames": frames, "worst_ms": worst_usec / 1000, "worst_kind": worst_kind})
+	return frames
+
+
 ## Texture count and megabytes per image format, for the memory log.
 static func texture_report(textures: Dictionary) -> Dictionary:
 	var out := {}
