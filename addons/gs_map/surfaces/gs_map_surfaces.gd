@@ -333,7 +333,7 @@ func _prefetch_done(plan: Dictionary, decode_ms: int) -> void:
 	GSLog.info(CHANNEL, "texture prefetch", {"disk": plan["disk"].size(), "baked": plan["baked"], "decode_ms": decode_ms, "imported": plan["imported"].size(), "formats": texture_report(_textures), "static_mb": OS.get_static_memory_usage() / 1048576})
 
 
-## Compiles the world shaders (lightmapped, blended, liquid) one per frame of [param tree], so the first converted world
+## Compiles the world shaders (lightmapped, blended, liquid) and the photo kinds' ([method photo_shaped]) one per frame of [param tree], so the first converted world
 ## drawn later does not stop a frame for the compile. Call once at a quiet moment, e.g. under a boot cover; a second call
 ## returns at once. Each frame still holds the main thread for its whole compile (77-106 ms with the lightmap variants,
 ## Fatal Contact's dm_box on staging): the renderer waits for the compile when the shader's server object is first made.
@@ -346,6 +346,10 @@ static func warm_shaders_async(tree: SceneTree) -> void:
 		m.shader = shader
 		_warm_materials.append(m)
 		await tree.process_frame
+	# A game drawing its own level with [method try_material] (Fatal Contact's built-in maps) compiled this one in the
+	# frame its painter made the first photo material: a 107-113 ms frame on staging.
+	_warm_materials.append(photo_shaped())
+	await tree.process_frame
 
 
 ## Texture count and megabytes per image format, for the memory log.

@@ -3,7 +3,7 @@ extends "map_selftest_parts/tests_rotation.gd"
 ## Proves the catalogue, the rotation, the vote and the map change do what a server depends on. The most
 ## important test here is [method _test_change_survives_a_failure].
 
-const CHECKS := 498
+const CHECKS := 499
 
 ## Sections entered against sections that ran to their last line, and against this. A runtime error inside a
 ## section aborts that function and nothing says so; a section that bailed out early after a failed guard is
@@ -490,12 +490,24 @@ func _test_warm_shaders() -> void:
 	await GSMapSurfaces.warm_shaders_async(get_tree())
 	_check(Engine.get_process_frames() == start, "a call while one is warming returns without waiting a frame")
 	var waited := 0
-	while (kinds.get("_warm_materials") as Array).size() < 3 and waited < 600:
+	while (kinds.get("_warm_materials") as Array).size() < 4 and waited < 600:
 		await get_tree().process_frame
 		waited += 1
-	_check((kinds.get("_warm_materials") as Array).size() == 3, "one material per world shader is kept", str(waited))
+	_check((kinds.get("_warm_materials") as Array).size() == 4, "one material per world shader and a photo-shaped one are kept", str(waited))
 	await GSMapSurfaces.warm_shaders_async(get_tree())
-	_check((kinds.get("_warm_materials") as Array).size() == 3, "a later call makes none again")
+	_check((kinds.get("_warm_materials") as Array).size() == 4, "a later call makes none again")
+	# The warm is only worth its frame if a real kind's material draws with the shader it compiled. The shader is picked
+	# by the material's switches (its bool and enum properties), never by its textures or colours, and the shader RID is
+	# not exposed to scripts, so every switch is compared.
+	var res: GSResult = GSMapSurfaces.new().try_material(&"brick", Color(0.7, 0.4, 0.3))
+	if res.ok:
+		var shaped: StandardMaterial3D = (kinds.get("_warm_materials") as Array)[3]
+		var real := res.value as StandardMaterial3D
+		var differ: Array[String] = []
+		for p: Dictionary in shaped.get_property_list():
+			if int(p.type) in [TYPE_BOOL, TYPE_INT] and shaped.get(p.name) != real.get(p.name):
+				differ.append(String(p.name))
+		_check(differ.is_empty(), "a photo kind has the warmed material's switches", ", ".join(differ))
 	_completed += 1
 
 
