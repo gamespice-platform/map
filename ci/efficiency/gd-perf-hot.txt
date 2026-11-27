@@ -1,0 +1,12 @@
+# Server tick scripts checked by gs-ci scripts/check-gd-perf.py (tools/gd_perf_lint.py).
+# One fnmatch glob per line over tracked paths. Baseline: ci/efficiency/gd-perf.tsv.
+addons/gs_map/io/gs_map_world.gd
+addons/gs_map/io/gs_map_io.gd
+addons/gs_map/io/gs_map_volume*.gd
+addons/gs_map/io/gs_map_mover_node.gd
+addons/gs_map/io/gs_map_entity.gd
+addons/gs_map/bsp/gs_map_mover.gd
+addons/gs_map/bsp/gs_map_glass_sight.gd
+addons/gs_map/runtime/gs_map_session.gd
+addons/gs_map/vote/gs_map_timelimit.gd
+addons/gs_map/net/gs_map_sync_host.gd
