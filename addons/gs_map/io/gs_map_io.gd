@@ -107,7 +107,7 @@ func _init() -> void:
 		"prop_physics_override": GSMapBreakable,
 		"math_colorblend": GSMapColorBlend, "logic_measure_movement": GSMapMeasureMovement,
 		"env_global": GSMapGlobal, "point_template": GSMapTemplate,
-		"logic_beats": GSMapBeats, "logic_winlose": GSMapWinLose, "game_score": GSMapGameScore, "game_player_equip": GSMapPlayerEquip, "game_ui": GSMapGameUi, "logic_collision_pair": GSMapCollisionPair,
+		"logic_beats": GSMapBeats, "logic_winlose": GSMapWinLose, "game_score": GSMapGameScore, "game_player_equip": GSMapPlayerEquip, "env_entity_maker": GSMapEntityMaker, "player_weaponstrip": GSMapWeaponStrip, "env_hudhint": GSMapHudHint, "point_viewcontrol": GSMapViewControl, "game_ui": GSMapGameUi, "logic_collision_pair": GSMapCollisionPair,
 		"func_physbox": GSMapPhysbox, "func_physbox_multiplayer": GSMapPhysbox,
 		"env_soundscape": GSMapSoundscape, "env_soundscape_proxy": GSMapSoundscape,
 		"env_soundscape_triggerable": GSMapSoundscape, "trigger_soundscape": GSMapTriggerSoundscape, "trigger_hurt": GSMapHurt, "trigger_push": GSMapPush, "ambient_generic": GSMapSound,
