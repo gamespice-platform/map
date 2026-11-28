@@ -3,7 +3,7 @@ extends "suite_base.gd"
 ## [GSMapIO] on synthetic maps (delays, fire-once counts, cycles, logic classes, the extension points) and
 ## on the Office course's real timed hazards.
 
-const CHECKS := 213
+const CHECKS := 215
 const SECTIONS := 16
 const OFFICE := "res://examples/io/office_io.doc.json"
 
@@ -229,6 +229,11 @@ func _test_timer_and_counter() -> void:
 	var before := (io.find("hh")[0] as GSMapCounter).value + (io.find("ll")[0] as GSMapCounter).value
 	io.advance(1)
 	_check((io.find("hh")[0] as GSMapCounter).value + (io.find("ll")[0] as GSMapCounter).value == before + 1.0, "Enable re-arms from now: first beat 2 s later")
+	var zero := _io([_rec(0, "logic_timer", "z", [["RefireTime", "0"]], [["OnTimer", "zn", "Add", "1"]]), _rec(1, "math_counter", "zn", [["max", "1000"]])], 20, 1)
+	zero.start()
+	zero.advance(10)
+	var zv := (zero.find("zn")[0] as GSMapCounter).value
+	_check(zv == 10.0, "a RefireTime 0 timer beats once per tick, not in a tick-0 flood (10 ticks: %s beats)" % zv)
 	var rnd := _io([_rec(0, "logic_timer", "t", [["UseRandomTime", "1"], ["LowerRandomBound", "1"], ["UpperRandomBound", "3"]], [["OnTimer", "n", "Add", "1"]]), _rec(1, "math_counter", "n")], 20, 7)
 	var rnd2 := _io([_rec(0, "logic_timer", "t", [["UseRandomTime", "1"], ["LowerRandomBound", "1"], ["UpperRandomBound", "3"]], [["OnTimer", "n", "Add", "1"]]), _rec(1, "math_counter", "n")], 20, 7)
 	rnd.start()

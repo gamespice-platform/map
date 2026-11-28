@@ -61,7 +61,8 @@ func _enabled_changed(io: RefCounted, on: bool) -> void:
 func _arm(io: RefCounted) -> void:
 	_gen += 1
 	_armed = true
-	io.schedule_self(self, "__timer", str(_gen), _interval(io))
+	# A timer never refires within the tick it fired in (Source thinks once per tick): RefireTime 0 means once per tick.
+	io.schedule_self(self, "__timer", str(_gen), maxf(_interval(io), 1.0 / float(io.rate)))
 
 
 func _interval(io: RefCounted) -> float:
