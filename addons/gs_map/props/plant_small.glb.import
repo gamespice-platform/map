@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c5wb0yc17i8bo"
-path="res://.godot/imported/plant_small.glb-8e9086b0c7dd3ce31826a9eea257dc7b.scn"
+path="res://.godot/imported/plant_small.glb-c981a6fa798138b797ff0ba2632f0c70.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/plant_small.glb"
-dest_files=["res://.godot/imported/plant_small.glb-8e9086b0c7dd3ce31826a9eea257dc7b.scn"]
+dest_files=["res://.godot/imported/plant_small.glb-c981a6fa798138b797ff0ba2632f0c70.scn"]
 
 [params]
 

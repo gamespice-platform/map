@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dahk0jd0jeu40"
-path="res://.godot/imported/boat.glb-e47a4a4e31fd8f28c8bd05d732674518.scn"
+path="res://.godot/imported/boat.glb-5607f1a5f0ddb34a370cfa39ef897b91.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/pirate/boat.glb"
-dest_files=["res://.godot/imported/boat.glb-e47a4a4e31fd8f28c8bd05d732674518.scn"]
+dest_files=["res://.godot/imported/boat.glb-5607f1a5f0ddb34a370cfa39ef897b91.scn"]
 
 [params]
 

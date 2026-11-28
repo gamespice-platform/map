@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://7bdaufiduk7j"
-path="res://.godot/imported/palm.glb-4192797774d0e297f5f157e59634e43a.scn"
+path="res://.godot/imported/palm.glb-21b0caa8c04bbdbd269401be165e4a28.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/pirate/palm.glb"
-dest_files=["res://.godot/imported/palm.glb-4192797774d0e297f5f157e59634e43a.scn"]
+dest_files=["res://.godot/imported/palm.glb-21b0caa8c04bbdbd269401be165e4a28.scn"]
 
 [params]
 

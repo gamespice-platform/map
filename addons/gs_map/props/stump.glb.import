@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://6bukucl52s1a"
-path="res://.godot/imported/stump.glb-ca9eeb1627dc8b6606a4e2c098a91050.scn"
+path="res://.godot/imported/stump.glb-385bae654f256cab2b3161f8521636f1.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/stump.glb"
-dest_files=["res://.godot/imported/stump.glb-ca9eeb1627dc8b6606a4e2c098a91050.scn"]
+dest_files=["res://.godot/imported/stump.glb-385bae654f256cab2b3161f8521636f1.scn"]
 
 [params]
 

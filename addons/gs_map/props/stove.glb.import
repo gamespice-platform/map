@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cxtpwbvkqysla"
-path="res://.godot/imported/stove.glb-01c7cc32313c628b16324e0ee7f74a2a.scn"
+path="res://.godot/imported/stove.glb-b1308c42794455079e769a0e471de23c.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/stove.glb"
-dest_files=["res://.godot/imported/stove.glb-01c7cc32313c628b16324e0ee7f74a2a.scn"]
+dest_files=["res://.godot/imported/stove.glb-b1308c42794455079e769a0e471de23c.scn"]
 
 [params]
 

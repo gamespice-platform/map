@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bpfckplmwre5v"
-path="res://.godot/imported/kitchen_cabinet.glb-aa73df570fa4a36f36cb7372e7c8a702.scn"
+path="res://.godot/imported/kitchen_cabinet.glb-3b6c28c18e89cca80f46551296b4fc31.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/kitchen_cabinet.glb"
-dest_files=["res://.godot/imported/kitchen_cabinet.glb-aa73df570fa4a36f36cb7372e7c8a702.scn"]
+dest_files=["res://.godot/imported/kitchen_cabinet.glb-3b6c28c18e89cca80f46551296b4fc31.scn"]
 
 [params]
 

@@ -394,10 +394,13 @@ func _collision_context() -> Dictionary:
 		if c.has_meta(&"model"):
 			by_model[int(c.get_meta(&"model"))] = c
 	var physboxes := {}
+	var toggles := {}
 	for e: GSMapEntity in io.entities:
 		if e is GSMapPhysbox and e.key("model").begins_with("*"):
 			physboxes[int(e.key("model").substr(1))] = e
-	return {"broken": broken, "by_model": by_model, "physboxes": physboxes}
+		elif e is GSMapToggleBrush and e.key("model").begins_with("*"):
+			toggles[int(e.key("model").substr(1))] = e
+	return {"broken": broken, "by_model": by_model, "physboxes": physboxes, "toggles": toggles}
 
 
 ## The (model, kind) pairs that get a body, in build order.
@@ -409,7 +412,8 @@ func _collision_units(ents: GSMapEntities, ctx: Dictionary) -> Array:
 		var mv := ents.mover_for_model(model)
 		if mv != null and not mv.solid:
 			continue
-		if movers_only and (model == GSMapBspMesh.WORLD or mv == null):
+		# A toggled brush (func_brush, func_wall_toggle) is the mover world's too: its body is what Disable turns off.
+		if movers_only and (model == GSMapBspMesh.WORLD or (mv == null and not ctx["toggles"].has(model))):
 			continue
 		for kind in ["solid", "clip", "glass", "fence"]:
 			units.append([model, kind, model != GSMapBspMesh.WORLD and mv != null])
