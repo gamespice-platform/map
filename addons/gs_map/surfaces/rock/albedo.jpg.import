@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cn237bcx6ieaf"
-path="res://.godot/imported/albedo.jpg-9cb437cf20b45138b8f540f6aee9b1a0.ctex"
+path="res://.godot/imported/albedo.jpg-3ce5cdeea62ab01744e84f668b965fb3.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/rock/albedo.jpg"
-dest_files=["res://.godot/imported/albedo.jpg-9cb437cf20b45138b8f540f6aee9b1a0.ctex"]
+dest_files=["res://.godot/imported/albedo.jpg-3ce5cdeea62ab01744e84f668b965fb3.ctex"]
 
 [params]
 

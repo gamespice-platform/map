@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dunjqlanhudad"
-path="res://.godot/imported/normal.jpg-6b7284382902bb16f0cdb24105bdb6dd.ctex"
+path="res://.godot/imported/normal.jpg-eba4a8c8412f1777571d311c407f399f.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/plaster/normal.jpg"
-dest_files=["res://.godot/imported/normal.jpg-6b7284382902bb16f0cdb24105bdb6dd.ctex"]
+dest_files=["res://.godot/imported/normal.jpg-eba4a8c8412f1777571d311c407f399f.ctex"]
 
 [params]
 

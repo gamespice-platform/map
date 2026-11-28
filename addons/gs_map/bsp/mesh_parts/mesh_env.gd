@@ -156,7 +156,7 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 	var amb_rec: Variant = sun.get("ambient")
 	if amb_rec is Array and (amb_rec as Array).size() > 3:
 		e.ambient_light_color *= clampf(float(amb_rec[3]) / 200.0, 0.3, 1.0)
-	var amb_c := GSMapSurfaces.limit_chroma(Vector3(e.ambient_light_color.r, e.ambient_light_color.g, e.ambient_light_color.b), 1.5)
+	var amb_c := GSMapSurfaces.limit_chroma(Vector3(e.ambient_light_color.r, e.ambient_light_color.g, e.ambient_light_color.b), float(sun.get("ambient_chroma", 1.5)))
 	e.ambient_light_color = Color(amb_c.x, amb_c.y, amb_c.z)
 	if has_lightmap():
 		e.ambient_light_color = e.ambient_light_color.lerp(light_floor(), 0.5)

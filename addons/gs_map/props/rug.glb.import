@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bno4tei6bh4ae"
-path="res://.godot/imported/rug.glb-f5b7433ede38362679317af6ca675e3c.scn"
+path="res://.godot/imported/rug.glb-800bdf8e67854fa73c77eafa2043e5ff.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/rug.glb"
-dest_files=["res://.godot/imported/rug.glb-f5b7433ede38362679317af6ca675e3c.scn"]
+dest_files=["res://.godot/imported/rug.glb-800bdf8e67854fa73c77eafa2043e5ff.scn"]
 
 [params]
 

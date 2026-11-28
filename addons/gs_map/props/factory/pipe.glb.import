@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dva4ri3svbxsn"
-path="res://.godot/imported/pipe.glb-eecfe9538d5b8f87a61d991b515d6fdf.scn"
+path="res://.godot/imported/pipe.glb-eed18db52655f74c2b562176f656685e.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/factory/pipe.glb"
-dest_files=["res://.godot/imported/pipe.glb-eecfe9538d5b8f87a61d991b515d6fdf.scn"]
+dest_files=["res://.godot/imported/pipe.glb-eed18db52655f74c2b562176f656685e.scn"]
 
 [params]
 

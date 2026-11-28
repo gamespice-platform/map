@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bnjan27j6rtx0"
-path="res://.godot/imported/roughness.jpg-24d8918de37dc195e2e5c56f0d331301.ctex"
+path="res://.godot/imported/roughness.jpg-3c6021726a927bdebff8b8266bc2acf6.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/sand/roughness.jpg"
-dest_files=["res://.godot/imported/roughness.jpg-24d8918de37dc195e2e5c56f0d331301.ctex"]
+dest_files=["res://.godot/imported/roughness.jpg-3c6021726a927bdebff8b8266bc2acf6.ctex"]
 
 [params]
 

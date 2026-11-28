@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cbqyvjtbsp6ht"
-path="res://.godot/imported/fridge.glb-4146edc5c4b8fec2da967e7834861d59.scn"
+path="res://.godot/imported/fridge.glb-d2e65c8e2de2bda28daa0018843e46e8.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/fridge.glb"
-dest_files=["res://.godot/imported/fridge.glb-4146edc5c4b8fec2da967e7834861d59.scn"]
+dest_files=["res://.godot/imported/fridge.glb-d2e65c8e2de2bda28daa0018843e46e8.scn"]
 
 [params]
 

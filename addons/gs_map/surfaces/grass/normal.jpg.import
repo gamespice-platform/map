@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dyeqvuac7wmog"
-path="res://.godot/imported/normal.jpg-866badc71da8929e2c943f07be30d872.ctex"
+path="res://.godot/imported/normal.jpg-b65b7d959c1b71d26e1c9256effa7ef0.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/gs_map/surfaces/grass/normal.jpg"
-dest_files=["res://.godot/imported/normal.jpg-866badc71da8929e2c943f07be30d872.ctex"]
+dest_files=["res://.godot/imported/normal.jpg-b65b7d959c1b71d26e1c9256effa7ef0.ctex"]
 
 [params]
 

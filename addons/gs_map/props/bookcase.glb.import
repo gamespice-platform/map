@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://chnlpsio7ome4"
-path="res://.godot/imported/bookcase.glb-6e415b04cdfeffdcd592912d7f201735.scn"
+path="res://.godot/imported/bookcase.glb-127a2a838b3192ea95ef7db08b370b8a.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/bookcase.glb"
-dest_files=["res://.godot/imported/bookcase.glb-6e415b04cdfeffdcd592912d7f201735.scn"]
+dest_files=["res://.godot/imported/bookcase.glb-127a2a838b3192ea95ef7db08b370b8a.scn"]
 
 [params]
 

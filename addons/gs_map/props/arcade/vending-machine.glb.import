@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://ba6llfl0alo7p"
-path="res://.godot/imported/vending-machine.glb-52eaca6855fc5553fc53d0c8fabf6af0.scn"
+path="res://.godot/imported/vending-machine.glb-3ae6893b987a49d1a2c6b7069c9710b0.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/arcade/vending-machine.glb"
-dest_files=["res://.godot/imported/vending-machine.glb-52eaca6855fc5553fc53d0c8fabf6af0.scn"]
+dest_files=["res://.godot/imported/vending-machine.glb-3ae6893b987a49d1a2c6b7069c9710b0.scn"]
 
 [params]
 

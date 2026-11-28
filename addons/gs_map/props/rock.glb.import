@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cmcknv0b56eor"
-path="res://.godot/imported/rock.glb-c535c8743d8a0b9579e12431f72bf27c.scn"
+path="res://.godot/imported/rock.glb-8e7f2b2db770c69e5c9aab44bce37f1d.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/rock.glb"
-dest_files=["res://.godot/imported/rock.glb-c535c8743d8a0b9579e12431f72bf27c.scn"]
+dest_files=["res://.godot/imported/rock.glb-8e7f2b2db770c69e5c9aab44bce37f1d.scn"]
 
 [params]
 

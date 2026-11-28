@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bb3y1tpqrwyms"
-path="res://.godot/imported/crate_large.glb-7da618998a43499c50ec007037887436.scn"
+path="res://.godot/imported/crate_large.glb-6035dcb99e53a5d8722443334f1151a1.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/crate_large.glb"
-dest_files=["res://.godot/imported/crate_large.glb-7da618998a43499c50ec007037887436.scn"]
+dest_files=["res://.godot/imported/crate_large.glb-6035dcb99e53a5d8722443334f1151a1.scn"]
 
 [params]
 

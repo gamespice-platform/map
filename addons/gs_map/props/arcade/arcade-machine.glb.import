@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://depguai3ynnvy"
-path="res://.godot/imported/arcade-machine.glb-abdff0200b77b75bf9a57c3fd1b12a21.scn"
+path="res://.godot/imported/arcade-machine.glb-25158e1a51a018f547cd889e35ef4460.scn"
 
 [deps]
 
 source_file="res://addons/gs_map/props/arcade/arcade-machine.glb"
-dest_files=["res://.godot/imported/arcade-machine.glb-abdff0200b77b75bf9a57c3fd1b12a21.scn"]
+dest_files=["res://.godot/imported/arcade-machine.glb-25158e1a51a018f547cd889e35ef4460.scn"]
 
 [params]
 
