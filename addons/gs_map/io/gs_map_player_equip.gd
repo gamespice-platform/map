@@ -2,7 +2,7 @@ class_name GSMapPlayerEquip
 extends GSMapEntity
 
 ## game_player_equip: gives a player the weapons and items its keys list (every key but the engine's own, whose value is the ammunition count).
-## The game owns inventories, so this only says what and to whom through the [code]equip[/code] event: [code]items[/code] (class to count), [code]to[/code] ("activator" or "all"),
+## The game owns inventories, so this only says what and to whom through the [code]equip[/code] event: [code]items[/code] (class to count), [code]to[/code] ("activator" for EquipActivator and Use, "all"),
 ## [code]strip_first[/code] (spawnflag 2, "strip all weapons first") and [code]use_only[/code] (spawnflag 1, only when the activator is the holder).
 
 const ENGINE_KEYS := ["origin", "angles", "targetname", "spawnflags", "classname", "parentname", "hammerid", "globalname",
@@ -12,7 +12,7 @@ const ENGINE_KEYS := ["origin", "angles", "targetname", "spawnflags", "classname
 func _input(io: RefCounted, name: String, _param: String, activator: Variant, _caller: Variant) -> bool:
 	var to := ""
 	match name:
-		"equipactivator":
+		"equipactivator", "use":
 			to = "activator"
 		"equipallplayers":
 			to = "all"

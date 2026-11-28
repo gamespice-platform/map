@@ -3,7 +3,7 @@ extends "suite_base.gd"
 ## [GSMapIO] on synthetic maps (delays, fire-once counts, cycles, logic classes, the extension points) and
 ## on the Office course's real timed hazards.
 
-const CHECKS := 213
+const CHECKS := 222
 const SECTIONS := 16
 const OFFICE := "res://examples/io/office_io.doc.json"
 
@@ -456,7 +456,12 @@ func _test_filters_and_equip() -> void:
 		_rec(4, "filter_multi", "all", [["filtertype", "0"], ["filter01", "fn"], ["filter02", "ft"]]),
 		_rec(5, "math_counter", "pass"), _rec(6, "math_counter", "fail"),
 		_rec(7, "game_player_equip", "gear", [["weapon_knife", "1"], ["item_ammo_smg1", "3"], ["spawnflags", "2"]]),
-		_rec(8, "filter_enemy", "other")])
+		_rec(8, "filter_enemy", "other"),
+		_rec(9, "point_template", "tplm", [["template01", "crate"]]), _rec(10, "prop_physics", "crate"),
+		_rec(11, "env_entity_maker", "mk", [["entitytemplate", "tplm"]], [["OnEntitySpawned", "pass", "Add", "1"]]),
+		_rec(12, "env_entity_maker", "mk2", [["entitytemplate", "nothing"]], [["OnEntityFailedSpawn", "fail", "Add", "1"]]),
+		_rec(13, "player_weaponstrip", "strip"), _rec(14, "env_hudhint", "hint", [["message", "Go"]]),
+		_rec(15, "point_viewcontrol", "cam", [["target", "crate"], ["wait", "1"], ["spawnflags", "4"]], [["OnEndFollow", "pass", "Add", "1"]])])
 	_check(io.entities[0] is GSMapFilter and io.entities[3] is GSMapFilter, "the filter classes are GSMapFilter entities")
 	var f: Array = [io.entities[0], io.entities[1], io.entities[2], io.entities[3], io.entities[4]]
 	_check(f[0].passes(io, {"name": "alice"}) and not f[0].passes(io, {"name": "bob"}), "activator name matches with a wildcard")
@@ -479,6 +484,34 @@ func _test_filters_and_equip() -> void:
 	var eq: Array = events.filter(func(e: Array) -> bool: return e[0] == "equip")
 	_check(eq.size() == 2 and eq[0][1]["to"] == "activator" and eq[0][1]["activator"] == "bob" and eq[1][1]["to"] == "all", "Equip inputs tell the game who")
 	_check(eq[0][1]["items"] == {"weapon_knife": 1, "item_ammo_smg1": 3} and eq[0][1]["strip_first"] == true, "the items and the strip flag are carried: %s" % [eq[0][1]])
+	io.send("gear", "Use", "", 0.0, "carl")
+	io.advance(1)
+	eq = events.filter(func(e: Array) -> bool: return e[0] == "equip")
+	_check(eq.size() == 3 and eq[2][1]["to"] == "activator" and eq[2][1]["activator"] == "carl", "Use equips the activator")
+	var before := io.entities.size()
+	io.send("mk", "ForceSpawn", "", 0.0, "carl")
+	io.send("mk2", "ForceSpawnAtEntityOrigin", "crate")
+	io.advance(1)
+	var made: Array = events.filter(func(e: Array) -> bool: return e[0] == "template_spawn")
+	_check(io.entities.size() == before + 1 and made.size() == 1 and made[0][1]["maker"] == 11, "env_entity_maker: ForceSpawn copies its template's set with itself as the maker")
+	_check(io.entities[5].value == 2.0 and io.entities[6].value == 2.0, "OnEntitySpawned, and OnEntityFailedSpawn when no template has the name")
+	_check(events.any(func(e: Array) -> bool: return e[0] == "maker_at" and e[1]["at"] == "crate"), "ForceSpawnAtEntityOrigin names where")
+	io.send("strip", "Strip", "", 0.0, "carl")
+	io.send("strip", "StripWeaponByClassName", "weapon_awp", 0.0, "carl")
+	io.send("hint", "ShowHudHint", "", 0.0, "carl")
+	io.advance(1)
+	var st: Array = events.filter(func(e: Array) -> bool: return e[0] == "strip")
+	_check(st.size() == 2 and st[0][1]["activator"] == "carl" and st[0][1]["only"] == "" and st[1][1]["only"] == "weapon_awp", "player_weaponstrip: Strip and StripWeaponByClassName tell the game")
+	var hint: Array = events.filter(func(e: Array) -> bool: return e[0] == "hud_hint")
+	_check(hint.size() == 1 and hint[0][1]["message"] == "Go" and hint[0][1]["show"], "env_hudhint: ShowHudHint sends the message")
+	io.send("cam", "Enable", "", 0.0, "carl")
+	io.advance(1)
+	var cam: Array = events.filter(func(e: Array) -> bool: return e[0] == "view_control")
+	_check(cam.size() == 1 and cam[0][1]["enabled"] and cam[0][1]["target"] == "crate" and cam[0][1]["freeze"], "point_viewcontrol: Enable tells the game's camera where to look")
+	io.advance(io.ticks_for(1.0) + 1)
+	cam = events.filter(func(e: Array) -> bool: return e[0] == "view_control")
+	_check(cam.size() == 2 and not cam[1][1]["enabled"] and io.entities[5].value == 3.0, "its wait ends the view by itself and fires OnEndFollow")
+	_check(io.unhandled.size() == 2, "every new input is answered (only the two filters stay counted): %s" % [io.unhandled])
 	_done()
 
 
