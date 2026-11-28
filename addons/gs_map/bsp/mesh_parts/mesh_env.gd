@@ -151,6 +151,13 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 	e.sky = sky
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = amb.lerp(Color(0.4, 0.4, 0.4), 0.25)
+	# light_environment's fourth ambient value is its brightness (200 = the Source default): a white ambient of 20 is dim,
+	# not white (nature-survival whiteout); a saturated sky blue is pulled toward grey so it does not tint every pale surface (3houses blue cast).
+	var amb_rec: Variant = sun.get("ambient")
+	if amb_rec is Array and (amb_rec as Array).size() > 3:
+		e.ambient_light_color *= clampf(float(amb_rec[3]) / 200.0, 0.3, 1.0)
+	var amb_c := GSMapSurfaces.limit_chroma(Vector3(e.ambient_light_color.r, e.ambient_light_color.g, e.ambient_light_color.b), 1.5)
+	e.ambient_light_color = Color(amb_c.x, amb_c.y, amb_c.z)
 	if has_lightmap():
 		e.ambient_light_color = e.ambient_light_color.lerp(light_floor(), 0.5)
 	e.ambient_light_energy = 0.35 if night else 0.8
@@ -163,7 +170,12 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 			continue
 		e.fog_enabled = true
 		e.fog_light_color = _col(f.get("colour"), Color(0.5, 0.5, 0.5))
-		e.fog_density = clampf(3.0 / maxf(float(f.get("end", 60.0)), 1.0), 0.002, 0.2) * float(f.get("max_density", 1.0))
+		var f_end := maxf(float(f.get("end", 60.0)), 1.0)
+		var f_start := clampf(float(f.get("start", 0.0)), 0.0, f_end * 0.9)
+		# Source fog ramps linearly from start to end; match the exponential fog at the ramp's midpoint
+		# (50 percent) when there is a clear start, so a fog that begins 10 m out is not a wall of white.
+		var f_k := 3.0 / f_end if f_start <= 0.0 else log(2.0) / ((f_start + f_end) * 0.5)
+		e.fog_density = clampf(f_k, 0.002, 0.2) * float(f.get("max_density", 1.0))
 		break
 	var we := WorldEnvironment.new()
 	we.name = "Environment"
