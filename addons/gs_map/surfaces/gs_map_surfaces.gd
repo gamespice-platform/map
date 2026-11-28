@@ -216,10 +216,11 @@ func _material_callable(world: RefCounted, generated: Dictionary, library: Dicti
 			m = _pbr_material(library[free], free)
 		elif generated.has(free):
 			var sm := StandardMaterial3D.new()
-			sm.albedo_texture = ImageTexture.create_from_image(Image.load_from_file(generated[free]))
+			sm.albedo_texture = _file_texture(generated[free])    # mipmapped like every other file texture; a raw ImageTexture had none and shimmered to mud at a grazing angle
 			sm.uv1_triplanar = true
 			sm.uv1_world_triplanar = true
 			sm.uv1_scale = Vector3.ONE * 0.4
+			sm.texture_filter = texture_filter
 			m = sm
 		else:
 			m = material(StringName(free.get_slice(":", 0)), tint)
@@ -458,6 +459,7 @@ func _stand_in_material(world: RefCounted, rec: Dictionary, fb: Dictionary, cach
 		sm.uv1_triplanar = true
 		sm.uv1_world_triplanar = true
 		sm.uv1_scale = Vector3.ONE * 0.5
+		sm.texture_filter = texture_filter
 		m = sm
 	elif kind != &"":
 		m = material(kind, tint)

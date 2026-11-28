@@ -6,6 +6,8 @@ extends RefCounted
 var _textures: Dictionary = {}
 ## Longest side of a decoded texture file; larger ones are halved until they fit (0 keeps them). Store slices are imported, never touched.
 var max_texture_size: int = 2048
+## The filter every triplanar world material here uses. Anisotropic keeps a ramp or a wall seen at a grazing angle sharp; its level is the viewport's ([method set_anisotropy]).
+var texture_filter: BaseMaterial3D.TextureFilter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 ## Roughness and AO maps keep half their size (a quarter of the memory) when true, decoded, imported or baked alike (the top mip is sliced off, nothing re-encoded). On by default: a frame diff on a manor map is at most 5 of 255.
 var half_res_masks: bool = true
 ## Normal maps keep half their size too (same top-mip slice). On by default: a daylight frame at ground level differs by 0.19 of 255 on average, and it takes 258 MB off the manor.
@@ -60,6 +62,7 @@ func _pbr_material(dir: String, key: String) -> StandardMaterial3D:
 	sm.uv1_triplanar = true
 	sm.uv1_world_triplanar = true
 	sm.uv1_scale = Vector3.ONE * 0.5
+	sm.texture_filter = texture_filter
 	sm.albedo_texture = _set_texture(dir, "albedo")
 	var n := _set_texture(dir, "normal")
 	if n != null:
@@ -75,6 +78,11 @@ func _pbr_material(dir: String, key: String) -> StandardMaterial3D:
 		sm.ao_texture = ao
 		sm.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
 	return sm
+
+
+## Sets [param viewport]'s anisotropic level (2, 4, 8 or 16; 0 turns it off; anything else is 16), which these materials and the shaders sample at. Godot's default is 2x.
+static func set_anisotropy(viewport: Viewport, level: int = 16) -> void:
+	viewport.anisotropic_filtering_level = {0: Viewport.ANISOTROPY_DISABLED, 2: Viewport.ANISOTROPY_2X, 4: Viewport.ANISOTROPY_4X, 8: Viewport.ANISOTROPY_8X}.get(level, Viewport.ANISOTROPY_16X)
 
 
 ## The folder of the PBR set [param t] names: `<library>/<id>/<tier>` for a shared store, the pack's own `pbr/<id>` for an older one.
