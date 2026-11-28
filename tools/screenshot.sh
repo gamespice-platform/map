@@ -15,11 +15,8 @@ WORLD="$(realpath -m -s "$1")"; OUT="$(realpath -m -s "$2")"; shift 2
 mkdir -p "$(dirname "$OUT")"
 godot --headless --path . --import >/dev/null 2>&1
 LIMIT=150; case "$*" in *--list=*) LIMIT=900 ;; esac
-disp=$((90 + RANDOM % 8)); export DISPLAY=":$disp" LIBGL_ALWAYS_SOFTWARE=1
-Xvfb ":$disp" -screen 0 1280x720x24 >/dev/null 2>&1 &
-xpid=$!
-sleep 2
-timeout "$LIMIT" godot --path . --resolution 1280x720 --rendering-method gl_compatibility --rendering-driver opengl3 res://examples/bsp_world_shot.tscn -- --world="$WORLD" --out="$OUT" "$@"
-rc=$?
-kill $xpid 2>/dev/null
-exit $rc
+# xvfb-run -a takes the first free server number (no race between concurrent runs), sets DISPLAY,
+# waits for the server, and stops it when godot exits.
+export LIBGL_ALWAYS_SOFTWARE=1
+xvfb-run -a -s "-screen 0 1280x720x24" timeout "$LIMIT" godot --path . --resolution 1280x720 --rendering-method gl_compatibility --rendering-driver opengl3 res://examples/bsp_world_shot.tscn -- --world="$WORLD" --out="$OUT" "$@"
+exit $?
