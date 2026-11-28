@@ -15,11 +15,40 @@ WORLD="$(realpath -m -s "$1")"; OUT="$(realpath -m -s "$2")"; shift 2
 mkdir -p "$(dirname "$OUT")"
 godot --headless --path . --import >/dev/null 2>&1
 LIMIT=150; case "$*" in *--list=*) LIMIT=900 ;; esac
-disp=$((90 + RANDOM % 8)); export DISPLAY=":$disp" LIBGL_ALWAYS_SOFTWARE=1
-Xvfb ":$disp" -screen 0 1280x720x24 >/dev/null 2>&1 &
-xpid=$!
-sleep 2
-timeout "$LIMIT" godot --path . --resolution 1280x720 --rendering-method gl_compatibility --rendering-driver opengl3 res://examples/bsp_world_shot.tscn -- --world="$WORLD" --out="$OUT" "$@"
-rc=$?
-kill $xpid 2>/dev/null
-exit $rc
+# xvfb-run -a is not safe for simultaneous starts: it looks for a free /tmp/.X<n>-lock, but Xvfb writes that lock only
+# once it is up, so parallel runs pick the same number (3 of 4 got :99). Here the start is serialized on a lock that
+# is held only until this server's socket exists; a server that dies at start (number taken) moves on to the next
+# number. The lock is not held while godot runs.
+export LIBGL_ALWAYS_SOFTWARE=1
+XLOCK="/tmp/gs-map-xvfb-$(id -u).lock"
+XPID=""
+XNUM=""
+start_display() {
+  local n i
+  exec 9>"$XLOCK" || return 1
+  flock 9
+  for n in $(seq 99 140); do
+    if [ -e "/tmp/.X$n-lock" ] || [ -S "/tmp/.X11-unix/X$n" ]; then continue; fi
+    Xvfb ":$n" -screen 0 1280x720x24 -nolisten tcp 9>&- >/dev/null 2>&1 &
+    XPID=$!
+    for i in $(seq 1 100); do
+      [ -S "/tmp/.X11-unix/X$n" ] && break
+      kill -0 "$XPID" 2>/dev/null || break
+      sleep 0.1
+    done
+    if [ -S "/tmp/.X11-unix/X$n" ] && kill -0 "$XPID" 2>/dev/null; then
+      XNUM="$n"
+      flock -u 9
+      exec 9>&-
+      return 0
+    fi
+    wait "$XPID" 2>/dev/null
+  done
+  flock -u 9
+  exec 9>&-
+  return 1
+}
+start_display || { echo "no free X display in :99-:140 (lock $XLOCK)" >&2; exit 3; }
+trap 'kill "$XPID" 2>/dev/null; wait "$XPID" 2>/dev/null' EXIT
+DISPLAY=":$XNUM" timeout "$LIMIT" godot --path . --resolution 1280x720 --rendering-method gl_compatibility --rendering-driver opengl3 res://examples/bsp_world_shot.tscn -- --world="$WORLD" --out="$OUT" "$@"
+exit $?
