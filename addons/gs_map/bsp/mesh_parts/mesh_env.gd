@@ -130,13 +130,38 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 	root.name = "MapEnvironment"
 	var sun: Dictionary = env.get("sun", {})
 	var amb := _col(sun.get("ambient_hdr"), _col(sun.get("ambient"), Color(0.4, 0.42, 0.46)))
+	var night := _is_night_sky(str(env.get("sky", {}).get("name", "")).to_lower())
 	var e := Environment.new()
+	e.sky = _procedural_sky(night, amb)
+	e.background_mode = Environment.BG_SKY
+	_apply_ambient(e, sun, amb, night)
+	if env.has("tonemap") or env.has("sun"):
+		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+		var tm: Dictionary = env.get("tonemap", {}).get("keys", {})
+		e.tonemap_exposure = clampf(_key(tm, "tonemapscale", 1.0), 0.5, 2.0)
+	_apply_fog(e, env.get("fog", []))
+	var we := WorldEnvironment.new()
+	we.name = "Environment"
+	we.environment = e
+	root.add_child(we)
+	if not sun.is_empty():
+		root.add_child(_sun_light(env, sun, sun_shadows))
+	var cubes: Array = env.get("cubemaps", [])
+	if max_probes > 0 and not cubes.is_empty():
+		root.add_child(_reflection_probes(cubes, max_probes))
+	return root
+
+
+static func _is_night_sky(sky_name: String) -> bool:
+	for w in ["night", "dark", "black", "space", "star"]:
+		if sky_name.contains(w):
+			return true
+	return false
+
+
+static func _procedural_sky(night: bool, amb: Color) -> Sky:
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
-	var sky_name := str(env.get("sky", {}).get("name", "")).to_lower()
-	var night := false
-	for w in ["night", "dark", "black", "space", "star"]:
-		night = night or sky_name.contains(w)
 	if night:
 		sm.sky_top_color = Color(0.02, 0.03, 0.08)
 		sm.sky_horizon_color = Color(0.06, 0.07, 0.12)
@@ -147,8 +172,10 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 		sm.ground_bottom_color = Color(0.2, 0.19, 0.17)
 	sm.ground_horizon_color = sm.sky_horizon_color
 	sky.sky_material = sm
-	e.background_mode = Environment.BG_SKY
-	e.sky = sky
+	return sky
+
+
+func _apply_ambient(e: Environment, sun: Dictionary, amb: Color, night: bool) -> void:
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = amb.lerp(Color(0.4, 0.4, 0.4), 0.25)
 	# light_environment's fourth ambient value is its brightness (200 = the Source default): a white ambient of 20 is dim,
@@ -161,11 +188,10 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 	if has_lightmap():
 		e.ambient_light_color = e.ambient_light_color.lerp(light_floor(), 0.5)
 	e.ambient_light_energy = 0.35 if night else 0.8
-	if env.has("tonemap") or env.has("sun"):
-		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-		var tm: Dictionary = env.get("tonemap", {}).get("keys", {})
-		e.tonemap_exposure = clampf(_key(tm, "tonemapscale", 1.0), 0.5, 2.0)
-	for f: Dictionary in env.get("fog", []):
+
+
+static func _apply_fog(e: Environment, fogs: Array) -> void:
+	for f: Dictionary in fogs:
 		if not f.get("enabled", false):
 			continue
 		e.fog_enabled = true
@@ -180,37 +206,35 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 		e.fog_density = clampf(float(f.get("max_density", 1.0)), 0.0, 1.0)
 		e.fog_sky_affect = 0.0
 		break
-	var we := WorldEnvironment.new()
-	we.name = "Environment"
-	we.environment = e
-	root.add_child(we)
-	if not sun.is_empty():
-		var light := DirectionalLight3D.new()
-		light.name = "Sun"
-		light.rotation_degrees = Vector3(float(sun.get("pitch", -45.0)), float(sun.get("yaw", 0.0)) - 90.0, 0.0)
-		var lc: Variant = sun.get("colour_hdr")
-		if not (lc is Array and float(lc[0]) >= 0.0):
-			lc = sun.get("colour")
-		light.light_color = _col(lc, Color(1, 0.96, 0.9))
-		var power := 200.0
-		if lc is Array and (lc as Array).size() > 3:
-			power = float(lc[3])
-		light.light_energy = clampf(power / 200.0, SUN_MIN_LIT if has_lightmap() else 0.2, 2.0)
-		light.shadow_enabled = sun_shadows and not bool(env.get("shadows", {}).get("disabled", false))
-		root.add_child(light)
-	var cubes: Array = env.get("cubemaps", [])
-	if max_probes > 0 and not cubes.is_empty():
-		var probes := Node3D.new()
-		probes.name = "Probes"
-		root.add_child(probes)
-		for i in mini(max_probes, cubes.size()):
-			var at: Array = cubes[i].get("at", [0, 0, 0])
-			var p := ReflectionProbe.new()
-			p.position = Vector3(at[0], at[1], at[2])
-			p.size = Vector3(16, 8, 16)
-			p.update_mode = ReflectionProbe.UPDATE_ONCE
-			probes.add_child(p)
-	return root
+
+
+func _sun_light(env: Dictionary, sun: Dictionary, sun_shadows: bool) -> DirectionalLight3D:
+	var light := DirectionalLight3D.new()
+	light.name = "Sun"
+	light.rotation_degrees = Vector3(float(sun.get("pitch", -45.0)), float(sun.get("yaw", 0.0)) - 90.0, 0.0)
+	var lc: Variant = sun.get("colour_hdr")
+	if not (lc is Array and float(lc[0]) >= 0.0):
+		lc = sun.get("colour")
+	light.light_color = _col(lc, Color(1, 0.96, 0.9))
+	var power := 200.0
+	if lc is Array and (lc as Array).size() > 3:
+		power = float(lc[3])
+	light.light_energy = clampf(power / 200.0, SUN_MIN_LIT if has_lightmap() else 0.2, 2.0)
+	light.shadow_enabled = sun_shadows and not bool(env.get("shadows", {}).get("disabled", false))
+	return light
+
+
+static func _reflection_probes(cubes: Array, max_probes: int) -> Node3D:
+	var probes := Node3D.new()
+	probes.name = "Probes"
+	for i in mini(max_probes, cubes.size()):
+		var at: Array = cubes[i].get("at", [0, 0, 0])
+		var p := ReflectionProbe.new()
+		p.position = Vector3(at[0], at[1], at[2])
+		p.size = Vector3(16, 8, 16)
+		p.update_mode = ReflectionProbe.UPDATE_ONCE
+		probes.add_child(p)
+	return probes
 
 
 ## The first resource named [param id] with one of [param exts] in [param dirs], or null.
