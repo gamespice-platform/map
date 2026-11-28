@@ -2,7 +2,7 @@ extends "bsp_mesh_parts/tests_batch.gd"
 
 ## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
-const CHECKS := 227
+const CHECKS := 228
 const SECTIONS := 21
 const FIXTURE := "res://examples/bsp_mesh/fixture"
 const GLASS := "res://examples/bsp_mesh/glass"
@@ -135,6 +135,8 @@ func _test_environment(world: GSMapBspMesh) -> void:
 	var env := world.build_environment(1)
 	var e := (env.get_node("Environment") as WorldEnvironment).environment
 	_check(e.fog_enabled and e.sky != null and e.tonemap_mode == Environment.TONE_MAPPER_FILMIC, "sky, fog and tonemap are applied")
+	_check(e.fog_mode == Environment.FOG_MODE_DEPTH and is_equal_approx(e.fog_depth_begin, 5.0) and is_equal_approx(e.fog_depth_end, 60.0)
+			and is_equal_approx(e.fog_density, 1.0) and e.fog_sky_affect == 0.0, "Source fog is linear depth fog from start to end, sky unfogged")
 	var sun := env.get_node("Sun") as DirectionalLight3D
 	_check(is_equal_approx(sun.light_energy, 2.0) and is_equal_approx(sun.rotation_degrees.x, -45.0), "the sun's energy and pitch")
 	var fwd := -sun.basis.z

@@ -171,11 +171,14 @@ func build_environment(max_probes: int = 8, sun_shadows: bool = true) -> Node3D:
 		e.fog_enabled = true
 		e.fog_light_color = _col(f.get("colour"), Color(0.5, 0.5, 0.5))
 		var f_end := maxf(float(f.get("end", 60.0)), 1.0)
-		var f_start := clampf(float(f.get("start", 0.0)), 0.0, f_end * 0.9)
-		# Source fog ramps linearly from start to end; match the exponential fog at the ramp's midpoint
-		# (50 percent) when there is a clear start, so a fog that begins 10 m out is not a wall of white.
-		var f_k := 3.0 / f_end if f_start <= 0.0 else log(2.0) / ((f_start + f_end) * 0.5)
-		e.fog_density = clampf(f_k, 0.002, 0.2) * float(f.get("max_density", 1.0))
+		# Source fog is linear in distance: none before fogstart, max_density from fogend on, and the 2D
+		# sky stays clear. Depth fog is exactly that (curve 1 = linear; density = the maximum).
+		e.fog_mode = Environment.FOG_MODE_DEPTH
+		e.fog_depth_begin = clampf(float(f.get("start", 0.0)), 0.0, f_end * 0.9)
+		e.fog_depth_end = f_end
+		e.fog_depth_curve = 1.0
+		e.fog_density = clampf(float(f.get("max_density", 1.0)), 0.0, 1.0)
+		e.fog_sky_affect = 0.0
 		break
 	var we := WorldEnvironment.new()
 	we.name = "Environment"
