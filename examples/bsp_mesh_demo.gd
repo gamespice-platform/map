@@ -1,9 +1,9 @@
-extends "bsp_mesh_parts/tests_batch.gd"
+extends "bsp_mesh_parts/tests_toggle.gd"
 
 ## [GSMapBspMesh]: the converter's fixture read, built, and ray-cast.
 
-const CHECKS := 228
-const SECTIONS := 21
+const CHECKS := 232
+const SECTIONS := 22
 const FIXTURE := "res://examples/bsp_mesh/fixture"
 const GLASS := "res://examples/bsp_mesh/glass"
 const U := 0.01905
@@ -38,6 +38,7 @@ func _run() -> void:
 	if world != null and lit_world != null:
 		_test_drawn(world, lit_world)
 	_test_rebuild()
+	_test_toggle_collision()
 	_test_prepare_image()
 	print("")
 	print("%d passed, %d failed" % [_passed, _failed])

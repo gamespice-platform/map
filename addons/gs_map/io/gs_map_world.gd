@@ -397,7 +397,12 @@ func _collision_context() -> Dictionary:
 	for e: GSMapEntity in io.entities:
 		if e is GSMapPhysbox and e.key("model").begins_with("*"):
 			physboxes[int(e.key("model").substr(1))] = e
-	return {"broken": broken, "by_model": by_model, "physboxes": physboxes}
+	var toggles := {}
+	if movers_only:
+		for e2: GSMapEntity in io.entities:
+			if e2 is GSMapToggleBrush and e2.key("model").begins_with("*"):
+				toggles[int(e2.key("model").substr(1))] = true
+	return {"broken": broken, "by_model": by_model, "physboxes": physboxes, "toggles": toggles}
 
 
 ## The (model, kind) pairs that get a body, in build order.
@@ -409,7 +414,9 @@ func _collision_units(ents: GSMapEntities, ctx: Dictionary) -> Array:
 		var mv := ents.mover_for_model(model)
 		if mv != null and not mv.solid:
 			continue
-		if movers_only and (model == GSMapBspMesh.WORLD or mv == null):
+		# A toggled brush keeps its bodies under movers_only: the io flips their layers, and a game that
+		# releases the legacy hull for it finds the col_* body by name.
+		if movers_only and (model == GSMapBspMesh.WORLD or (mv == null and not ctx["toggles"].has(model))):
 			continue
 		for kind in ["solid", "clip", "glass", "fence"]:
 			units.append([model, kind, model != GSMapBspMesh.WORLD and mv != null])
